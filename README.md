@@ -102,6 +102,11 @@ npm run build
 - ✅ مزود الاجتماعات المرئية: Google Meet عبر Calendar API (انظر أعلاه).
 - اعتماد مزود SMS في Supabase Auth للإرسال الإنتاجي للـOTP.
 
+## الهوية البصرية
+
+مرجع ألوان الهوية والخطوط والشعار في [`docs/BRAND.md`](docs/BRAND.md). توكنز الألوان
+في `client/src/styles/tokens.css` مطابقة لألوان الهوية الأربعة المعتمدة.
+
 ## المراجعة والفجوات
 
 تقرير مراجعة المنصة مقابل وثيقة المتطلبات في [`docs/APP_REVIEW.md`](docs/APP_REVIEW.md).
