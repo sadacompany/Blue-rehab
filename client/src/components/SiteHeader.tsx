@@ -1,13 +1,14 @@
 "use client";
 
-import { HeartPulse, LayoutDashboard, LogIn, Menu, X } from "lucide-react";
+import { LayoutDashboard, LogIn, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import mascotIcon from "../assets/brand/mascot-icon.png";
 
 export function Brand() {
   return (
     <a className="brand" href="/" aria-label="تأهيل بلو — الرئيسية">
-      <span className="brand-mark" aria-hidden="true"><HeartPulse /></span>
+      <span className="brand-mark" aria-hidden="true"><img src={mascotIcon} alt="" /></span>
       <span className="brand-copy"><strong>تأهيل <b>بلو</b></strong><small>علاج طبيعي وتأهيل مهني</small></span>
     </a>
   );
