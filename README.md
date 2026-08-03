@@ -89,8 +89,19 @@ npm run build
 
 يشغّل GitHub Actions التحقق آليًا لكل Pull Request ولكل Push إلى `main`، ويتحقق أيضًا من Netlify Functions.
 
+## الجلسات عن بُعد عبر Google Meet
+
+تُنشئ المنصة رابط Google Meet حقيقيًا لكل جلسة عن بُعد باستخدام Google Calendar API
+المجانية (لا حاجة لاشتراك Google Workspace). المفاتيح السرية تُضبط في متغيرات البيئة
+على الخادم فقط، وعند غيابها يستمر الحجز في العمل دون رابط. دليل الإعداد الكامل في
+[`docs/google-meet.md`](docs/google-meet.md).
+
 ## تكاملات خارجية متبقية
 
 - اختيار بوابة الدفع واعتماد Checkout وWebhook الإنتاجي.
-- اعتماد مزود الاجتماعات المرئية.
+- ✅ مزود الاجتماعات المرئية: Google Meet عبر Calendar API (انظر أعلاه).
 - اعتماد مزود SMS في Supabase Auth للإرسال الإنتاجي للـOTP.
+
+## المراجعة والفجوات
+
+تقرير مراجعة المنصة مقابل وثيقة المتطلبات في [`docs/APP_REVIEW.md`](docs/APP_REVIEW.md).

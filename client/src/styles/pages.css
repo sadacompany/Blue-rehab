@@ -201,6 +201,9 @@
 .booking-success-live h2 { margin: 4px 0 10px; color: var(--color-ink-950); }
 .booking-success-live p { margin: 5px 0; color: var(--color-muted); }
 .booking-success-live > span > div { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
+.booking-meet-link, .booking-meet-note, .booking-meet-pending { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--color-brand-50); color: var(--color-brand-800); }
+.booking-meet-link svg, .booking-meet-note svg, .booking-meet-pending svg { width: 18px; height: 18px; flex: none; }
+.booking-meet-link a { color: var(--color-brand-700); text-decoration: underline; word-break: break-all; }
 .enrollment-success { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 12px; background: var(--color-brand-50); color: var(--color-brand-800); }
 .enrollment-success svg { flex: none; }
 .enrollment-success b, .enrollment-success small { display: block; }

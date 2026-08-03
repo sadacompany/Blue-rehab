@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createMeetEvent, isGoogleMeetConfigured } from "./google-meet.js";
 import { authenticatedClient, catalog } from "./supabase.js";
 
 export type ApiResult = { status: number; body: unknown; cacheControl?: string };
@@ -79,6 +80,52 @@ export async function createBookingDraft(authorization: string | null, payload: 
   const { data, error } = await client.from("bookings").insert({ patient_id: userData.user.id, specialist_id: body.specialistId, service_id: body.serviceId, slot_id: body.slotId, branch_id: slot.branch_id, starts_at: slot.starts_at, ends_at: slot.ends_at, mode: body.mode, status: "draft", total: service.price, notes: body.notes ?? null }).select("id,status,starts_at,total").single();
   if (error) throw error;
   return { status: 201, body: { data, next: "payment" }, cacheControl: noStore };
+}
+
+const meetingParamsSchema = z.object({ bookingId: z.string().uuid() });
+
+/**
+ * Generate (or return an existing) Google Meet link for a remote booking that
+ * belongs to the authenticated user. Persisting the link is best-effort so a
+ * missing column or policy never blocks the patient from receiving it.
+ */
+export async function createBookingMeeting(authorization: string | null, params: unknown): Promise<ApiResult> {
+  const token = authorization?.replace(/^Bearer\s+/i, "");
+  if (!token) return { status: 401, body: { error: "Authentication required" }, cacheControl: noStore };
+  const { bookingId } = meetingParamsSchema.parse(params);
+
+  const client = authenticatedClient(token);
+  const { data: userData, error: userError } = await client.auth.getUser(token);
+  if (userError || !userData.user) return { status: 401, body: { error: "Invalid session" }, cacheControl: noStore };
+
+  const { data: booking, error: bookingError } = await client
+    .from("bookings")
+    .select("id,patient_id,mode,starts_at,ends_at,meeting_url")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (bookingError || !booking) return { status: 404, body: { error: "Booking not found" }, cacheControl: noStore };
+  if (booking.patient_id !== userData.user.id) return { status: 403, body: { error: "Forbidden" }, cacheControl: noStore };
+  if (booking.mode !== "remote") return { status: 409, body: { error: "Booking is not a remote session" }, cacheControl: noStore };
+
+  if (booking.meeting_url) {
+    return { status: 200, body: { meetingUrl: booking.meeting_url, reused: true }, cacheControl: noStore };
+  }
+  if (!isGoogleMeetConfigured()) {
+    return { status: 200, body: { meetingUrl: null, configured: false }, cacheControl: noStore };
+  }
+
+  const meeting = await createMeetEvent({
+    summary: "جلسة بلو ريهاب عن بُعد",
+    description: `رقم الحجز: ${booking.id}`,
+    startsAt: booking.starts_at,
+    endsAt: booking.ends_at,
+    attendees: userData.user.email ? [userData.user.email] : [],
+  });
+
+  // Best-effort persistence; the link is already returned regardless of outcome.
+  await client.from("bookings").update({ meeting_url: meeting.meetUrl }).eq("id", booking.id);
+
+  return { status: 200, body: { meetingUrl: meeting.meetUrl, configured: true }, cacheControl: noStore };
 }
 
 export function apiErrorResult(error: unknown): ApiResult {

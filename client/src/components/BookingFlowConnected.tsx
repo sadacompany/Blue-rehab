@@ -2,7 +2,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, 
 import { useEffect, useMemo, useState } from "react";
 import type { CatalogResponse, DeliveryMode } from "../lib/catalog-types";
 import { deliveryLabel, formatCurrency, formatDateTime } from "../lib/format";
-import { AuthenticationRequiredError, createBooking, loadCatalog } from "../lib/platform";
+import { AuthenticationRequiredError, createBooking, loadCatalog, requestMeetingLink } from "../lib/platform";
 import DemoBadge from "./DemoBadge";
 
 type Details = { region: string; complaint: string; onset: string; pain: number; previousSurgery: string; goal: string };
@@ -22,6 +22,8 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [booking, setBooking] = useState<BookingRecord | null>(null);
+  const [meetingUrl, setMeetingUrl] = useState<string | null>(null);
+  const [meetingPending, setMeetingPending] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -62,6 +64,18 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
       const notes = [`المنطقة: ${details.region}`, `بداية الأعراض: ${details.onset}`, `الألم: ${details.pain}/10`, `عملية سابقة: ${details.previousSurgery}`, `الأثر الوظيفي: ${details.complaint}`, `الهدف: ${details.goal}`].join("\n");
       const result = await createBooking({ service, specialist, slot, notes });
       setBooking({ ...result, total: result.total === null ? null : Number(result.total) });
+      if (slot.mode === "remote") {
+        setMeetingPending(true);
+        try {
+          const meeting = await requestMeetingLink(result.id);
+          setMeetingUrl(meeting.meetingUrl);
+        } catch {
+          // A missing Meet link never blocks a confirmed booking; the portal can retry later.
+          setMeetingUrl(null);
+        } finally {
+          setMeetingPending(false);
+        }
+      }
     } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         const returnTo = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
@@ -77,7 +91,7 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
 
   if (loading) return <div className="booking-loader"><LoaderCircle className="spin" /><p>جار تحميل الخدمات والمواعيد…</p></div>;
   if (loadError || !catalog) return <div className="catalog-message"><strong>تعذر فتح مسار الحجز.</strong><p>لم نتمكن من قراءة المواعيد الآن.</p><button className="button button-secondary" type="button" onClick={() => void reload()}><RefreshCcw /> إعادة المحاولة</button></div>;
-  if (booking) return <div className="booking-success-live"><CheckCircle2 /><span><small>تم إنشاء الحجز</small><h2>طلبك مسجل في المنصة</h2><p>رقم الحجز: <b dir="ltr">{booking.id}</b></p><p>الحالة الحالية: انتظار الدفع · {formatDateTime(booking.starts_at)}</p><div><a className="button" href="/portal">فتح حسابي</a><a className="button button-secondary" href="/">العودة للرئيسية</a></div></span></div>;
+  if (booking) return <div className="booking-success-live"><CheckCircle2 /><span><small>تم إنشاء الحجز</small><h2>طلبك مسجل في المنصة</h2><p>رقم الحجز: <b dir="ltr">{booking.id}</b></p><p>الحالة الحالية: انتظار الدفع · {formatDateTime(booking.starts_at)}</p>{mode === "remote" && (meetingPending ? <p className="booking-meet-pending"><LoaderCircle className="spin" /> جارٍ تجهيز رابط الجلسة عبر Google Meet…</p> : meetingUrl ? <p className="booking-meet-link"><Video /> جلسة عن بُعد عبر Google Meet: <a href={meetingUrl} target="_blank" rel="noreferrer" dir="ltr">{meetingUrl}</a></p> : <p className="booking-meet-note"><Video /> ستصلك رابط الجلسة عبر Google Meet قبل الموعد.</p>)}<div><a className="button" href="/portal">فتح حسابي</a><a className="button button-secondary" href="/">العودة للرئيسية</a></div></span></div>;
 
   const steps = ["الخدمة", "المختص والموعد", "الحالة", "المراجعة"];
   return <div className="booking-shell">
