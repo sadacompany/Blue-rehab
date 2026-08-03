@@ -1,0 +1,41 @@
+@font-face { font-family: "TS Safaa"; src: url("../assets/fonts/TSSafaa-Light.otf") format("opentype"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "TS Safaa"; src: url("../assets/fonts/TSSafaa-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "TS Safaa"; src: url("../assets/fonts/TSSafaa-Medium.otf") format("opentype"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "TS Safaa"; src: url("../assets/fonts/TSSafaa-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; font-display: swap; }
+
+:root {
+  /* Brand palette — from Blue Rehab visual identity guide */
+  --color-ink-900: #445056;
+  --color-brand-600: #6495a2;
+  --color-brand-400: #80d6e5;
+  --color-brand-100: #b6dde7;
+
+  /* Derived neutrals and tints, built from the brand palette */
+  --color-brand-700: #4f7883;
+  --color-brand-800: #3a5860;
+  --color-brand-50: #eaf6f9;
+  --color-ink-950: #313a3f;
+  --color-muted: #64767b;
+  --color-line: #dbe6e9;
+  --color-soft: #f4f8f9;
+  --color-white: #fff;
+
+  /* Semantic colors — no equivalents in the brand guide, derived to harmonize with the blue-gray palette.
+     Values chosen to clear WCAG AA (4.5:1) as text/icon color on white. */
+  --color-warning: #996a1d;
+  --color-warning-soft: #fbf1de;
+  --color-warning-ink: #6b4f1f;
+  --color-danger: #b2483f;
+  --color-danger-soft: #fbeae8;
+  --color-danger-ink: #7c332c;
+
+  /* Typography */
+  --font-family-base: "TS Safaa", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+
+  /* Spacing / radii / shadow / breakpoints carried over unchanged — not covered by the brand guide */
+  --radius-sm: 12px;
+  --radius: 20px;
+  --radius-lg: 30px;
+  --shadow-sm: 0 10px 28px rgba(68, 80, 86, .1);
+  --shadow-lg: 0 25px 70px rgba(68, 80, 86, .16);
+}
