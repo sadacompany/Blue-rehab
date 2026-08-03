@@ -1,0 +1,17 @@
+create extension if not exists "pgcrypto";
+create type public.user_role as enum ('patient','student','specialist','trainer','receptionist','admin');
+create type public.booking_status as enum ('draft','pending_payment','confirmed','rescheduled','cancelled','completed','no_show','refunded');
+create type public.delivery_mode as enum ('remote','clinic');
+create table public.profiles(id uuid primary key references auth.users(id) on delete cascade,full_name text not null,phone text,avatar_url text,roles user_role[] not null default '{}',created_at timestamptz not null default now());
+create table public.specialists(id uuid primary key default gen_random_uuid(),profile_id uuid unique not null references public.profiles(id),title text not null,bio text,years_experience int not null default 0,is_verified boolean not null default false,rating numeric(2,1) not null default 0,created_at timestamptz not null default now());
+create table public.services(id uuid primary key default gen_random_uuid(),name text not null,description text,duration_minutes int not null check(duration_minutes>0),price numeric(10,2) not null check(price>=0),is_active boolean not null default true);
+create table public.branches(id uuid primary key default gen_random_uuid(),name text not null,city text not null,address text,latitude numeric,longitude numeric,is_active boolean not null default true);
+create table public.bookings(id uuid primary key default gen_random_uuid(),patient_id uuid not null references public.profiles(id),specialist_id uuid not null references public.specialists(id),service_id uuid not null references public.services(id),branch_id uuid references public.branches(id),starts_at timestamptz not null,ends_at timestamptz,mode delivery_mode not null,status booking_status not null default 'draft',total numeric(10,2),created_at timestamptz not null default now());
+create table public.courses(id uuid primary key default gen_random_uuid(),title text not null,slug text unique not null,description text,trainer_id uuid references public.profiles(id),starts_at timestamptz,ends_at timestamptz,capacity int,price numeric(10,2) not null default 0,is_published boolean not null default false,created_at timestamptz not null default now());
+create table public.enrollments(id uuid primary key default gen_random_uuid(),student_id uuid not null references public.profiles(id),course_id uuid not null references public.courses(id),progress int not null default 0 check(progress between 0 and 100),completed_at timestamptz,created_at timestamptz not null default now(),unique(student_id,course_id));
+alter table public.profiles enable row level security;alter table public.specialists enable row level security;alter table public.bookings enable row level security;alter table public.courses enable row level security;alter table public.enrollments enable row level security;
+create policy "own profile" on public.profiles for select using(auth.uid()=id);
+create policy "public verified specialists" on public.specialists for select using(is_verified=true);
+create policy "patient reads own bookings" on public.bookings for select using(auth.uid()=patient_id);
+create policy "public published courses" on public.courses for select using(is_published=true);
+create policy "student reads own enrollments" on public.enrollments for select using(auth.uid()=student_id);
