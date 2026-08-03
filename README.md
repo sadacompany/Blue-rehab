@@ -1,0 +1,3 @@
+# Blue-rehab
+
+Repository initialized.
