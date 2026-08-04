@@ -9,6 +9,7 @@ import ContactPage from "./pages/ContactPage";
 import CoursesPage from "./pages/CoursesPage";
 import FaqPage from "./pages/FaqPage";
 import HomePage from "./pages/HomePage";
+import PaymentCallbackPage from "./pages/PaymentCallbackPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import RefundPolicyPage from "./pages/RefundPolicyPage";
 import ServicesPage from "./pages/ServicesPage";
@@ -39,6 +40,7 @@ export default function App() {
     <Route path="/courses/:slug" element={<CoursePage />} />
     <Route path="/booking" element={<BookingPage />} />
     <Route path="/portal" element={<ConnectedPortal />} />
+    <Route path="/payment/callback" element={<PaymentCallbackPage />} />
     <Route path="/about" element={<AboutPage />} />
     <Route path="/faq" element={<FaqPage />} />
     <Route path="/contact" element={<ContactPage />} />

@@ -1,12 +1,12 @@
-import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, Clock3, HeartPulse, LoaderCircle, MapPin, RefreshCcw, ShieldCheck, UserRound, Video } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock3, CreditCard, HeartPulse, LoaderCircle, MapPin, MessageCircle, RefreshCcw, ShieldCheck, UserRound, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { CatalogResponse, DeliveryMode } from "../lib/catalog-types";
 import { deliveryLabel, formatCurrency, formatDateTime } from "../lib/format";
-import { AuthenticationRequiredError, createBooking, loadCatalog, requestMeetingLink } from "../lib/platform";
+import { downloadIcs, whatsappShareUrl, type SessionInvite } from "../lib/invites";
+import { AuthenticationRequiredError, createBooking, loadCatalog, loadPaymentConfig, startCheckout, type BookingResult, type PaymentConfig } from "../lib/platform";
 import DemoBadge from "./DemoBadge";
 
 type Details = { region: string; complaint: string; onset: string; pain: number; previousSurgery: string; goal: string };
-type BookingRecord = { id: string; status: string; starts_at: string; total: number | null };
 
 export default function BookingFlowConnected({ initialService, initialSpecialist }: { initialService?: string; initialSpecialist?: string }) {
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
@@ -21,9 +21,10 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [booking, setBooking] = useState<BookingRecord | null>(null);
-  const [meetingUrl, setMeetingUrl] = useState<string | null>(null);
-  const [meetingPending, setMeetingPending] = useState(false);
+  const [booking, setBooking] = useState<BookingResult | null>(null);
+  const [payment, setPayment] = useState<PaymentConfig | null>(null);
+  const [payBusy, setPayBusy] = useState(false);
+  const [payError, setPayError] = useState("");
 
   async function reload() {
     setLoading(true);
@@ -43,6 +44,7 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   }
 
   useEffect(() => { void reload(); }, [initialService, initialSpecialist]);
+  useEffect(() => { loadPaymentConfig().then(setPayment).catch(() => setPayment(null)); }, []);
 
   const service = catalog?.services.find((item) => item.id === serviceId);
   const specialist = catalog?.specialists.find((item) => item.id === specialistId);
@@ -62,20 +64,9 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
     setSubmitError("");
     try {
       const notes = [`المنطقة: ${details.region}`, `بداية الأعراض: ${details.onset}`, `الألم: ${details.pain}/10`, `عملية سابقة: ${details.previousSurgery}`, `الأثر الوظيفي: ${details.complaint}`, `الهدف: ${details.goal}`].join("\n");
-      const result = await createBooking({ service, specialist, slot, notes });
-      setBooking({ ...result, total: result.total === null ? null : Number(result.total) });
-      if (slot.mode === "remote") {
-        setMeetingPending(true);
-        try {
-          const meeting = await requestMeetingLink(result.id);
-          setMeetingUrl(meeting.meetingUrl);
-        } catch {
-          // A missing Meet link never blocks a confirmed booking; the portal can retry later.
-          setMeetingUrl(null);
-        } finally {
-          setMeetingPending(false);
-        }
-      }
+      // The server prices the booking, locks the slot, opens the payment record
+      // and (for remote sessions) schedules the Google Meet invitation.
+      setBooking(await createBooking({ service, specialist, slot, notes }));
     } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         const returnTo = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
@@ -89,9 +80,64 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
     }
   }
 
+  /** Hand off to the Moyasar-hosted payment page. */
+  async function payNow() {
+    if (!booking) return;
+    setPayBusy(true);
+    setPayError("");
+    try {
+      const { paymentUrl } = await startCheckout(booking.orderNumber);
+      window.location.href = paymentUrl;
+    } catch (reason) {
+      setPayError(reason instanceof Error ? reason.message : "تعذر فتح صفحة الدفع.");
+      setPayBusy(false);
+    }
+  }
+
   if (loading) return <div className="booking-loader"><LoaderCircle className="spin" /><p>جار تحميل الخدمات والمواعيد…</p></div>;
   if (loadError || !catalog) return <div className="catalog-message"><strong>تعذر فتح مسار الحجز.</strong><p>لم نتمكن من قراءة المواعيد الآن.</p><button className="button button-secondary" type="button" onClick={() => void reload()}><RefreshCcw /> إعادة المحاولة</button></div>;
-  if (booking) return <div className="booking-success-live"><CheckCircle2 /><span><small>تم إنشاء الحجز</small><h2>طلبك مسجل في المنصة</h2><p>رقم الحجز: <b dir="ltr">{booking.id}</b></p><p>الحالة الحالية: انتظار الدفع · {formatDateTime(booking.starts_at)}</p>{mode === "remote" && (meetingPending ? <p className="booking-meet-pending"><LoaderCircle className="spin" /> جارٍ تجهيز رابط الجلسة عبر Google Meet…</p> : meetingUrl ? <p className="booking-meet-link"><Video /> جلسة عن بُعد عبر Google Meet: <a href={meetingUrl} target="_blank" rel="noreferrer" dir="ltr">{meetingUrl}</a></p> : <p className="booking-meet-note"><Video /> ستصلك رابط الجلسة عبر Google Meet قبل الموعد.</p>)}<div><a className="button" href="/portal">فتح حسابي</a><a className="button button-secondary" href="/">العودة للرئيسية</a></div></span></div>;
+  if (booking) {
+    const invite: SessionInvite = {
+      bookingId: booking.id,
+      startsAt: booking.starts_at,
+      endsAt: booking.ends_at,
+      serviceName: service?.name ?? "جلسة علاج طبيعي",
+      specialistName: specialist?.name ?? "المختص",
+      meetingUrl: booking.meetingUrl,
+      isRemote: booking.mode === "remote",
+      branchName: catalog.branches.find((item) => item.id === slot?.branchId)?.name ?? null,
+    };
+    return <div className="booking-success-live"><CheckCircle2 /><span>
+      <small>تم إنشاء الحجز</small>
+      <h2>طلبك مسجل في المنصة</h2>
+      <p>رقم الطلب: <b dir="ltr">{booking.orderNumber}</b></p>
+      <p>الموعد: {formatDateTime(booking.starts_at)} · المبلغ: {formatCurrency(booking.total)}</p>
+
+      {booking.mode === "remote" && (booking.meetingUrl
+        ? <p className="booking-meet-link"><Video /> جلسة عن بُعد عبر Google Meet: <a href={booking.meetingUrl} target="_blank" rel="noreferrer" dir="ltr">{booking.meetingUrl}</a><br /><small>أُرسلت الدعوة أيضاً إلى بريدك الإلكتروني.</small></p>
+        : <p className="booking-meet-note"><Video /> ستصلك رابط الجلسة عبر Google Meet قبل الموعد.</p>)}
+
+      <div className="booking-invite-actions">
+        <a className="button button-secondary" href={whatsappShareUrl(invite)} target="_blank" rel="noreferrer"><MessageCircle /> إرسال التفاصيل عبر واتساب</a>
+        <button type="button" className="button button-secondary" onClick={() => downloadIcs(invite)}><CalendarPlus /> إضافة إلى التقويم</button>
+      </div>
+
+      <div className="booking-payment-box">
+        {payment?.configured
+          ? <>
+              <p><strong>الخطوة الأخيرة: إتمام الدفع</strong><br /><small>يتم الدفع عبر صفحة آمنة من مُيسّر، ولا تمر بيانات البطاقة عبر المنصة.</small></p>
+              {payment.testMode && <p className="payment-test-note">وضع اختبار — لن يتم خصم مبلغ حقيقي.</p>}
+              {payError && <div className="form-error" role="alert">{payError}</div>}
+              <button type="button" className="button" disabled={payBusy} onClick={() => void payNow()}>
+                {payBusy ? <LoaderCircle className="spin" /> : <CreditCard />} ادفع {formatCurrency(booking.total)}
+              </button>
+            </>
+          : <p className="booking-meet-note"><ShieldCheck /> الحجز محفوظ بحالة «بانتظار الدفع». بوابة الدفع غير مهيأة بعد على هذه البيئة.</p>}
+      </div>
+
+      <div><a className="button button-secondary" href="/portal">فتح حسابي</a><a className="button button-secondary" href="/">العودة للرئيسية</a></div>
+    </span></div>;
+  }
 
   const steps = ["الخدمة", "المختص والموعد", "الحالة", "المراجعة"];
   return <div className="booking-shell">

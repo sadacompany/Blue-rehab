@@ -11,8 +11,9 @@
   },
   "include": [
     "functions/**/*.ts",
-    "../server/src/api.ts",
-    "../server/src/catalog.ts",
+    "../server/src/runtime-api.ts",
+    "../server/src/google-meet.ts",
+    "../server/src/moyasar.ts",
     "../server/src/config.ts",
     "../server/src/supabase.ts"
   ]
