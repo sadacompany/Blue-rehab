@@ -3,10 +3,12 @@ import { config } from "./config.js";
 import { createMeetEvent, isGoogleMeetConfigured } from "./google-meet.js";
 import {
   createInvoice,
+  fetchInvoice,
   fetchPayment,
   isMoyasarConfigured,
   isMoyasarTestMode,
   mapPaymentStatus,
+  type MoyasarPayment,
 } from "./moyasar.js";
 import { adminClient, authenticatedClient, catalog } from "./supabase.js";
 
@@ -86,10 +88,10 @@ export async function getCourseDetail(slugValue: string): Promise<ApiResult> {
   const courseResult = await catalog.from("courses").select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo").eq("slug", slug).eq("is_published", true).maybeSingle();
   if (courseResult.error) throw courseResult.error;
   if (!courseResult.data) return { status: 404, body: { error: "Course not found" }, cacheControl: noStore };
-  const modulesResult = await catalog.from("course_modules").select("id,title,description,sort_order").eq("course_id", courseResult.data.id).order("sort_order");
+  const modulesResult = await catalog.from("course_modules").select("id,title,summary,position").eq("course_id", courseResult.data.id).order("position");
   if (modulesResult.error) throw modulesResult.error;
   const moduleIds = (modulesResult.data ?? []).map((module) => module.id);
-  const lessonsResult = moduleIds.length ? await catalog.from("course_lessons").select("id,module_id,title,lesson_type,duration_minutes,is_preview,sort_order").in("module_id", moduleIds).order("sort_order") : { data: [], error: null };
+  const lessonsResult = moduleIds.length ? await catalog.from("course_lessons").select("id,module_id,title,content_type,duration_minutes,is_preview,position").in("module_id", moduleIds).order("position") : { data: [], error: null };
   if (lessonsResult.error) throw lessonsResult.error;
   const row = courseResult.data;
   return {
@@ -98,7 +100,7 @@ export async function getCourseDetail(slugValue: string): Promise<ApiResult> {
     body: {
       source: "supabase",
       course: { id: row.id, slug: row.slug, title: row.title, summary: row.summary ?? "", description: row.description ?? "", durationHours: Number(row.duration_hours), price: Number(row.price), mode: row.mode, level: row.level, startsAt: row.starts_at, learningOutcomes: row.learning_outcomes, prerequisites: row.prerequisites, language: row.language, certificateAvailable: row.certificate_available, isDemo: row.is_demo },
-      modules: (modulesResult.data ?? []).map((module) => ({ id: module.id, title: module.title, summary: module.description ?? "", position: module.sort_order, lessons: (lessonsResult.data ?? []).filter((lesson) => lesson.module_id === module.id).map((lesson) => ({ id: lesson.id, title: lesson.title, contentType: lesson.lesson_type, durationMinutes: lesson.duration_minutes, isPreview: lesson.is_preview })) })),
+      modules: (modulesResult.data ?? []).map((module) => ({ id: module.id, title: module.title, summary: module.summary ?? "", position: module.position, lessons: (lessonsResult.data ?? []).filter((lesson) => lesson.module_id === module.id).map((lesson) => ({ id: lesson.id, title: lesson.title, contentType: lesson.content_type, durationMinutes: lesson.duration_minutes, isPreview: lesson.is_preview })) })),
     },
   };
 }
@@ -285,6 +287,9 @@ export function getPaymentConfig(): ApiResult {
       testMode: isMoyasarTestMode(),
       publishableKey: config.MOYASAR_PUBLISHABLE_KEY ?? null,
       currency: "SAR",
+      // Lets the booking screen promise a Meet link only when one can actually
+      // be issued, instead of telling every remote patient that a link is coming.
+      meetEnabled: isGoogleMeetConfigured(),
     },
   };
 }
@@ -334,7 +339,56 @@ export async function createPaymentCheckout(authorization: string | null, payloa
   return { status: 200, body: { paymentUrl: invoice.url, invoiceId: invoice.id }, cacheControl: noStore };
 }
 
-const verifySchema = z.object({ paymentId: z.string().min(6).max(64) });
+const verifySchema = z
+  .object({
+    paymentId: z.string().min(6).max(64).optional(),
+    invoiceId: z.string().min(6).max(64).optional(),
+  })
+  .refine((value) => Boolean(value.paymentId || value.invoiceId), {
+    message: "paymentId or invoiceId is required",
+  });
+
+/**
+ * Resolve the Moyasar payment behind a callback.
+ *
+ * Moyasar returns the payer with a payment id on card flows, but Apple Pay and
+ * some wallet flows come back with only the invoice id. Accept either and read
+ * the payment out of the invoice when needed.
+ */
+async function resolveRemotePayment(input: { paymentId?: string; invoiceId?: string }) {
+  if (input.paymentId) return await fetchPayment(input.paymentId);
+
+  const invoice = await fetchInvoice(input.invoiceId as string);
+  const payments = invoice.payments ?? [];
+  return payments.find((item) => item.status === "paid") ?? payments[payments.length - 1] ?? null;
+}
+
+/**
+ * Find our own payment row for a remote Moyasar payment.
+ *
+ * An invoice carries `metadata.order_number`, but the payment created *inside*
+ * that invoice does not inherit it — `metadata` comes back null. Matching on
+ * metadata alone therefore failed for every hosted-invoice payment, which is the
+ * whole flow. Fall back to the invoice id we stored when the invoice was minted.
+ */
+async function findLocalPayment(client: ReturnType<typeof authenticatedClient>, remote: MoyasarPayment) {
+  const columns = "id,order_number,user_id,amount,status,booking_id,enrollment_id";
+  const orderNumber = (remote as { metadata?: Record<string, string> | null }).metadata?.order_number;
+
+  if (orderNumber) {
+    const byOrder = await client.from("payments").select(columns).eq("order_number", orderNumber).maybeSingle();
+    if (byOrder.error) throw byOrder.error;
+    if (byOrder.data) return byOrder.data;
+  }
+
+  if (remote.invoice_id) {
+    const byInvoice = await client.from("payments").select(columns).eq("provider_invoice_id", remote.invoice_id).maybeSingle();
+    if (byInvoice.error) throw byInvoice.error;
+    if (byInvoice.data) return byInvoice.data;
+  }
+
+  return null;
+}
 
 /**
  * Verify a payment against Moyasar and record the outcome.
@@ -349,20 +403,14 @@ export async function verifyPayment(authorization: string | null, payload: unkno
   if (!isMoyasarConfigured()) {
     return { status: 503, body: { error: "بوابة الدفع غير مهيأة بعد." }, cacheControl: noStore };
   }
-  const { paymentId } = verifySchema.parse(payload);
+  const input = verifySchema.parse(payload);
 
-  const remote = await fetchPayment(paymentId);
-  const orderNumber = (remote as { metadata?: Record<string, string> }).metadata?.order_number;
-  if (!orderNumber) {
-    return { status: 422, body: { error: "لا يمكن مطابقة عملية الدفع بطلب معروف." }, cacheControl: noStore };
+  const remote = await resolveRemotePayment(input);
+  if (!remote) {
+    return { status: 422, body: { error: "لم تُسجل أي عملية دفع على هذه الفاتورة بعد." }, cacheControl: noStore };
   }
 
-  const { data: payment, error } = await auth.client
-    .from("payments")
-    .select("id,order_number,user_id,amount,status,booking_id,enrollment_id")
-    .eq("order_number", orderNumber)
-    .maybeSingle();
-  if (error) throw error;
+  const payment = await findLocalPayment(auth.client, remote);
   if (!payment) return { status: 404, body: { error: "طلب الدفع غير موجود." }, cacheControl: noStore };
   if (payment.user_id !== auth.user.id) return { status: 403, body: { error: "Forbidden" }, cacheControl: noStore };
 
@@ -422,6 +470,53 @@ export async function verifyPayment(authorization: string | null, payload: unkno
     cacheControl: noStore,
     body: { status: mappedStatus, persisted: true, orderNumber: payment.order_number, bookingId: payment.booking_id },
   };
+}
+
+/**
+ * Settle any of the caller's payments that are still open at Moyasar.
+ *
+ * Confirmation used to depend entirely on the payer coming back to the callback
+ * page. If they closed the tab, paid through a wallet that did not return
+ * cleanly, or lost connection, the booking sat in `pending_payment` forever
+ * while the money had actually moved. This re-reads every unsettled order from
+ * Moyasar and applies the same verified path, so the portal repairs itself.
+ *
+ * Still worth adding a Moyasar webhook eventually — this closes the gap for
+ * anyone who reopens the site, not for someone who never returns.
+ */
+export async function settlePendingPayments(authorization: string | null): Promise<ApiResult> {
+  const auth = await authenticate(authorization);
+  if (!auth.ok) return auth.result;
+  if (!isMoyasarConfigured()) {
+    return { status: 200, body: { settled: 0, checked: 0, reason: "gateway_unconfigured" }, cacheControl: noStore };
+  }
+
+  const { data: open, error } = await auth.client
+    .from("payments")
+    .select("id,order_number,provider_invoice_id,provider_payment_id,status")
+    .in("status", ["pending", "processing"])
+    .not("provider_invoice_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (error) throw error;
+
+  const pending = open ?? [];
+  let settled = 0;
+
+  for (const row of pending) {
+    try {
+      const result = await verifyPayment(authorization,
+        row.provider_payment_id
+          ? { paymentId: row.provider_payment_id }
+          : { invoiceId: row.provider_invoice_id });
+      const body = result.body as { status?: string } | undefined;
+      if (result.status === 200 && body?.status === "succeeded") settled += 1;
+    } catch {
+      // One unreachable order must not block the rest.
+    }
+  }
+
+  return { status: 200, body: { checked: pending.length, settled }, cacheControl: noStore };
 }
 
 export function apiErrorResult(error: unknown): ApiResult {

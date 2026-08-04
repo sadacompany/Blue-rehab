@@ -1,7 +1,7 @@
-import { Bell, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, LoaderCircle, LogOut, RefreshCcw, UserRound } from "lucide-react";
+import { Bell, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, LoaderCircle, LogOut, RefreshCcw, Stethoscope, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatCurrency, formatDateTime } from "../lib/format";
-import { AuthenticationRequiredError, loadPortalSnapshot, type PortalSnapshot } from "../lib/platform";
+import { AuthenticationRequiredError, loadPortalSnapshot, settlePayments, type PortalSnapshot } from "../lib/platform";
 import { supabase } from "../lib/supabase";
 import PageShell from "./PageShell";
 
@@ -27,7 +27,13 @@ export default function ConnectedPortal() {
   async function reload() {
     setLoading(true);
     setError("");
-    try { setData(await loadPortalSnapshot()); }
+    try {
+      // Repair any order the payer paid for but never confirmed — a closed tab
+      // or a wallet redirect that did not return used to leave the booking
+      // showing as unpaid forever. Best-effort: never block the portal on it.
+      await settlePayments().catch(() => undefined);
+      setData(await loadPortalSnapshot());
+    }
     catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         const returnTo = encodeURIComponent("/portal");
@@ -49,7 +55,7 @@ export default function ConnectedPortal() {
     {loading && <div className="booking-loader"><LoaderCircle className="spin" /><p>جار تحميل حسابك…</p></div>}
     {!loading && error && <div className="catalog-message"><strong>تعذر تحميل الحساب.</strong><p>{error}</p><button className="button button-secondary" onClick={() => void reload()}><RefreshCcw /> إعادة المحاولة</button></div>}
     {!loading && data && <>
-      <header className="portal-live-head"><div><span className="eyebrow"><UserRound /> الحساب الشخصي</span><h1>مرحبًا، {data.profile?.full_name || "المستخدم"}</h1><p>جميع المعلومات أدناه مقروءة من سجلات حسابك في Supabase.</p></div><button className="button button-secondary" onClick={() => void signOut()}><LogOut /> تسجيل الخروج</button></header>
+      <header className="portal-live-head"><div><span className="eyebrow"><UserRound /> الحساب الشخصي</span><h1>مرحبًا، {data.profile?.full_name || "المستخدم"}</h1><p>تابع حجوزاتك ودوراتك ومدفوعاتك من مكان واحد.</p></div><div className="portal-head-actions">{data.profile?.roles.includes("specialist") && <a className="button button-secondary" href="/specialist"><Stethoscope /> لوحة الأخصائي</a>}<button className="button button-secondary" onClick={() => void signOut()}><LogOut /> تسجيل الخروج</button></div></header>
       <div className="portal-live-metrics"><article><CalendarDays /><span><small>الحجوزات</small><strong>{data.bookings.length}</strong></span></article><article><BookOpenCheck /><span><small>الدورات</small><strong>{data.enrollments.length}</strong></span></article><article><CreditCard /><span><small>المدفوعات</small><strong>{data.payments.length}</strong></span></article><article><Bell /><span><small>الإشعارات</small><strong>{data.notifications.filter((item) => !item.read_at).length}</strong></span></article></div>
       <div className="portal-live-grid">
         <section className="portal-live-panel"><header><CalendarDays /><div><small>الرعاية</small><h2>حجوزاتي</h2></div><a href="/booking">حجز جديد</a></header>{data.bookings.length ? <div className="portal-record-list">{data.bookings.map((item) => <article key={item.id}><span className="record-icon"><CalendarDays /></span><div><strong>{data.services[item.service_id] || "جلسة علاج طبيعي"}</strong><small>{formatDateTime(item.starts_at)}</small><small>رقم الحجز: <b dir="ltr">{item.id.slice(0, 8)}</b></small></div><em>{statusLabel(item.status)}</em></article>)}</div> : <div className="portal-empty"><CalendarDays /><p>لا توجد حجوزات في حسابك.</p><a className="button" href="/booking">احجز جلستك الأولى</a></div>}</section>

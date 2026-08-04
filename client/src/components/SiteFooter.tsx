@@ -1,13 +1,9 @@
-import { AlertTriangle, ArrowUpLeft } from "lucide-react";
+import { ArrowUpLeft } from "lucide-react";
 import { Brand } from "./SiteHeader";
 
 export default function SiteFooter() {
   return (
     <footer className="site-footer">
-      <div className="container emergency-note">
-        <AlertTriangle />
-        <p><strong>تنبيه صحي:</strong> المنصة لا تقدم خدمة إسعافية ولا تستبدل التقييم الطبي العاجل. عند وجود أعراض طارئة تواصل فوراً مع الجهات الصحية المختصة.</p>
-      </div>
       <div className="container footer-grid">
         <div className="footer-intro">
           <Brand />

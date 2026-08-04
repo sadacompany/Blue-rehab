@@ -632,6 +632,82 @@
 .payment-test-note { margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: var(--color-warning-soft); color: var(--color-warning-ink); font-size: 13px; }
 .payment-result { max-width: 720px; margin-inline: auto; }
 
+.portal-head-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* Specialist dashboard */
+.specialist-page { padding: 46px 0 90px; background: var(--color-soft); min-height: 70vh; }
+.specialist-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
+.specialist-head h1 { font-size: 38px; margin: 7px 0; color: var(--color-ink-950); display: flex; align-items: center; gap: 10px; }
+.specialist-head p { margin: 0; color: var(--color-muted); }
+.verified-mark { width: 24px; height: 24px; color: var(--color-brand-600); }
+
+.specialist-tabs { display: flex; gap: 8px; margin: 24px 0 18px; border-bottom: 1px solid var(--color-line); }
+.specialist-tabs button { border: 0; background: none; font: inherit; font-weight: 700; color: var(--color-muted); padding: 12px 18px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.specialist-tabs button.is-active { color: var(--color-brand-700); border-bottom-color: var(--color-brand-600); }
+
+.specialist-panel { background: #fff; border: 1px solid var(--color-line); border-radius: 16px; padding: 22px; }
+.specialist-error { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--color-danger-soft); color: var(--color-danger-ink); font-size: 13px; }
+
+.specialist-appointment { padding: 18px 0; border-bottom: 1px solid var(--color-line); }
+.specialist-appointment:last-child { border-bottom: 0; }
+.specialist-appointment-main { display: grid; grid-template-columns: auto 1fr auto; gap: 13px; align-items: start; }
+.specialist-appointment-main strong, .specialist-appointment-main small { display: block; }
+.specialist-appointment-main strong { color: var(--color-ink-950); }
+.specialist-appointment-main small { color: var(--color-muted); margin-top: 3px; line-height: 1.5; }
+.specialist-appointment-main em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--color-brand-700); background: var(--color-brand-100); padding: 6px 9px; border-radius: 999px; white-space: nowrap; }
+.specialist-appointment.status-cancelled em, .specialist-appointment.status-no_show em { color: var(--color-danger-ink); background: var(--color-danger-soft); }
+.specialist-appointment.status-pending_payment em { color: var(--color-warning-ink); background: var(--color-warning-soft); }
+.specialist-intake { border-inline-start: 3px solid var(--color-brand-100); padding-inline-start: 10px; margin-top: 8px !important; }
+.specialist-appointment-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+.specialist-note-editor { margin-top: 14px; padding: 16px; border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-soft); display: grid; gap: 12px; }
+.specialist-note-editor label { display: grid; gap: 6px; }
+.specialist-note-editor span { font-size: 13px; font-weight: 700; color: var(--color-ink-950); }
+.specialist-note-actions { display: flex; justify-content: flex-start; }
+
+.specialist-plan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; }
+.specialist-plan { border: 1px solid var(--color-line); border-radius: 14px; padding: 18px; background: #fff; }
+.specialist-plan > header { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-line); }
+.specialist-plan > header strong, .specialist-plan > header small { display: block; }
+.specialist-plan > header strong { color: var(--color-ink-950); }
+.specialist-plan > header small { color: var(--color-muted); margin-top: 4px; line-height: 1.5; }
+.specialist-plan > header em { font-style: normal; font-size: 12px; font-weight: 700; padding: 6px 9px; border-radius: 999px; white-space: nowrap; color: var(--color-warning-ink); background: var(--color-warning-soft); }
+.specialist-plan > header em.is-published { color: var(--color-brand-700); background: var(--color-brand-100); }
+.specialist-plan-meta { display: flex; flex-wrap: wrap; gap: 18px; margin: 14px 0; }
+.specialist-plan-meta dt { font-size: 12px; color: var(--color-muted); }
+.specialist-plan-meta dd { margin: 2px 0 0; font-weight: 700; color: var(--color-ink-950); }
+.specialist-goals { margin: 0 0 12px; padding-inline-start: 18px; color: var(--color-muted); line-height: 1.7; }
+.specialist-precautions { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--color-warning-soft); color: var(--color-warning-ink); font-size: 13px; }
+.specialist-exercise-list { margin: 0 0 14px; padding-inline-start: 18px; display: grid; gap: 10px; }
+.specialist-exercise-list li { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.specialist-exercise-list strong, .specialist-exercise-list small { display: block; }
+.specialist-exercise-list strong { color: var(--color-ink-950); font-size: 15px; }
+.specialist-exercise-list small { color: var(--color-muted); margin-top: 2px; line-height: 1.5; }
+.specialist-exercise-composer { display: grid; gap: 8px; padding: 14px; border: 1px dashed var(--color-line); border-radius: 12px; background: var(--color-soft); }
+.specialist-plan-actions { margin-top: 14px; }
+
+.specialist-new-plan { margin-top: 20px; border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-soft); }
+.specialist-new-plan summary { cursor: pointer; padding: 14px 18px; font-weight: 700; color: var(--color-brand-700); display: flex; align-items: center; gap: 8px; }
+.specialist-new-plan summary svg { width: 18px; height: 18px; }
+.specialist-plan-composer { display: grid; gap: 12px; padding: 0 18px 18px; }
+.specialist-plan-composer label { display: grid; gap: 6px; }
+.specialist-plan-composer span { font-size: 13px; font-weight: 700; color: var(--color-ink-950); }
+.specialist-plan-composer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.button-ghost { background: none; border: 1px solid var(--color-line); color: var(--color-muted); }
+.icon-button { border: 1px solid var(--color-line); background: #fff; border-radius: 10px; padding: 7px; cursor: pointer; color: var(--color-danger); display: inline-flex; }
+.icon-button svg { width: 16px; height: 16px; }
+.icon-button:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 700px) {
+  .specialist-head h1 { font-size: 30px; }
+  .specialist-appointment-main { grid-template-columns: auto 1fr; }
+  .specialist-appointment-main em { grid-column: 2; justify-self: start; margin-top: 6px; }
+  .specialist-plan-grid { grid-template-columns: 1fr; }
+  .specialist-plan-composer-row { grid-template-columns: 1fr; }
+  .specialist-tabs { overflow-x: auto; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }

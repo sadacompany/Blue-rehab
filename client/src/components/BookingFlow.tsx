@@ -57,7 +57,7 @@ export default function BookingFlow({ initialService, initialSpecialist }: { ini
   async function submitBooking() {
     setSubmitError("");
     if (!supabase) {
-      setSubmitError("إعداد Supabase غير مكتمل في الواجهة.");
+      setSubmitError("تعذر الاتصال بالخدمة. أعد تحميل الصفحة.");
       return;
     }
     const { data: sessionData } = await supabase.auth.getSession();
@@ -102,8 +102,8 @@ export default function BookingFlow({ initialService, initialSpecialist }: { ini
     }
   }
 
-  if (loadError) return <div className="catalog-message"><strong>تعذر فتح مسار الحجز.</strong><p>لم نتمكن من قراءة الخدمات والمواعيد من Supabase. أعد المحاولة لاحقاً.</p></div>;
-  if (!catalog) return <div className="booking-loader"><LoaderCircle /><p>جار تحميل الخدمات والمواعيد من Supabase…</p></div>;
+  if (loadError) return <div className="catalog-message"><strong>تعذر فتح مسار الحجز.</strong><p>لم نتمكن من تحميل الخدمات والمواعيد. أعد المحاولة لاحقاً.</p></div>;
+  if (!catalog) return <div className="booking-loader"><LoaderCircle /><p>جار تحميل الخدمات والمواعيد…</p></div>;
 
   const steps = ["الخدمة", "المختص والموعد", "ملخص الحالة", "المراجعة"];
   return (

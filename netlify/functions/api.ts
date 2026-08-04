@@ -8,6 +8,7 @@ import {
   getCourseDetail,
   getHealth,
   getPaymentConfig,
+  settlePendingPayments,
   verifyPayment,
   type ApiResult,
 } from "../../server/src/runtime-api.js";
@@ -79,6 +80,7 @@ export default async function handler(request: Request) {
       if (path === "/enrollments") return json(request, await createEnrollment(authorization, await readJson(request)));
       if (path === "/payments/checkout") return json(request, await createPaymentCheckout(authorization, await readJson(request)));
       if (path === "/payments/verify") return json(request, await verifyPayment(authorization, await readJson(request)));
+      if (path === "/payments/settle") return json(request, await settlePendingPayments(authorization));
       const meetMatch = path.match(/^\/bookings\/([^/]+)\/meet$/);
       if (meetMatch) return json(request, await createBookingMeeting(authorization, { bookingId: decodeURIComponent(meetMatch[1]) }));
     }

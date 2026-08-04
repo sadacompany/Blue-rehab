@@ -22,6 +22,8 @@ export type MoyasarInvoice = {
   url: string;
   amount: number;
   currency: string;
+  /** Populated when fetching a single invoice, not when listing. */
+  payments?: MoyasarPayment[];
 };
 
 export type MoyasarPayment = {
@@ -83,9 +85,26 @@ export type CreateInvoiceInput = {
   metadata?: Record<string, string>;
 };
 
+/**
+ * Force the hosted checkout into Arabic.
+ *
+ * Moyasar hands back an invoice URL carrying `lang=en`, which drops an Arabic
+ * RTL audience onto an English payment page at the last and most trust-sensitive
+ * step of the journey.
+ */
+function arabicCheckoutUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set("lang", "ar");
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 /** Create a hosted invoice and return its payment URL. */
 export async function createInvoice(input: CreateInvoiceInput): Promise<MoyasarInvoice> {
-  return moyasarRequest<MoyasarInvoice>("/invoices", {
+  const invoice = await moyasarRequest<MoyasarInvoice>("/invoices", {
     method: "POST",
     body: JSON.stringify({
       amount: toHalalas(input.amount),
@@ -95,6 +114,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<MoyasarI
       metadata: { order_number: input.orderNumber, ...(input.metadata ?? {}) },
     }),
   });
+  return invoice.url ? { ...invoice, url: arabicCheckoutUrl(invoice.url) } : invoice;
 }
 
 export async function fetchInvoice(invoiceId: string): Promise<MoyasarInvoice> {

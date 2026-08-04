@@ -330,35 +330,60 @@ drop policy if exists "active_branches_public" on public.branches;
 create policy "active_branches_public" on public.branches for select to anon, authenticated using (is_active);
 
 drop policy if exists "patient reads own bookings" on public.bookings;
+drop policy if exists "bookings_patient_read" on public.bookings;
 create policy "bookings_patient_read" on public.bookings for select to authenticated using ((select auth.uid()) = patient_id);
+drop policy if exists "bookings_specialist_read" on public.bookings;
 create policy "bookings_specialist_read" on public.bookings for select to authenticated using (exists (select 1 from public.specialists s where s.id = bookings.specialist_id and s.profile_id = (select auth.uid())));
 
 drop policy if exists "public published courses" on public.courses;
+drop policy if exists "published_courses_public" on public.courses;
 create policy "published_courses_public" on public.courses for select to anon, authenticated using (is_published);
 drop policy if exists "student reads own enrollments" on public.enrollments;
+drop policy if exists "enrollments_student_read" on public.enrollments;
 create policy "enrollments_student_read" on public.enrollments for select to authenticated using ((select auth.uid()) = student_id);
 
+drop policy if exists "health_profile_own_all" on public.patient_health_profiles;
 create policy "health_profile_own_all" on public.patient_health_profiles for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "availability_public_read" on public.availability_slots;
 create policy "availability_public_read" on public.availability_slots for select to anon, authenticated using (is_available and starts_at > now());
+drop policy if exists "treatment_plans_patient_read" on public.treatment_plans;
 create policy "treatment_plans_patient_read" on public.treatment_plans for select to authenticated using ((select auth.uid()) = patient_id);
+drop policy if exists "treatment_plans_specialist_all" on public.treatment_plans;
 create policy "treatment_plans_specialist_all" on public.treatment_plans for all to authenticated using (exists (select 1 from public.specialists s where s.id = treatment_plans.specialist_id and s.profile_id = (select auth.uid()))) with check (exists (select 1 from public.specialists s where s.id = treatment_plans.specialist_id and s.profile_id = (select auth.uid())));
+drop policy if exists "exercises_patient_read" on public.exercises;
 create policy "exercises_patient_read" on public.exercises for select to authenticated using (exists (select 1 from public.treatment_plans p where p.id = exercises.treatment_plan_id and p.patient_id = (select auth.uid()) and p.is_published));
+drop policy if exists "exercise_logs_patient_all" on public.exercise_logs;
 create policy "exercise_logs_patient_all" on public.exercise_logs for all to authenticated using ((select auth.uid()) = patient_id) with check ((select auth.uid()) = patient_id);
+drop policy if exists "session_notes_patient_read" on public.session_notes;
 create policy "session_notes_patient_read" on public.session_notes for select to authenticated using (exists (select 1 from public.bookings b where b.id = session_notes.booking_id and b.patient_id = (select auth.uid())));
+drop policy if exists "session_notes_specialist_all" on public.session_notes;
 create policy "session_notes_specialist_all" on public.session_notes for all to authenticated using (exists (select 1 from public.specialists s where s.id = session_notes.specialist_id and s.profile_id = (select auth.uid()))) with check (exists (select 1 from public.specialists s where s.id = session_notes.specialist_id and s.profile_id = (select auth.uid())));
 
+drop policy if exists "published_modules_read" on public.course_modules;
 create policy "published_modules_read" on public.course_modules for select to anon, authenticated using (exists (select 1 from public.courses c where c.id = course_modules.course_id and c.is_published));
+drop policy if exists "preview_lessons_read" on public.course_lessons;
 create policy "preview_lessons_read" on public.course_lessons for select to anon using (is_preview and exists (select 1 from public.course_modules m join public.courses c on c.id = m.course_id where m.id = course_lessons.module_id and c.is_published));
+drop policy if exists "course_lessons_authenticated_read" on public.course_lessons;
 create policy "course_lessons_authenticated_read" on public.course_lessons for select to authenticated using (exists (select 1 from public.course_modules m join public.enrollments e on e.course_id = m.course_id where m.id = course_lessons.module_id and e.student_id = (select auth.uid())));
+drop policy if exists "lesson_progress_own_all" on public.lesson_progress;
 create policy "lesson_progress_own_all" on public.lesson_progress for all to authenticated using ((select auth.uid()) = student_id) with check ((select auth.uid()) = student_id);
+drop policy if exists "attendance_student_read" on public.attendance_records;
 create policy "attendance_student_read" on public.attendance_records for select to authenticated using (exists (select 1 from public.enrollments e where e.id = attendance_records.enrollment_id and e.student_id = (select auth.uid())));
+drop policy if exists "certificates_student_read" on public.certificates;
 create policy "certificates_student_read" on public.certificates for select to authenticated using (exists (select 1 from public.enrollments e where e.id = certificates.enrollment_id and e.student_id = (select auth.uid())));
+drop policy if exists "payments_own_read" on public.payments;
 create policy "payments_own_read" on public.payments for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "reviews_published_read" on public.reviews;
 create policy "reviews_published_read" on public.reviews for select to anon, authenticated using (status = 'published');
+drop policy if exists "reviews_own_insert" on public.reviews;
 create policy "reviews_own_insert" on public.reviews for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "notifications_own_read" on public.notifications;
 create policy "notifications_own_read" on public.notifications for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "notifications_own_update" on public.notifications;
 create policy "notifications_own_update" on public.notifications for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "medical_files_owner_all" on public.medical_files;
 create policy "medical_files_owner_all" on public.medical_files for all to authenticated using ((select auth.uid()) = owner_id) with check ((select auth.uid()) = owner_id);
+drop policy if exists "audit_logs_admin_read" on public.audit_logs;
 create policy "audit_logs_admin_read" on public.audit_logs for select to authenticated using (exists (select 1 from public.profiles p where p.id = (select auth.uid()) and 'admin' = any(p.roles)));
 
 grant usage on schema public to anon, authenticated;
@@ -376,8 +401,11 @@ values
   ('course-materials', 'course-materials', false, 52428800, array['application/pdf','image/jpeg','image/png','video/mp4','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation'])
 on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
+drop policy if exists "medical_storage_owner_read" on storage.objects;
 create policy "medical_storage_owner_read" on storage.objects for select to authenticated using (bucket_id = 'medical-files' and (storage.foldername(name))[1] = (select auth.uid())::text);
+drop policy if exists "medical_storage_owner_insert" on storage.objects;
 create policy "medical_storage_owner_insert" on storage.objects for insert to authenticated with check (bucket_id = 'medical-files' and (storage.foldername(name))[1] = (select auth.uid())::text);
+drop policy if exists "medical_storage_owner_delete" on storage.objects;
 create policy "medical_storage_owner_delete" on storage.objects for delete to authenticated using (bucket_id = 'medical-files' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
 insert into public.services (name, description, duration_minutes, price, allowed_modes, is_active, is_demo)

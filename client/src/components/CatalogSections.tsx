@@ -31,7 +31,7 @@ function LoadingCards() {
 }
 
 function CatalogError({ retry }: { retry: () => void }) {
-  return <div className="catalog-message"><strong>تعذر تحميل البيانات الآن.</strong><p>تحقق من اتصال الشبكة ثم أعد المحاولة. البيانات مرتبطة مباشرة بقاعدة Supabase.</p><button className="button button-secondary" type="button" onClick={retry}><RefreshCcw /> إعادة المحاولة</button></div>;
+  return <div className="catalog-message"><strong>تعذر تحميل البيانات الآن.</strong><p>تحقق من اتصال الشبكة ثم أعد المحاولة.</p><button className="button button-secondary" type="button" onClick={retry}><RefreshCcw /> إعادة المحاولة</button></div>;
 }
 
 export function SpecialistCard({ specialist }: { specialist: Specialist }) {
@@ -47,7 +47,7 @@ export function HomeCatalog() {
   const { data, error, loading, reload } = useCatalog();
   if (error) return <CatalogError retry={reload} />;
   if (loading || !data) return <LoadingCards />;
-  return <><div className="card-grid">{data.courses.slice(0, 3).map((course) => <CourseCard course={course} key={course.id} />)}</div><div className="data-source-note"><ShieldCheck /> القائمة متصلة مباشرة بقاعدة Supabase؛ العناصر التجريبية موسومة بوضوح.</div></>;
+  return <><div className="card-grid">{data.courses.slice(0, 3).map((course) => <CourseCard course={course} key={course.id} />)}</div><div className="data-source-note"><ShieldCheck /> العناصر التجريبية موسومة بوضوح.</div></>;
 }
 
 export function SpecialistsCatalog() {

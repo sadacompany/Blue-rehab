@@ -1,8 +1,30 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-const DEFAULT_SUPABASE_URL = "https://lfuuptigzjocgewhrmkt.supabase.co";
-const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_578u_Ab3cgUlqcXhFiidnQ_MnoAEf9l";
+// Local development only.
+//
+// `npm run dev -w server` runs with the workspace as cwd, so a bare
+// `dotenv/config` looks for server/.env and silently misses the repo-root .env
+// that docs/SETUP.md tells you to create. Resolve both relative to this file
+// instead of the cwd. dotenv does not overwrite already-set keys, so the order
+// here is the precedence order: real environment > server/.env > root .env.
+//
+// Guarded because this module is also bundled into the Netlify function, where
+// esbuild emits CJS and `import.meta.url` is undefined — an unguarded
+// fileURLToPath() there throws at import time and takes down the whole API.
+// Serverless has no .env on disk regardless; Netlify injects real env vars.
+try {
+  const here = dirname(fileURLToPath(import.meta.url));
+  loadEnv({ path: resolve(here, "../.env"), quiet: true });
+  loadEnv({ path: resolve(here, "../../.env"), quiet: true });
+} catch {
+  // Bundled build — nothing to load from disk.
+}
+
+const DEFAULT_SUPABASE_URL = "https://jmgfabzsgrukrzpnuhux.supabase.co";
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_eCJHRbegR3FVk1Hbu3Kbgw_aMoMwvNb";
 
 const optionalSecret = z
   .string()

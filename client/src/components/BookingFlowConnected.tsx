@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock3, CreditCard, HeartPulse, LoaderCircle, MapPin, MessageCircle, RefreshCcw, ShieldCheck, UserRound, Video } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CatalogResponse, DeliveryMode } from "../lib/catalog-types";
 import { deliveryLabel, formatCurrency, formatDateTime } from "../lib/format";
 import { downloadIcs, whatsappShareUrl, type SessionInvite } from "../lib/invites";
@@ -7,6 +7,40 @@ import { AuthenticationRequiredError, createBooking, loadCatalog, loadPaymentCon
 import DemoBadge from "./DemoBadge";
 
 type Details = { region: string; complaint: string; onset: string; pain: number; previousSurgery: string; goal: string };
+
+/**
+ * Booking is gated on sign-in, and signing in is a full page navigation, so all
+ * wizard state used to be destroyed on the way to /login — the patient came back
+ * to an empty form and had to describe their condition a second time. The draft
+ * is parked in sessionStorage so they return to the review step ready to submit.
+ *
+ * sessionStorage, not localStorage: it dies with the tab, which is the right
+ * lifetime for a half-written health complaint.
+ */
+const DRAFT_KEY = "blue-rehab:booking-draft";
+
+type BookingDraft = {
+  step: number;
+  serviceId: string;
+  mode: DeliveryMode;
+  specialistId: string;
+  slotId: string;
+  details: Details;
+  accepted: boolean;
+};
+
+function readDraft(): BookingDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as BookingDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft() {
+  try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* storage unavailable */ }
+}
 
 export default function BookingFlowConnected({ initialService, initialSpecialist }: { initialService?: string; initialSpecialist?: string }) {
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
@@ -26,6 +60,9 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   const [payBusy, setPayBusy] = useState(false);
   const [payError, setPayError] = useState("");
 
+  /** Draft as it stood when this page opened. Read once, before any save runs. */
+  const pendingDraft = useRef<BookingDraft | null>(readDraft());
+
   async function reload() {
     setLoading(true);
     setLoadError("");
@@ -36,9 +73,35 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
       const selectedSpecialist = data.specialists.find((item) => item.id === initialSpecialist) ?? data.specialists[0];
       if (selectedService) { setServiceId(selectedService.id); setMode(selectedService.modes[0]); }
       if (selectedSpecialist) setSpecialistId(selectedSpecialist.id);
+
+      // Re-apply anything the patient had already filled in before being sent to
+      // sign in. Each reference is re-validated against the catalogue that just
+      // loaded, so a slot taken in the meantime is dropped rather than restored.
+      //
+      // Read from the snapshot taken at mount, not from storage: React's
+      // StrictMode runs this twice in development, and a second read could pick
+      // up whatever the save effect had written in between.
+      const draft = pendingDraft.current;
+      if (draft) {
+        if (data.services.some((item) => item.id === draft.serviceId)) {
+          setServiceId(draft.serviceId);
+          setMode(draft.mode);
+        }
+        if (data.specialists.some((item) => item.id === draft.specialistId)) {
+          setSpecialistId(draft.specialistId);
+        }
+        const slotStillFree = data.availability.some((item) => item.id === draft.slotId);
+        setSlotId(slotStillFree ? draft.slotId : "");
+        setDetails(draft.details);
+        setAccepted(draft.accepted);
+        // Without a slot they must revisit step 2; otherwise resume where they left off.
+        setStep(slotStillFree ? draft.step : 1);
+      }
     } catch (reason) {
       setLoadError(reason instanceof Error ? reason.message : "تعذر تحميل الحجز");
     } finally {
+      // Set even on failure, so a retry still persists what the patient types.
+      restored.current = true;
       setLoading(false);
     }
   }
@@ -54,7 +117,35 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   useEffect(() => {
     if (service && !service.modes.includes(mode)) setMode(service.modes[0]);
   }, [service, mode]);
-  useEffect(() => setSlotId(""), [specialistId, mode]);
+  // Changing specialist or mode invalidates the chosen slot — but only when the
+  // patient actually changes it. A plain [specialistId, mode] effect also fires
+  // on the initial render, which would wipe a slot restored from the draft.
+  //
+  // The `!specialistId` guard matters: on the first render the wizard still
+  // holds its empty defaults, and recording that as the baseline would make the
+  // first real population look like a change and clear the restored slot.
+  const lastSelection = useRef("");
+  /** True once reload() has had its chance to restore a saved draft. */
+  const restored = useRef(false);
+  useEffect(() => {
+    if (!specialistId) return;
+    const key = `${specialistId}|${mode}`;
+    if (lastSelection.current && lastSelection.current !== key) setSlotId("");
+    lastSelection.current = key;
+  }, [specialistId, mode]);
+
+  // Keep the draft current so a sign-in redirect loses nothing.
+  //
+  // Gated on `restored`: this effect also runs on the very first render, when
+  // the wizard still holds its empty initial state. Without the gate it would
+  // overwrite the saved draft with blanks before reload() had a chance to read
+  // it back — destroying exactly what it is meant to protect.
+  useEffect(() => {
+    if (!restored.current || booking) return;
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ step, serviceId, mode, specialistId, slotId, details, accepted }));
+    } catch { /* storage unavailable — the wizard still works, it just will not survive login */ }
+  }, [booking, step, serviceId, mode, specialistId, slotId, details, accepted]);
 
   const canContinue = step === 0 ? Boolean(serviceId && mode) : step === 1 ? Boolean(specialistId && slotId) : step === 2 ? Boolean(details.complaint.trim() && details.onset && details.goal.trim()) : accepted;
 
@@ -67,6 +158,7 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
       // The server prices the booking, locks the slot, opens the payment record
       // and (for remote sessions) schedules the Google Meet invitation.
       setBooking(await createBooking({ service, specialist, slot, notes }));
+      clearDraft();
     } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         const returnTo = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
@@ -115,7 +207,9 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
 
       {booking.mode === "remote" && (booking.meetingUrl
         ? <p className="booking-meet-link"><Video /> جلسة عن بُعد عبر Google Meet: <a href={booking.meetingUrl} target="_blank" rel="noreferrer" dir="ltr">{booking.meetingUrl}</a><br /><small>أُرسلت الدعوة أيضاً إلى بريدك الإلكتروني.</small></p>
-        : <p className="booking-meet-note"><Video /> ستصلك رابط الجلسة عبر Google Meet قبل الموعد.</p>)}
+        : <p className="booking-meet-note"><Video /> {payment?.meetEnabled === false
+            ? "سيتواصل معك الفريق قبل الموعد لتزويدك برابط الجلسة."
+            : "ستصلك رابط الجلسة عبر Google Meet قبل الموعد."}</p>)}
 
       <div className="booking-invite-actions">
         <a className="button button-secondary" href={whatsappShareUrl(invite)} target="_blank" rel="noreferrer"><MessageCircle /> إرسال التفاصيل عبر واتساب</a>

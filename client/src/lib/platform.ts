@@ -108,18 +108,18 @@ export async function loadCourseDetail(slug: string): Promise<CourseDetailRespon
 
   const modulesResult = await supabase
     .from("course_modules")
-    .select("id,title,description,sort_order")
+    .select("id,title,summary,position")
     .eq("course_id", courseResult.data.id)
-    .order("sort_order");
+    .order("position");
   if (modulesResult.error) throw new Error(modulesResult.error.message);
 
   const moduleIds = (modulesResult.data ?? []).map((module) => module.id);
   const lessonsResult = moduleIds.length
     ? await supabase
         .from("course_lessons")
-        .select("id,module_id,title,lesson_type,duration_minutes,is_preview,sort_order")
+        .select("id,module_id,title,content_type,duration_minutes,is_preview,position")
         .in("module_id", moduleIds)
-        .order("sort_order")
+        .order("position")
     : { data: [], error: null };
   if (lessonsResult.error) throw new Error(lessonsResult.error.message);
 
@@ -145,14 +145,14 @@ export async function loadCourseDetail(slug: string): Promise<CourseDetailRespon
   const modules: CourseModule[] = (modulesResult.data ?? []).map((module) => ({
     id: module.id,
     title: module.title,
-    summary: module.description ?? "",
-    position: module.sort_order,
+    summary: module.summary ?? "",
+    position: module.position,
     lessons: (lessonsResult.data ?? [])
       .filter((lesson) => lesson.module_id === module.id)
       .map((lesson) => ({
         id: lesson.id,
         title: lesson.title,
-        contentType: lesson.lesson_type,
+        contentType: lesson.content_type,
         durationMinutes: lesson.duration_minutes,
         isPreview: Boolean(lesson.is_preview),
       })),
@@ -222,6 +222,8 @@ export type PaymentConfig = {
   testMode: boolean;
   publishableKey: string | null;
   currency: string;
+  /** False when Google Meet credentials are absent — no link can be issued. */
+  meetEnabled?: boolean;
 };
 
 export async function loadPaymentConfig(): Promise<PaymentConfig> {
@@ -241,12 +243,28 @@ export async function startCheckout(orderNumber: string): Promise<{ paymentUrl: 
 
 export type VerifyResult = { status: string; persisted: boolean; orderNumber?: string; bookingId?: string | null; reason?: string };
 
-/** Confirm a payment outcome. The server re-reads it from Moyasar. */
-export async function verifyPayment(paymentId: string): Promise<VerifyResult> {
+/**
+ * Confirm a payment outcome. The server re-reads it from Moyasar.
+ *
+ * Accepts either identifier: card flows return a payment id, Apple Pay and some
+ * wallet flows return only the invoice id.
+ */
+export async function verifyPayment(ref: { paymentId?: string; invoiceId?: string }): Promise<VerifyResult> {
   return (await authorizedFetch("/payments/verify", {
     method: "POST",
-    body: JSON.stringify({ paymentId }),
+    body: JSON.stringify(ref),
   })) as VerifyResult;
+}
+
+export type SettleResult = { checked: number; settled: number; reason?: string };
+
+/**
+ * Ask the server to re-read any of the user's still-open orders from Moyasar and
+ * record the outcome. Makes the portal self-repairing when a payer never made it
+ * back to the callback page.
+ */
+export async function settlePayments(): Promise<SettleResult> {
+  return (await authorizedFetch("/payments/settle", { method: "POST" })) as SettleResult;
 }
 
 export async function enrollViaApi(courseId: string) {
@@ -296,22 +314,38 @@ export type SupportRequestInput = {
   message: string;
 };
 
+const SUPPORT_ERRORS: Record<string, string> = {
+  NAME_INVALID: "الاسم يجب أن يكون بين حرفين و120 حرفًا.",
+  SUBJECT_INVALID: "اختر نوع الطلب.",
+  MESSAGE_INVALID: "الرسالة يجب أن تكون بين 20 و1000 حرف.",
+  EMAIL_INVALID: "البريد الإلكتروني غير صالح.",
+  PHONE_INVALID: "رقم الجوال غير صالح.",
+};
+
+/**
+ * Submit the contact form.
+ *
+ * Goes through an RPC rather than a direct insert: the form needs the new row's
+ * id back as a reference number, and a plain insert returns it via RETURNING,
+ * which anonymous visitors cannot read under RLS. See
+ * supabase/migrations/20260804170000_support_request_rpc.sql.
+ */
 export async function createSupportRequest(input: SupportRequestInput) {
-  const { data: sessionData } = await supabase.auth.getSession();
   const { data, error } = await supabase
-    .from("support_requests")
-    .insert({
-      user_id: sessionData.session?.user.id ?? null,
-      name: input.name,
-      email: input.email,
-      phone: input.phone || null,
-      subject: input.subject,
-      message: input.message,
+    .rpc("submit_support_request", {
+      p_name: input.name,
+      p_email: input.email,
+      p_phone: input.phone || null,
+      p_subject: input.subject,
+      p_message: input.message,
     })
-    .select("id,status,created_at")
     .single();
-  if (error) throw new Error(error.message);
-  return data;
+
+  if (error) {
+    const code = Object.keys(SUPPORT_ERRORS).find((key) => error.message.includes(key));
+    throw new Error(code ? SUPPORT_ERRORS[code] : error.message);
+  }
+  return data as { id: string; status: string; created_at: string };
 }
 
 export type PortalSnapshot = {
