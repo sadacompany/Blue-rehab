@@ -1,3 +1,4 @@
+import { apiUrl } from "./api";
 import type {
   AvailabilitySlot,
   Branch,
@@ -192,6 +193,29 @@ export async function createBooking(input: BookingInput) {
 
   if (error) throw new Error(error.message);
   return data;
+}
+
+export type MeetingLinkResult = { meetingUrl: string | null; configured?: boolean; reused?: boolean };
+
+/**
+ * Ask the server to generate (or return an existing) Google Meet link for a
+ * remote booking. Secrets live server-side, so this always goes through the API.
+ * Returns { meetingUrl: null } when the integration is not configured yet.
+ */
+export async function requestMeetingLink(bookingId: string): Promise<MeetingLinkResult> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) throw new AuthenticationRequiredError();
+
+  const response = await fetch(apiUrl(`/bookings/${bookingId}/meet`), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const message = await response.json().then((body) => body?.error).catch(() => null);
+    throw new Error(message || `MEET_REQUEST_FAILED_${response.status}`);
+  }
+  return (await response.json()) as MeetingLinkResult;
 }
 
 export async function enrollInCourse(course: Course) {
