@@ -24,6 +24,19 @@ const schema = z.object({
   GOOGLE_OAUTH_REFRESH_TOKEN: optionalSecret,
   GOOGLE_CALENDAR_ID: z.string().trim().min(1).default("primary"),
   GOOGLE_MEET_TIME_ZONE: z.string().trim().min(1).default("Asia/Riyadh"),
+
+  // Moyasar payment gateway. The SECRET key must never reach the browser.
+  // Use the sk_test_/pk_test_ pair while testing; live keys charge real cards.
+  MOYASAR_SECRET_KEY: optionalSecret,
+  MOYASAR_PUBLISHABLE_KEY: optionalSecret,
+
+  // Service-role key, used ONLY to record a verified payment outcome (the
+  // paying user must not be able to mark their own payment as succeeded).
+  // Without it the callback still verifies but cannot persist the result.
+  SUPABASE_SERVICE_ROLE_KEY: optionalSecret,
+
+  // Public origin used to build payment callback URLs.
+  PUBLIC_SITE_URL: z.string().url().default("http://localhost:5173"),
 });
 
 export const config = schema.parse(process.env);

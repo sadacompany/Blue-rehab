@@ -1,16 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, LoaderCircle, LogIn, Phone, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Copy, LoaderCircle, LogIn, Phone, ShieldCheck, Sparkles } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import PageShell from "../components/PageShell";
+import { MOCK_OTP_CODE, isMockAuth, normalizeSaudiPhone, signOut, startPhoneSignIn, verifyPhoneSignIn } from "../lib/auth";
 import { supabase } from "../lib/supabase";
-
-const normalizeSaudiPhone = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  if (digits.startsWith("966")) return `+${digits}`;
-  if (digits.startsWith("05")) return `+966${digits.slice(1)}`;
-  if (digits.startsWith("5")) return `+966${digits}`;
-  return value.trim();
-};
 
 export default function AuthPage() {
   const [params] = useSearchParams();
@@ -19,10 +12,13 @@ export default function AuthPage() {
     return requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/portal";
   }, [params]);
   const [phone, setPhone] = useState("");
+  const [fullName, setFullName] = useState("");
   const [token, setToken] = useState("");
   const [step, setStep] = useState<"phone" | "verify" | "done">("phone");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [issuedCode, setIssuedCode] = useState("");
+  const mock = isMockAuth();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { if (data.session) setStep("done"); });
@@ -32,35 +28,83 @@ export default function AuthPage() {
     event.preventDefault();
     setBusy(true);
     setMessage("");
-    const normalized = normalizeSaudiPhone(phone);
-    const { error } = await supabase.auth.signInWithOtp({ phone: normalized, options: { data: { account_type: "patient" } } });
-    setBusy(false);
-    if (error) { setMessage(error.message); return; }
-    setPhone(normalized);
-    setStep("verify");
-    setMessage("أُرسل رمز التحقق إلى رقم الجوال.");
+    try {
+      const result = await startPhoneSignIn(phone);
+      setPhone(normalizeSaudiPhone(phone));
+      setStep("verify");
+      if (result.code) {
+        setIssuedCode(result.code);
+        setToken(result.code);
+        setMessage("");
+      } else {
+        setMessage("أُرسل رمز التحقق إلى رقم الجوال.");
+      }
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "تعذر إرسال الرمز.");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function verifyOtp(event: FormEvent) {
+  async function submitOtp(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setMessage("");
-    const { error } = await supabase.auth.verifyOtp({ phone, token, type: "sms" });
-    setBusy(false);
-    if (error) { setMessage(error.message); return; }
-    window.location.replace(returnTo);
+    try {
+      await verifyPhoneSignIn(phone, token, fullName);
+      window.location.replace(returnTo);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "تعذر التحقق من الرمز.");
+      setBusy(false);
+    }
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
+  async function handleSignOut() {
+    await signOut();
     setToken("");
+    setIssuedCode("");
     setStep("phone");
   }
 
-  return <PageShell><section className="auth-page"><div className="container auth-grid"><div className="auth-copy"><span className="eyebrow"><ShieldCheck /> دخول آمن</span><h1>سجّل الدخول برقم الجوال</h1><p>تستخدم المنصة رمز تحقق لمرة واحدة. لا توجد كلمة مرور محفوظة، وتُربط الحجوزات والدورات بحسابك بعد نجاح التحقق.</p><div className="auth-assurance"><ShieldCheck /><span><strong>صلاحيات حسب المستخدم</strong><small>يرسل المتصفح المفتاح العام فقط، بينما تمنع سياسات RLS أي مستخدم من الوصول إلى سجلات مستخدم آخر.</small></span></div></div><div className="auth-card">
-    {step === "phone" && <form onSubmit={requestOtp}><Phone /><h2>رقم الجوال</h2><p>أدخل رقمًا سعوديًا بصيغة 05xxxxxxxx.</p><label><span>رقم الجوال</span><input dir="ltr" inputMode="tel" autoComplete="tel" required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="05xxxxxxxx" /></label><button className="button" disabled={busy}>{busy ? <LoaderCircle className="spin" /> : <LogIn />} إرسال رمز التحقق</button></form>}
-    {step === "verify" && <form onSubmit={verifyOtp}><Phone /><h2>تحقق من الرمز</h2><p>أدخل الرمز المرسل إلى <b dir="ltr">{phone}</b>.</p><label><span>رمز التحقق</span><input dir="ltr" inputMode="numeric" autoComplete="one-time-code" required minLength={6} maxLength={6} value={token} onChange={(event) => setToken(event.target.value.replace(/\D/g, ""))} placeholder="000000" /></label><button className="button" disabled={busy || token.length !== 6}>{busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />} تأكيد الدخول</button><button className="text-button" type="button" onClick={() => setStep("phone")}>تغيير الرقم</button></form>}
-    {step === "done" && <div className="auth-success"><CheckCircle2 /><h2>أنت مسجل الدخول</h2><p>يمكنك متابعة الإجراء المطلوب أو فتح لوحة حسابك.</p><a className="button" href={returnTo}>متابعة</a><button className="button button-secondary" type="button" onClick={() => void signOut()}>تسجيل الخروج</button></div>}
-    {message && <div className="auth-message" role="status">{message}</div>}
-  </div></div></section></PageShell>;
+  return <PageShell><section className="auth-page"><div className="container auth-grid">
+    <div className="auth-copy">
+      <span className="eyebrow"><ShieldCheck /> دخول آمن</span>
+      <h1>سجّل الدخول برقم الجوال</h1>
+      <p>تستخدم المنصة رمز تحقق لمرة واحدة. لا توجد كلمة مرور محفوظة، وتُربط الحجوزات والدورات بحسابك بعد نجاح التحقق.</p>
+      <div className="auth-assurance"><ShieldCheck /><span><strong>صلاحيات حسب المستخدم</strong><small>يرسل المتصفح المفتاح العام فقط، بينما تمنع سياسات RLS أي مستخدم من الوصول إلى سجلات مستخدم آخر.</small></span></div>
+      {mock && <div className="auth-assurance auth-mock-note"><Sparkles /><span><strong>وضع تجريبي للتحقق</strong><small>لم تُربط بوابة الرسائل النصية بعد، لذلك الرمز ثابت ويظهر أمامك لتجربة المسار كاملاً. يُستبدل برمز حقيقي عند تفعيل مزود الرسائل.</small></span></div>}
+    </div>
+
+    <div className="auth-card">
+      {step === "phone" && <form onSubmit={requestOtp}>
+        <Phone /><h2>رقم الجوال</h2><p>أدخل رقمًا سعوديًا بصيغة 05xxxxxxxx.</p>
+        <label><span>رقم الجوال</span><input dir="ltr" inputMode="tel" autoComplete="tel" required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="05xxxxxxxx" /></label>
+        {mock && <label><span>الاسم الكامل <small>(للحسابات الجديدة)</small></span><input autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="اكتب اسمك" /></label>}
+        <button className="button" disabled={busy}>{busy ? <LoaderCircle className="spin" /> : <LogIn />} إرسال رمز التحقق</button>
+      </form>}
+
+      {step === "verify" && <form onSubmit={submitOtp}>
+        <Phone /><h2>تحقق من الرمز</h2>
+        <p>{mock ? <>الوضع التجريبي فعّال — استخدم الرمز الظاهر أدناه للرقم <b dir="ltr">{phone}</b>.</> : <>أدخل الرمز المرسل إلى <b dir="ltr">{phone}</b>.</>}</p>
+        {mock && issuedCode && <div className="otp-mock-panel" role="status">
+          <span>رمز التحقق التجريبي</span>
+          <strong dir="ltr">{issuedCode}</strong>
+          <button type="button" className="text-button" onClick={() => void navigator.clipboard?.writeText(issuedCode)}><Copy /> نسخ الرمز</button>
+        </div>}
+        <label><span>رمز التحقق</span><input dir="ltr" inputMode="numeric" autoComplete="one-time-code" required minLength={6} maxLength={6} value={token} onChange={(event) => setToken(event.target.value.replace(/\D/g, ""))} placeholder="000000" /></label>
+        <button className="button" disabled={busy || token.length !== 6}>{busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />} تأكيد الدخول</button>
+        <button className="text-button" type="button" onClick={() => { setStep("phone"); setIssuedCode(""); setToken(""); }}>تغيير الرقم</button>
+      </form>}
+
+      {step === "done" && <div className="auth-success">
+        <CheckCircle2 /><h2>أنت مسجل الدخول</h2><p>يمكنك متابعة الإجراء المطلوب أو فتح لوحة حسابك.</p>
+        <a className="button" href={returnTo}>متابعة</a>
+        <button className="button button-secondary" type="button" onClick={() => void handleSignOut()}>تسجيل الخروج</button>
+      </div>}
+
+      {message && <div className="auth-message" role="status">{message}</div>}
+    </div>
+  </div></section></PageShell>;
 }
+
+export { MOCK_OTP_CODE };

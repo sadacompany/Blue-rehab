@@ -168,31 +168,93 @@ type BookingInput = {
   notes: string;
 };
 
-export async function createBooking(input: BookingInput) {
+export type BookingResult = {
+  id: string;
+  status: string;
+  starts_at: string;
+  ends_at: string | null;
+  mode: DeliveryMode;
+  total: number;
+  orderNumber: string;
+  currency: string;
+  meetingUrl: string | null;
+};
+
+async function authorizedFetch(path: string, init?: RequestInit) {
   const { data: sessionData } = await supabase.auth.getSession();
-  const user = sessionData.session?.user;
-  if (!user) throw new AuthenticationRequiredError();
+  const token = sessionData.session?.access_token;
+  if (!token) throw new AuthenticationRequiredError();
 
-  const { data, error } = await supabase
-    .from("bookings")
-    .insert({
-      patient_id: user.id,
-      specialist_id: input.specialist.id,
-      service_id: input.service.id,
-      slot_id: input.slot.id,
-      branch_id: input.slot.branchId,
-      starts_at: input.slot.startsAt,
-      ends_at: input.slot.endsAt,
+  const response = await fetch(apiUrl(path), {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.error || `REQUEST_FAILED_${response.status}`);
+  return payload;
+}
+
+/**
+ * Create a booking through the API. The price, the slot lock and the payment
+ * record are all decided server-side — the browser only names what it wants.
+ */
+export async function createBooking(input: BookingInput): Promise<BookingResult> {
+  const payload = await authorizedFetch("/bookings/drafts", {
+    method: "POST",
+    body: JSON.stringify({
+      serviceId: input.service.id,
+      specialistId: input.specialist.id,
+      slotId: input.slot.id,
       mode: input.slot.mode,
-      status: "draft",
-      total: input.service.price,
       notes: input.notes,
-    })
-    .select("id,status,starts_at,total")
-    .single();
+    }),
+  });
+  return payload.data as BookingResult;
+}
 
-  if (error) throw new Error(error.message);
-  return data;
+export type PaymentConfig = {
+  provider: string;
+  configured: boolean;
+  testMode: boolean;
+  publishableKey: string | null;
+  currency: string;
+};
+
+export async function loadPaymentConfig(): Promise<PaymentConfig> {
+  const response = await fetch(apiUrl("/payments/config"));
+  if (!response.ok) throw new Error(`PAYMENT_CONFIG_FAILED_${response.status}`);
+  return (await response.json()) as PaymentConfig;
+}
+
+/** Start checkout and get the Moyasar-hosted payment URL to redirect to. */
+export async function startCheckout(orderNumber: string): Promise<{ paymentUrl: string }> {
+  const payload = await authorizedFetch("/payments/checkout", {
+    method: "POST",
+    body: JSON.stringify({ orderNumber }),
+  });
+  return payload as { paymentUrl: string };
+}
+
+export type VerifyResult = { status: string; persisted: boolean; orderNumber?: string; bookingId?: string | null; reason?: string };
+
+/** Confirm a payment outcome. The server re-reads it from Moyasar. */
+export async function verifyPayment(paymentId: string): Promise<VerifyResult> {
+  return (await authorizedFetch("/payments/verify", {
+    method: "POST",
+    body: JSON.stringify({ paymentId }),
+  })) as VerifyResult;
+}
+
+export async function enrollViaApi(courseId: string) {
+  const payload = await authorizedFetch("/enrollments", {
+    method: "POST",
+    body: JSON.stringify({ courseId }),
+  });
+  return payload.data as { id: string; status: string; amountDue: number; orderNumber: string | null; currency: string };
 }
 
 export type MeetingLinkResult = { meetingUrl: string | null; configured?: boolean; reused?: boolean };
@@ -218,27 +280,12 @@ export async function requestMeetingLink(bookingId: string): Promise<MeetingLink
   return (await response.json()) as MeetingLinkResult;
 }
 
+/**
+ * Enroll in a course. Like bookings, the price and the seat check are enforced
+ * server-side; re-enrolling returns the existing record instead of duplicating.
+ */
 export async function enrollInCourse(course: Course) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const user = sessionData.session?.user;
-  if (!user) throw new AuthenticationRequiredError();
-
-  const existing = await supabase
-    .from("enrollments")
-    .select("id,status,progress,amount_due")
-    .eq("student_id", user.id)
-    .eq("course_id", course.id)
-    .maybeSingle();
-  if (existing.error) throw new Error(existing.error.message);
-  if (existing.data) return existing.data;
-
-  const { data, error } = await supabase
-    .from("enrollments")
-    .insert({ student_id: user.id, course_id: course.id })
-    .select("id,status,progress,amount_due")
-    .single();
-  if (error) throw new Error(error.message);
-  return data;
+  return enrollViaApi(course.id);
 }
 
 export type SupportRequestInput = {
