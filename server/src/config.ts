@@ -47,6 +47,12 @@ const schema = z.object({
   GOOGLE_CALENDAR_ID: z.string().trim().min(1).default("primary"),
   GOOGLE_MEET_TIME_ZONE: z.string().trim().min(1).default("Asia/Riyadh"),
 
+  // Video provider for remote sessions. `jitsi` needs no credentials, so remote
+  // bookings get a working link with nothing configured. `google` switches to
+  // Google Meet and requires the GOOGLE_OAUTH_* values above. See meetings.ts.
+  MEETING_PROVIDER: z.enum(["jitsi", "google", "none"]).default("jitsi"),
+  MEETING_JITSI_DOMAIN: z.string().trim().min(1).default("8x8.vc"),
+
   // Moyasar payment gateway. The SECRET key must never reach the browser.
   // Use the sk_test_/pk_test_ pair while testing; live keys charge real cards.
   MOYASAR_SECRET_KEY: optionalSecret,

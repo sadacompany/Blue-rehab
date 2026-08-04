@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { config } from "./config.js";
-import { createMeetEvent, isGoogleMeetConfigured } from "./google-meet.js";
+import { createMeeting, isMeetingConfigured, meetingProvider } from "./meetings.js";
 import {
   createInvoice,
   fetchInvoice,
@@ -8,6 +8,7 @@ import {
   isMoyasarConfigured,
   isMoyasarTestMode,
   mapPaymentStatus,
+  MoyasarError,
   type MoyasarPayment,
 } from "./moyasar.js";
 import { adminClient, authenticatedClient, catalog } from "./supabase.js";
@@ -158,7 +159,7 @@ export async function createBookingDraft(authorization: string | null, payload: 
         total: Number(booking.amount),
         orderNumber: booking.order_number,
         currency: booking.currency,
-        meetingUrl: meeting?.meetUrl ?? null,
+        meetingUrl: meeting?.url ?? null,
       },
       next: isMoyasarConfigured() ? "payment" : "payment_unconfigured",
     },
@@ -166,22 +167,23 @@ export async function createBookingDraft(authorization: string | null, payload: 
 }
 
 /**
- * Best-effort Google Meet scheduling. A failure here never fails the booking —
- * the patient still has a confirmed slot and the link can be retried later.
+ * Best-effort meeting link. A failure here never fails the booking — the patient
+ * still has a confirmed slot and the link can be requested again later.
  */
 async function scheduleMeeting(client: SupabaseClientLike, booking: BookingRow, email: string | null) {
-  if (!isGoogleMeetConfigured()) return null;
+  if (!isMeetingConfigured()) return null;
   try {
-    const meeting = await createMeetEvent({
-      summary: "جلسة بلو ريهاب عن بُعد",
-      description: `رقم الحجز: ${booking.booking_id}\nرقم الطلب: ${booking.order_number}`,
+    const meeting = await createMeeting({
+      bookingId: booking.booking_id,
+      orderNumber: booking.order_number,
       startsAt: booking.starts_at,
       endsAt: booking.ends_at,
-      attendees: email ? [email] : [],
+      attendeeEmail: email,
     });
+    if (!meeting) return null;
     await client
       .from("bookings")
-      .update({ meeting_url: meeting.meetUrl, meeting_event_id: meeting.eventId, meeting_provider: "google_meet" })
+      .update({ meeting_url: meeting.url, meeting_event_id: meeting.eventId ?? null, meeting_provider: meeting.provider })
       .eq("id", booking.booking_id);
     return meeting;
   } catch (error) {
@@ -218,22 +220,26 @@ export async function createBookingMeeting(authorization: string | null, params:
   if (booking.meeting_url) {
     return { status: 200, body: { meetingUrl: booking.meeting_url, reused: true }, cacheControl: noStore };
   }
-  if (!isGoogleMeetConfigured()) {
+  if (!isMeetingConfigured()) {
     return { status: 200, body: { meetingUrl: null, configured: false }, cacheControl: noStore };
   }
 
-  const meeting = await createMeetEvent({
-    summary: "جلسة بلو ريهاب عن بُعد",
-    description: `رقم الحجز: ${booking.id}`,
+  const meeting = await createMeeting({
+    bookingId: booking.id,
     startsAt: booking.starts_at,
     endsAt: booking.ends_at,
-    attendees: userData.user.email ? [userData.user.email] : [],
+    attendeeEmail: userData.user.email ?? null,
   });
+  if (!meeting) {
+    return { status: 200, body: { meetingUrl: null, configured: false }, cacheControl: noStore };
+  }
 
   // Best-effort persistence; the link is already returned regardless of outcome.
-  await client.from("bookings").update({ meeting_url: meeting.meetUrl }).eq("id", booking.id);
+  await client.from("bookings")
+    .update({ meeting_url: meeting.url, meeting_event_id: meeting.eventId ?? null, meeting_provider: meeting.provider })
+    .eq("id", booking.id);
 
-  return { status: 200, body: { meetingUrl: meeting.meetUrl, configured: true }, cacheControl: noStore };
+  return { status: 200, body: { meetingUrl: meeting.url, configured: true }, cacheControl: noStore };
 }
 
 // ------------------------------------------------------------------ courses --
@@ -289,7 +295,8 @@ export function getPaymentConfig(): ApiResult {
       currency: "SAR",
       // Lets the booking screen promise a Meet link only when one can actually
       // be issued, instead of telling every remote patient that a link is coming.
-      meetEnabled: isGoogleMeetConfigured(),
+      meetEnabled: isMeetingConfigured(),
+      meetProvider: meetingProvider(),
     },
   };
 }
@@ -405,7 +412,17 @@ export async function verifyPayment(authorization: string | null, payload: unkno
   }
   const input = verifySchema.parse(payload);
 
-  const remote = await resolveRemotePayment(input);
+  let remote: MoyasarPayment | null;
+  try {
+    remote = await resolveRemotePayment(input);
+  } catch (error) {
+    // An identifier the gateway does not recognise is a bad request, not a
+    // server fault — surface it as such instead of a 500.
+    if (error instanceof MoyasarError && error.status >= 400 && error.status < 500) {
+      return { status: 404, body: { error: "لم نجد عملية دفع بهذا المعرف." }, cacheControl: noStore };
+    }
+    throw error;
+  }
   if (!remote) {
     return { status: 422, body: { error: "لم تُسجل أي عملية دفع على هذه الفاتورة بعد." }, cacheControl: noStore };
   }
@@ -436,28 +453,51 @@ export async function verifyPayment(authorization: string | null, payload: unkno
   }
 
   const now = new Date().toISOString();
-  await admin.from("payments").update({
-    status: mappedStatus,
-    provider_payment_id: remote.id,
-    paid_at: mappedStatus === "succeeded" ? now : null,
-    failure_reason: mappedStatus === "failed" ? (remote.source?.message ?? "payment_failed") : null,
-    updated_at: now,
-  }).eq("id", payment.id);
 
-  if (mappedStatus === "succeeded") {
+  // Verification is idempotent. Reloading the callback page, or returning to it
+  // from history, re-runs this with the same identifier; without the guard each
+  // visit inserted another "payment received" notice for a payment that was
+  // already settled.
+  const alreadySettled = payment.status === "succeeded" && mappedStatus === "succeeded";
+
+  if (!alreadySettled) {
+    await admin.from("payments").update({
+      status: mappedStatus,
+      provider_payment_id: remote.id,
+      paid_at: mappedStatus === "succeeded" ? now : null,
+      failure_reason: mappedStatus === "failed" ? (remote.source?.message ?? "payment_failed") : null,
+      updated_at: now,
+    }).eq("id", payment.id);
+  }
+
+  if (mappedStatus === "succeeded" && !alreadySettled) {
     if (payment.booking_id) {
       await admin.from("bookings").update({ status: "confirmed", updated_at: now }).eq("id", payment.booking_id);
     }
     if (payment.enrollment_id) {
       await admin.from("enrollments").update({ status: "active" }).eq("id", payment.enrollment_id);
     }
+    // Retire the "awaiting payment" notice for this order. Left unread it sits
+    // directly under the confirmation saying the opposite thing, which reads as
+    // the platform contradicting itself.
+    await admin.from("notifications")
+      .update({ read_at: now })
+      .eq("user_id", payment.user_id)
+      .in("event_type", ["booking_created", "enrollment_created"])
+      .is("read_at", null)
+      .contains("data", payment.booking_id
+        ? { booking_id: payment.booking_id }
+        : { enrollment_id: payment.enrollment_id });
+
     await admin.from("notifications").insert({
       user_id: payment.user_id,
       channel: "in_app",
       event_type: "payment_succeeded",
       title: "تم استلام الدفع",
       body: payment.booking_id ? "تم تأكيد حجزك بنجاح." : "تم تأكيد تسجيلك في الدورة.",
-      data: { order_number: payment.order_number },
+      data: payment.booking_id
+        ? { order_number: payment.order_number, booking_id: payment.booking_id }
+        : { order_number: payment.order_number, enrollment_id: payment.enrollment_id },
     });
   } else if (mappedStatus === "failed" && payment.booking_id) {
     // Release the slot so the moment is not lost to a failed attempt.
@@ -465,10 +505,46 @@ export async function verifyPayment(authorization: string | null, payload: unkno
     if (released?.slot_id) await admin.from("availability_slots").update({ is_available: true }).eq("id", released.slot_id);
   }
 
+  // Enough context for the callback screen to confirm what was actually bought,
+  // rather than showing one generic message for a session and a course alike.
+  let receipt: Record<string, unknown> = {};
+  if (mappedStatus === "succeeded" && payment.booking_id) {
+    const { data: booked } = await admin
+      .from("bookings")
+      .select("starts_at,mode,meeting_url,service_id,services(name)")
+      .eq("id", payment.booking_id)
+      .maybeSingle();
+    const service = booked?.services as { name?: string } | { name?: string }[] | null | undefined;
+    receipt = {
+      title: (Array.isArray(service) ? service[0]?.name : service?.name) ?? "جلسة علاج طبيعي",
+      startsAt: booked?.starts_at ?? null,
+      mode: booked?.mode ?? null,
+      meetingUrl: booked?.meeting_url ?? null,
+    };
+  } else if (mappedStatus === "succeeded" && payment.enrollment_id) {
+    const { data: enrolled } = await admin
+      .from("enrollments")
+      .select("course_id,courses(title,slug)")
+      .eq("id", payment.enrollment_id)
+      .maybeSingle();
+    const course = enrolled?.courses as { title?: string; slug?: string } | { title?: string; slug?: string }[] | null | undefined;
+    const first = Array.isArray(course) ? course[0] : course;
+    receipt = { title: first?.title ?? "دورة تأهيلية", slug: first?.slug ?? null };
+  }
+
   return {
     status: 200,
     cacheControl: noStore,
-    body: { status: mappedStatus, persisted: true, orderNumber: payment.order_number, bookingId: payment.booking_id },
+    body: {
+      status: mappedStatus,
+      persisted: true,
+      orderNumber: payment.order_number,
+      bookingId: payment.booking_id,
+      enrollmentId: payment.enrollment_id,
+      kind: payment.booking_id ? "booking" : "course",
+      amount: Number(payment.amount),
+      ...receipt,
+    },
   };
 }
 

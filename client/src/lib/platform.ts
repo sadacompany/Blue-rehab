@@ -241,7 +241,22 @@ export async function startCheckout(orderNumber: string): Promise<{ paymentUrl: 
   return payload as { paymentUrl: string };
 }
 
-export type VerifyResult = { status: string; persisted: boolean; orderNumber?: string; bookingId?: string | null; reason?: string };
+export type VerifyResult = {
+  status: string;
+  persisted: boolean;
+  orderNumber?: string;
+  bookingId?: string | null;
+  enrollmentId?: string | null;
+  /** What was paid for, so the confirmation can name it. */
+  kind?: "booking" | "course";
+  amount?: number;
+  title?: string;
+  startsAt?: string | null;
+  mode?: DeliveryMode | null;
+  meetingUrl?: string | null;
+  slug?: string | null;
+  reason?: string;
+};
 
 /**
  * Confirm a payment outcome. The server re-reads it from Moyasar.
@@ -357,6 +372,25 @@ export type PortalSnapshot = {
   services: Record<string, string>;
   courses: Record<string, string>;
 };
+
+/**
+ * Mark notifications as read.
+ *
+ * Nothing ever set `read_at`, so every notice a patient had ever received stayed
+ * flagged as new — including ones later contradicted by a newer notice. RLS
+ * limits the update to the caller's own rows and to the `read_at` column.
+ */
+export async function markNotificationsRead(ids?: string[]) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData.session?.user;
+  if (!user) throw new AuthenticationRequiredError();
+
+  let query = supabase.from("notifications").update({ read_at: new Date().toISOString() }).is("read_at", null);
+  if (ids?.length) query = query.in("id", ids);
+
+  const { error } = await query;
+  if (error) throw new Error(error.message);
+}
 
 export async function loadPortalSnapshot(): Promise<PortalSnapshot> {
   const { data: sessionData } = await supabase.auth.getSession();

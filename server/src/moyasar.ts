@@ -59,6 +59,18 @@ function authHeader(): string {
   return `Basic ${encoded}`;
 }
 
+/**
+ * Carries the gateway's HTTP status so callers can distinguish "you asked for
+ * something that does not exist" from "the gateway is having a bad day". Without
+ * it an unknown payment id surfaced to the browser as a 500.
+ */
+export class MoyasarError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "MoyasarError";
+  }
+}
+
 async function moyasarRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!isMoyasarConfigured()) throw new Error("moyasar_not_configured");
   const response = await fetch(`${MOYASAR_API}${path}`, {
@@ -72,7 +84,7 @@ async function moyasarRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const text = await response.text();
   if (!response.ok) {
     // Never echo the request body back — it can carry payment details.
-    throw new Error(`moyasar_${response.status}:${text.slice(0, 300)}`);
+    throw new MoyasarError(response.status, `moyasar_${response.status}:${text.slice(0, 300)}`);
   }
   return JSON.parse(text) as T;
 }
