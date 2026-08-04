@@ -3,7 +3,11 @@
   publish = "client/dist"
 
 [build.environment]
-  NODE_VERSION = "20"
+  # Node 22, not 20: @supabase/supabase-js v2.111 pulls in realtime-js, which
+  # requires a native global WebSocket. Node 20 has none, so the Netlify function
+  # threw "native WebSocket not found" at import time and every /api route
+  # returned 502. This value sets the functions runtime as well as the build.
+  NODE_VERSION = "22"
   VITE_API_URL = "/api"
   VITE_SUPABASE_URL = "https://jmgfabzsgrukrzpnuhux.supabase.co"
   VITE_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_eCJHRbegR3FVk1Hbu3Kbgw_aMoMwvNb"
