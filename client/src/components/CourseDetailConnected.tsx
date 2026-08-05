@@ -2,7 +2,8 @@ import { Award, BookOpen, CalendarDays, CheckCircle2, ChevronDown, Clock3, Credi
 import { useEffect, useState } from "react";
 import type { CourseDetailResponse } from "../lib/catalog-types";
 import { courseModeLabel, formatCurrency, formatDate } from "../lib/format";
-import { AuthenticationRequiredError, enrollInCourse, loadCourseDetail, startCheckout } from "../lib/platform";
+import { loadCourseDetail } from "../lib/catalog";
+import { AuthenticationRequiredError, enrollInCourse, startCheckout } from "../lib/platform";
 import DemoBadge from "./DemoBadge";
 
 export default function CourseDetailConnected({ slug }: { slug: string }) {

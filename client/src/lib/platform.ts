@@ -1,11 +1,8 @@
 import { apiUrl } from "./api";
+import { loadCatalog, loadCourseDetail } from "./catalog";
 import type {
   AvailabilitySlot,
-  Branch,
-  CatalogResponse,
   Course,
-  CourseDetailResponse,
-  CourseModule,
   DeliveryMode,
   Service,
   Specialist,
@@ -23,143 +20,9 @@ function firstError(results: Array<{ error: { message: string } | null }>) {
   return results.find((result) => result.error)?.error ?? null;
 }
 
-export async function loadCatalog(): Promise<CatalogResponse> {
-  const now = new Date().toISOString();
-  const [servicesResult, specialistsResult, coursesResult, branchesResult, slotsResult] = await Promise.all([
-    supabase.from("services").select("id,name,description,duration_minutes,price,allowed_modes,is_demo").eq("is_active", true).order("price"),
-    supabase.from("specialists").select("id,display_name,title,bio,specialties,languages,is_verified,is_demo").order("created_at"),
-    supabase.from("courses").select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo").eq("is_published", true).order("starts_at"),
-    supabase.from("branches").select("id,name,city,address,is_demo").eq("is_active", true).order("name"),
-    supabase.from("availability_slots").select("id,specialist_id,branch_id,starts_at,ends_at,mode").eq("is_available", true).gt("starts_at", now).order("starts_at").limit(40),
-  ]);
-
-  const error = firstError([servicesResult, specialistsResult, coursesResult, branchesResult, slotsResult]);
-  if (error) throw new Error(error.message);
-
-  const services: Service[] = (servicesResult.data ?? []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    description: row.description ?? "",
-    durationMinutes: Number(row.duration_minutes),
-    price: Number(row.price),
-    modes: row.allowed_modes as DeliveryMode[],
-    isDemo: Boolean(row.is_demo),
-  }));
-
-  const specialists: Specialist[] = (specialistsResult.data ?? []).map((row) => ({
-    id: row.id,
-    name: row.display_name,
-    title: row.title,
-    bio: row.bio ?? "",
-    specialties: row.specialties ?? [],
-    languages: row.languages ?? [],
-    isVerified: Boolean(row.is_verified),
-    isDemo: Boolean(row.is_demo),
-  }));
-
-  const courses: Course[] = (coursesResult.data ?? []).map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    summary: row.summary ?? "",
-    description: row.description ?? "",
-    durationHours: Number(row.duration_hours),
-    price: Number(row.price),
-    mode: row.mode as Course["mode"],
-    level: row.level,
-    startsAt: row.starts_at,
-    learningOutcomes: row.learning_outcomes ?? [],
-    prerequisites: row.prerequisites ?? [],
-    language: row.language,
-    certificateAvailable: Boolean(row.certificate_available),
-    isDemo: Boolean(row.is_demo),
-  }));
-
-  const branches: Branch[] = (branchesResult.data ?? []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    city: row.city,
-    address: row.address,
-    isDemo: Boolean(row.is_demo),
-  }));
-
-  const availability: AvailabilitySlot[] = (slotsResult.data ?? []).map((row) => ({
-    id: row.id,
-    specialistId: row.specialist_id,
-    branchId: row.branch_id,
-    startsAt: row.starts_at,
-    endsAt: row.ends_at,
-    mode: row.mode as DeliveryMode,
-  }));
-
-  return { services, specialists, courses, branches, availability, source: "supabase" };
-}
-
-export async function loadCourseDetail(slug: string): Promise<CourseDetailResponse> {
-  const courseResult = await supabase
-    .from("courses")
-    .select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo")
-    .eq("slug", slug)
-    .eq("is_published", true)
-    .maybeSingle();
-
-  if (courseResult.error) throw new Error(courseResult.error.message);
-  if (!courseResult.data) throw new Error("COURSE_NOT_FOUND");
-
-  const modulesResult = await supabase
-    .from("course_modules")
-    .select("id,title,summary,position")
-    .eq("course_id", courseResult.data.id)
-    .order("position");
-  if (modulesResult.error) throw new Error(modulesResult.error.message);
-
-  const moduleIds = (modulesResult.data ?? []).map((module) => module.id);
-  const lessonsResult = moduleIds.length
-    ? await supabase
-        .from("course_lessons")
-        .select("id,module_id,title,content_type,duration_minutes,is_preview,position")
-        .in("module_id", moduleIds)
-        .order("position")
-    : { data: [], error: null };
-  if (lessonsResult.error) throw new Error(lessonsResult.error.message);
-
-  const row = courseResult.data;
-  const course: Course = {
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    summary: row.summary ?? "",
-    description: row.description ?? "",
-    durationHours: Number(row.duration_hours),
-    price: Number(row.price),
-    mode: row.mode as Course["mode"],
-    level: row.level,
-    startsAt: row.starts_at,
-    learningOutcomes: row.learning_outcomes ?? [],
-    prerequisites: row.prerequisites ?? [],
-    language: row.language,
-    certificateAvailable: Boolean(row.certificate_available),
-    isDemo: Boolean(row.is_demo),
-  };
-
-  const modules: CourseModule[] = (modulesResult.data ?? []).map((module) => ({
-    id: module.id,
-    title: module.title,
-    summary: module.summary ?? "",
-    position: module.position,
-    lessons: (lessonsResult.data ?? [])
-      .filter((lesson) => lesson.module_id === module.id)
-      .map((lesson) => ({
-        id: lesson.id,
-        title: lesson.title,
-        contentType: lesson.content_type,
-        durationMinutes: lesson.duration_minutes,
-        isPreview: Boolean(lesson.is_preview),
-      })),
-  }));
-
-  return { course, modules, source: "supabase" };
-}
+// Catalogue reads live in ./catalog so public pages never import the database
+// client. Re-exported here for callers that already need Supabase anyway.
+export { loadCatalog, loadCourseDetail };
 
 type BookingInput = {
   service: Service;

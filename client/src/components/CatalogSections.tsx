@@ -2,7 +2,7 @@ import { ArrowLeft, BookOpen, Clock3, Languages, MapPin, Monitor, RefreshCcw, Sh
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CatalogResponse, Course, Specialist } from "../lib/catalog-types";
 import { courseModeLabel, formatCurrency, formatDate } from "../lib/format";
-import { loadCatalog } from "../lib/platform";
+import { loadCatalog } from "../lib/catalog";
 import DemoBadge from "./DemoBadge";
 
 export function useCatalog() {

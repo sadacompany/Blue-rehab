@@ -633,6 +633,21 @@
 .payment-result { max-width: 720px; margin-inline: auto; }
 
 .portal-head-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* Booking wizard — required fields, blocked-step hint, day-grouped times */
+.req { color: var(--color-danger); font-weight: 700; }
+.booking-missing { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; padding: 11px 14px; border-radius: 12px; background: var(--color-warning-soft); color: var(--color-warning-ink); font-size: 14px; }
+.booking-missing svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+.slot-days { display: grid; gap: 18px; }
+.slot-day h4 { margin: 0 0 9px; font-size: 15px; color: var(--color-ink-950); }
+.slot-times { display: flex; flex-wrap: wrap; gap: 9px; }
+.slot-times button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 15px; border: 1px solid var(--color-line); border-radius: 999px; background: #fff; font: inherit; font-size: 14px; color: var(--color-ink-950); cursor: pointer; transition: border-color .15s, background .15s; }
+.slot-times button:hover { border-color: var(--color-brand-400); background: var(--color-brand-50); }
+.slot-times button.selected { border-color: var(--color-brand-600); background: var(--color-brand-100); font-weight: 700; }
+.slot-times button svg { width: 15px; height: 15px; color: var(--color-brand-700); }
+.slot-times button i { display: inline-flex; }
+.slot-times button i svg { width: 14px; height: 14px; }
 .link-button { border: 0; background: none; font: inherit; font-size: 13px; font-weight: 700; color: var(--color-brand-700); cursor: pointer; padding: 4px 6px; border-radius: 8px; }
 .link-button:hover { background: var(--color-brand-50); }
 
