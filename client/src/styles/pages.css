@@ -151,15 +151,10 @@
 .slots { margin-top: 25px; }
 .slots > h3 { display: flex; align-items: center; gap: 7px; font-size: 14px; }
 .slots > h3 svg { width: 18px; color: var(--color-brand-700); }
-.slots > div:not(.empty-slots) { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.slots button { min-height: 61px; display: flex; align-items: center; gap: 9px; padding: 10px 13px; border: 1px solid var(--color-line); border-radius: 12px; background: #fff; color: var(--color-ink-900); text-align: start; cursor: pointer; }
-.slots button > svg { width: 18px; color: var(--color-brand-700); }
-.slots button span { flex: 1; font-size: 10px; font-weight: 800; }
-.slots button small { display: block; color: var(--color-muted); font-size: 8px; }
-.slots button i { width: 22px; height: 22px; display: none; place-items: center; border-radius: 50%; background: var(--color-brand-700); color: #fff; }
-.slots button i svg { width: 13px; }
-.slots button.selected { border-color: var(--color-brand-600); background: var(--color-brand-50); }
-.slots button.selected i { display: grid; }
+/* The flat one-row-per-appointment list these rules styled is gone; times are
+   grouped by day now and styled under .slot-times. Left in place they beat the
+   new rules on specificity — a 10px font on the time, and a 22px filled circle
+   where the tick should be. */
 .empty-slots { display: flex; align-items: center; gap: 10px; padding: 15px; border-radius: 12px; background: var(--color-warning-soft); color: var(--color-warning-ink); }
 .empty-slots > svg { width: 22px; flex: none; }
 .empty-slots strong, .empty-slots small { display: block; }
@@ -201,9 +196,14 @@
 .booking-success-live h2 { margin: 4px 0 10px; color: var(--color-ink-950); }
 .booking-success-live p { margin: 5px 0; color: var(--color-muted); }
 .booking-success-live > span > div { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
-.booking-meet-link, .booking-meet-note, .booking-meet-pending { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--color-brand-50); color: var(--color-brand-800); }
-.booking-meet-link svg, .booking-meet-note svg, .booking-meet-pending svg { width: 18px; height: 18px; flex: none; }
-.booking-meet-link a { color: var(--color-brand-700); text-decoration: underline; word-break: break-all; }
+.booking-meet-link, .booking-meet-note, .booking-meet-pending { display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; padding: 14px 16px; border-radius: 12px; background: var(--color-brand-50); color: var(--color-brand-800); }
+.booking-meet-note, .booking-meet-pending { align-items: center; }
+.booking-meet-link > svg, .booking-meet-note > svg, .booking-meet-pending > svg { width: 18px; height: 18px; flex: none; margin-top: 2px; }
+.booking-meet-link > div { flex: 1; min-width: 0; }
+.booking-meet-link strong { display: block; color: var(--color-ink-950); }
+.booking-meet-link small { display: block; margin-top: 3px; color: var(--color-muted); line-height: 1.6; }
+.booking-meet-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+.booking-meet-actions .button svg { width: 15px; height: 15px; }
 .enrollment-success { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 12px; background: var(--color-brand-50); color: var(--color-brand-800); }
 .enrollment-success svg { flex: none; }
 .enrollment-success b, .enrollment-success small { display: block; }
@@ -639,15 +639,30 @@
 .booking-missing { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; padding: 11px 14px; border-radius: 12px; background: var(--color-warning-soft); color: var(--color-warning-ink); font-size: 14px; }
 .booking-missing svg { width: 18px; height: 18px; flex-shrink: 0; }
 
-.slot-days { display: grid; gap: 18px; }
-.slot-day h4 { margin: 0 0 9px; font-size: 15px; color: var(--color-ink-950); }
-.slot-times { display: flex; flex-wrap: wrap; gap: 9px; }
-.slot-times button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 15px; border: 1px solid var(--color-line); border-radius: 999px; background: #fff; font: inherit; font-size: 14px; color: var(--color-ink-950); cursor: pointer; transition: border-color .15s, background .15s; }
+.slot-days { display: grid; gap: 22px; }
+.slot-day h4 { margin: 0 0 11px; font-size: 15px; font-weight: 700; color: var(--color-muted); }
+
+/* The time is the only thing being chosen here, so it carries the weight — a
+   clock icon on every chip only competed with the digits for attention. Chips
+   are at least 48px tall so they are comfortable to hit on a phone. */
+.slot-times { display: flex; flex-wrap: wrap; gap: 10px; }
+.slot-times button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; min-width: 108px; padding: 12px 22px;
+  border: 1.5px solid var(--color-line); border-radius: 14px; background: #fff;
+  font: inherit; color: var(--color-ink-950); cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.slot-time { font-size: 19px; font-weight: 700; line-height: 1; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
 .slot-times button:hover { border-color: var(--color-brand-400); background: var(--color-brand-50); }
-.slot-times button.selected { border-color: var(--color-brand-600); background: var(--color-brand-100); font-weight: 700; }
-.slot-times button svg { width: 15px; height: 15px; color: var(--color-brand-700); }
-.slot-times button i { display: inline-flex; }
-.slot-times button i svg { width: 14px; height: 14px; }
+.slot-times button:focus-visible { outline: 3px solid var(--color-brand-400); outline-offset: 2px; }
+.slot-times button.selected { border-color: var(--color-brand-700); background: var(--color-brand-700); color: #fff; }
+.slot-times button.selected svg { width: 19px; height: 19px; color: #fff; stroke-width: 3; }
+
+@media (max-width: 600px) {
+  .slot-times { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+  .slot-times button { min-width: 0; width: 100%; padding-inline: 12px; }
+}
 .link-button { border: 0; background: none; font: inherit; font-size: 13px; font-weight: 700; color: var(--color-brand-700); cursor: pointer; padding: 4px 6px; border-radius: 8px; }
 .link-button:hover { background: var(--color-brand-50); }
 

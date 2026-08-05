@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock3, CreditCard, HeartPulse, LoaderCircle, MapPin, MessageCircle, RefreshCcw, ShieldCheck, UserRound, Video } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, CheckCircle2, Copy, CreditCard, HeartPulse, LoaderCircle, MapPin, MessageCircle, RefreshCcw, ShieldCheck, UserRound, Video } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CatalogResponse, DeliveryMode } from "../lib/catalog-types";
 import { deliveryLabel, formatCurrency, formatDateTime, formatDayLabel, formatTime } from "../lib/format";
@@ -59,6 +59,19 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   const [payment, setPayment] = useState<PaymentConfig | null>(null);
   const [payBusy, setPayBusy] = useState(false);
   const [payError, setPayError] = useState("");
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  async function copyMeetingLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      window.setTimeout(() => setCopiedLink(false), 2500);
+    } catch {
+      // Clipboard blocked (insecure context or denied permission) — the link is
+      // still reachable through the button next to this one.
+      window.prompt("انسخ رابط الجلسة:", url);
+    }
+  }
 
   /** Draft as it stood when this page opened. Read once, before any save runs. */
   const pendingDraft = useRef<BookingDraft | null>(readDraft());
@@ -192,7 +205,7 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
     try {
       const notes = [`المنطقة: ${details.region}`, `بداية الأعراض: ${details.onset}`, `الألم: ${details.pain}/10`, `عملية سابقة: ${details.previousSurgery}`, `الأثر الوظيفي: ${details.complaint}`, `الهدف: ${details.goal}`].join("\n");
       // The server prices the booking, locks the slot, opens the payment record
-      // and (for remote sessions) schedules the Google Meet invitation.
+      // and (for remote sessions) issues the video link.
       setBooking(await createBooking({ service, specialist, slot, notes }));
       clearDraft();
     } catch (reason) {
@@ -241,11 +254,27 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
       <p>رقم الطلب: <b dir="ltr">{booking.orderNumber}</b></p>
       <p>الموعد: {formatDateTime(booking.starts_at)} · المبلغ: {formatCurrency(booking.total)}</p>
 
+      {/* No provider name and no claim that anything was emailed: the link is a
+          Jitsi room unless Google is configured, and only the Google path ever
+          sends a calendar invitation. Showing the raw URL — fragment options and
+          all — was noise; the actions do the job. */}
       {booking.mode === "remote" && (booking.meetingUrl
-        ? <p className="booking-meet-link"><Video /> جلسة عن بُعد عبر Google Meet: <a href={booking.meetingUrl} target="_blank" rel="noreferrer" dir="ltr">{booking.meetingUrl}</a><br /><small>أُرسلت الدعوة أيضاً إلى بريدك الإلكتروني.</small></p>
+        ? <div className="booking-meet-link">
+            <Video />
+            <div>
+              <strong>رابط الجلسة جاهز</strong>
+              <small>احتفظ بالرابط، وستجده أيضاً في حسابك قبل الموعد.</small>
+              <div className="booking-meet-actions">
+                <a className="button button-small" href={booking.meetingUrl} target="_blank" rel="noreferrer"><Video /> دخول الجلسة</a>
+                <button type="button" className="button button-small button-secondary" onClick={() => void copyMeetingLink(booking.meetingUrl!)}>
+                  {copiedLink ? <><Check /> تم النسخ</> : <><Copy /> نسخ الرابط</>}
+                </button>
+              </div>
+            </div>
+          </div>
         : <p className="booking-meet-note"><Video /> {payment?.meetEnabled === false
             ? "سيتواصل معك الفريق قبل الموعد لتزويدك برابط الجلسة."
-            : "ستصلك رابط الجلسة عبر Google Meet قبل الموعد."}</p>)}
+            : "سيصلك رابط الجلسة قبل الموعد."}</p>)}
 
       <div className="booking-invite-actions">
         <a className="button button-secondary" href={whatsappShareUrl(invite)} target="_blank" rel="noreferrer"><MessageCircle /> إرسال التفاصيل عبر واتساب</a>
@@ -274,7 +303,7 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
     <div className="booking-progress" aria-label="تقدم الحجز">{steps.map((label, index) => <button type="button" key={label} className={index === step ? "active" : index < step ? "done" : ""} onClick={() => index < step && setStep(index)}><i>{index < step ? <Check /> : index + 1}</i><span>{label}</span></button>)}</div>
     <div className="booking-card">
       {step === 0 && <section><header><span className="kicker">الخطوة الأولى</span><h2>اختر الخدمة وطريقة الجلسة</h2><p>الأسعار والخدمات مقروءة مباشرة من قاعدة البيانات.</p></header><div className="selection-grid services-selection">{catalog.services.map((item) => <button type="button" className={serviceId === item.id ? "selected" : ""} onClick={() => { setServiceId(item.id); setMode(item.modes[0]); }} key={item.id}><span className="selection-check"><Check /></span><HeartPulse /><div><h3>{item.name}</h3><p>{item.description}</p><small>{item.durationMinutes} دقيقة · {formatCurrency(item.price)}</small>{item.isDemo && <DemoBadge compact />}</div></button>)}</div><fieldset className="mode-fieldset"><legend>طريقة الجلسة</legend>{service?.modes.map((item) => <label key={item}><input type="radio" checked={mode === item} onChange={() => setMode(item)} /><span>{item === "remote" ? <Video /> : <MapPin />}{deliveryLabel(item)}</span></label>)}</fieldset></section>}
-      {step === 1 && <section><header><span className="kicker">الخطوة الثانية</span><h2>اختر المختص والموعد</h2><p>اختر المختص ثم الوقت المناسب لك.</p></header><div className="selection-grid specialist-selection">{catalog.specialists.map((item) => <button type="button" className={specialistId === item.id ? "selected" : ""} onClick={() => setSpecialistId(item.id)} key={item.id}><span className="selection-check"><Check /></span><span className="small-avatar"><UserRound /></span><div><h3>{item.name}</h3><p>{item.title}</p>{item.isDemo && <DemoBadge compact />}</div></button>)}</div><div className="slots"><h3><CalendarDays /> المواعيد المتاحة</h3>{slotsByDay.length ? <div className="slot-days">{slotsByDay.map((day) => <div className="slot-day" key={day[0].id}><h4>{formatDayLabel(day[0].startsAt)}</h4><div className="slot-times">{day.map((item) => <button type="button" className={slotId === item.id ? "selected" : ""} onClick={() => setSlotId(item.id)} key={item.id} aria-pressed={slotId === item.id}><Clock3 /><span>{formatTime(item.startsAt)}</span>{slotId === item.id && <i><Check /></i>}</button>)}</div></div>)}</div> : <div className="empty-slots"><AlertCircle /><span><strong>لا توجد مواعيد مطابقة.</strong><small>جرّب طريقة جلسة أخرى أو مختصًا آخر.</small></span></div>}</div></section>}
+      {step === 1 && <section><header><span className="kicker">الخطوة الثانية</span><h2>اختر المختص والموعد</h2><p>اختر المختص ثم الوقت المناسب لك.</p></header><div className="selection-grid specialist-selection">{catalog.specialists.map((item) => <button type="button" className={specialistId === item.id ? "selected" : ""} onClick={() => setSpecialistId(item.id)} key={item.id}><span className="selection-check"><Check /></span><span className="small-avatar"><UserRound /></span><div><h3>{item.name}</h3><p>{item.title}</p>{item.isDemo && <DemoBadge compact />}</div></button>)}</div><div className="slots"><h3><CalendarDays /> المواعيد المتاحة</h3>{slotsByDay.length ? <div className="slot-days">{slotsByDay.map((day) => <div className="slot-day" key={day[0].id}><h4>{formatDayLabel(day[0].startsAt)}</h4><div className="slot-times">{day.map((item) => <button type="button" className={slotId === item.id ? "selected" : ""} onClick={() => setSlotId(item.id)} key={item.id} aria-pressed={slotId === item.id}><span className="slot-time">{formatTime(item.startsAt)}</span>{slotId === item.id && <Check aria-hidden="true" />}</button>)}</div></div>)}</div> : <div className="empty-slots"><AlertCircle /><span><strong>لا توجد مواعيد مطابقة.</strong><small>جرّب طريقة جلسة أخرى أو مختصًا آخر.</small></span></div>}</div></section>}
       {step === 2 && <section><header><span className="kicker">الخطوة الثالثة</span><h2>اكتب ملخصًا وظيفيًا للحالة</h2><p>لا تضف رقم الهوية أو ملفات صحية حساسة هنا.</p></header><div className="form-grid"><label><span>المنطقة المتأثرة</span><select value={details.region} onChange={(event) => setDetails({ ...details, region: event.target.value })}><option>الركبة</option><option>الكتف</option><option>أسفل الظهر</option><option>الكاحل والقدم</option><option>الرقبة</option><option>منطقة أخرى</option></select></label><label><span>بداية الأعراض <b className="req">*</b></span><select value={details.onset} onChange={(event) => setDetails({ ...details, onset: event.target.value })}><option value="">اختر المدة</option><option>أقل من أسبوع</option><option>من أسبوع إلى شهر</option><option>من شهر إلى ثلاثة أشهر</option><option>أكثر من ثلاثة أشهر</option></select></label><label className="wide"><span>الأثر على الحركة أو النشاط <b className="req">*</b></span><textarea required maxLength={300} placeholder="مثال: صعوبة صعود الدرج بعد النشاط" value={details.complaint} onChange={(event) => setDetails({ ...details, complaint: event.target.value })} /></label><label className="wide range-field"><span>شدة الألم: <strong>{details.pain}/10</strong></span><input type="range" min="0" max="10" value={details.pain} onChange={(event) => setDetails({ ...details, pain: Number(event.target.value) })} /></label><label><span>عملية سابقة</span><select value={details.previousSurgery} onChange={(event) => setDetails({ ...details, previousSurgery: event.target.value })}><option>لا</option><option>نعم</option></select></label><label><span>هدفك من الجلسة <b className="req">*</b></span><input placeholder="مثال: العودة للمشي دون ألم" value={details.goal} onChange={(event) => setDetails({ ...details, goal: event.target.value })} /></label></div></section>}
       {step === 3 && <section><header><span className="kicker">الخطوة الرابعة</span><h2>راجع الحجز</h2><p>تأكد من التفاصيل قبل تأكيد الطلب.</p></header><div className="summary-card"><div><span>الخدمة</span><strong>{service?.name}</strong><small>{service && formatCurrency(service.price)}</small></div><div><span>طريقة الجلسة</span><strong>{deliveryLabel(mode)}</strong></div><div><span>المختص</span><strong>{specialist?.name}</strong></div><div><span>الموعد</span><strong>{slot ? formatDateTime(slot.startsAt) : "لم يحدد"}</strong></div><div><span>الحالة</span><strong>{details.region} · ألم {details.pain}/10</strong></div></div><label className="policy-check"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} /><span>قرأت <a href="/terms" target="_blank">الشروط</a> و<a href="/privacy" target="_blank">الخصوصية</a> و<a href="/refund-policy" target="_blank">سياسة الإلغاء</a>.</span></label><div className="payment-note"><ShieldCheck /><span><strong>حجز محمي</strong><small>تُنشئ المنصة سجل دفع بانتظار ربط بوابة الدفع.</small></span></div>{submitError && <div className="form-error" role="alert">{submitError}</div>}</section>}
       {/* Say what is still needed rather than leaving a dead grey button. */}
