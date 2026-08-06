@@ -634,6 +634,81 @@
 
 .portal-head-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
+/* Provider onboarding, administration and instructor surfaces */
+.admin-page { padding: 46px 0 90px; background: var(--color-soft); min-height: 70vh; }
+.admin-metrics { margin-bottom: 16px; }
+.admin-metrics i { display: block; margin-top: 4px; font-style: normal; font-size: 12px; color: var(--color-muted); }
+.admin-callout { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 14px; background: var(--color-warning-soft); color: var(--color-warning-ink); }
+.admin-callout svg { width: 20px; height: 20px; flex: none; }
+.admin-callout span { flex: 1; }
+
+.admin-list { display: grid; gap: 12px; }
+.admin-row { border: 1px solid var(--color-line); border-radius: 14px; padding: 16px; background: #fff; }
+.admin-row-main { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+.admin-row-main strong { display: block; color: var(--color-ink-950); }
+.admin-row-main small { display: block; margin-top: 3px; color: var(--color-muted); line-height: 1.6; }
+.admin-row-main em { font-style: normal; font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 999px; white-space: nowrap; color: var(--color-brand-700); background: var(--color-brand-100); }
+.admin-row.status-pending em, .admin-row.status-pending_payment em, .admin-row.status-new em { color: var(--color-warning-ink); background: var(--color-warning-soft); }
+.admin-row.status-rejected em, .admin-row.status-failed em, .admin-row.status-cancelled em { color: var(--color-danger-ink); background: var(--color-danger-soft); }
+.admin-quote { border-inline-start: 3px solid var(--color-brand-100); padding-inline-start: 10px; }
+.admin-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.admin-row-actions input { flex: 1; min-width: 200px; }
+
+.chip { border: 1px solid var(--color-line); background: #fff; border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 13px; color: var(--color-muted); cursor: pointer; }
+.chip:hover { border-color: var(--color-brand-400); }
+.chip.selected { border-color: var(--color-brand-700); background: var(--color-brand-700); color: #fff; font-weight: 700; }
+.chip.is-booked { background: var(--color-soft); color: var(--color-muted); cursor: default; }
+.chip-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 7px; }
+.role-picker { gap: 6px; }
+
+.application-list { display: grid; gap: 12px; margin-bottom: 28px; }
+.application-card { border: 1px solid var(--color-line); border-radius: 14px; padding: 16px; background: #fff; }
+.application-card header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.application-card strong { display: block; color: var(--color-ink-950); }
+.application-card small { display: block; margin-top: 3px; color: var(--color-muted); }
+.application-card em { display: inline-flex; align-items: center; gap: 5px; font-style: normal; font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 999px; white-space: nowrap; color: var(--color-warning-ink); background: var(--color-warning-soft); }
+.application-card em svg { width: 14px; height: 14px; }
+.application-card.status-approved em { color: var(--color-brand-700); background: var(--color-brand-100); }
+.application-card.status-rejected em { color: var(--color-danger-ink); background: var(--color-danger-soft); }
+.application-card .button { margin-top: 12px; }
+.application-note { margin: 10px 0 0; padding: 9px 12px; border-radius: 10px; background: var(--color-soft); color: var(--color-muted); font-size: 13px; }
+.application-hint { margin: 10px 0 0; font-size: 13px; color: var(--color-muted); }
+.application-form { border: 1px solid var(--color-line); border-radius: 16px; padding: 22px; background: #fff; }
+.application-form h2 { margin-top: 0; }
+
+.kind-picker { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+.kind-picker button { display: flex; align-items: flex-start; gap: 10px; text-align: start; padding: 15px; border: 1.5px solid var(--color-line); border-radius: 14px; background: #fff; font: inherit; cursor: pointer; }
+.kind-picker button.selected { border-color: var(--color-brand-600); background: var(--color-brand-50); }
+.kind-picker svg { width: 22px; height: 22px; color: var(--color-brand-700); flex: none; }
+.kind-picker strong { display: block; color: var(--color-ink-950); }
+.kind-picker small { display: block; margin-top: 3px; color: var(--color-muted); line-height: 1.6; }
+
+.availability-panel { display: grid; gap: 26px; }
+.availability-composer { border: 1px dashed var(--color-line); border-radius: 14px; padding: 18px; background: var(--color-soft); }
+.availability-composer h3, .availability-lists h3 { margin: 0 0 10px; font-size: 16px; color: var(--color-ink-950); }
+.availability-lists h3 { margin-top: 18px; }
+.availability-field { display: block; margin-bottom: 14px; }
+.availability-field > span { font-size: 13px; font-weight: 700; color: var(--color-ink-950); }
+.availability-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.availability-row label { display: grid; gap: 6px; }
+.availability-row span { font-size: 13px; font-weight: 700; color: var(--color-ink-950); }
+.availability-message { margin: 10px 0 0; padding: 9px 12px; border-radius: 10px; background: var(--color-brand-50); color: var(--color-brand-800); font-size: 13px; }
+
+.trainer-course { margin-bottom: 20px; }
+.trainer-course-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.trainer-course-head h2 { margin: 0; font-size: 21px; }
+.trainer-course-head small { display: block; margin-top: 4px; color: var(--color-muted); }
+.trainer-course-actions { display: flex; align-items: center; gap: 10px; }
+.trainer-course-actions em { font-style: normal; font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 999px; color: var(--color-warning-ink); background: var(--color-warning-soft); }
+.trainer-course-actions em.is-published { color: var(--color-brand-700); background: var(--color-brand-100); }
+.trainer-section-title { margin: 22px 0 10px; font-size: 16px; color: var(--color-ink-950); }
+
+@media (max-width: 700px) {
+  .kind-picker, .availability-row { grid-template-columns: 1fr; }
+  .admin-row-main { flex-direction: column; }
+  .trainer-course-head { flex-direction: column; }
+}
+
 /* Booking wizard — required fields, blocked-step hint, day-grouped times */
 .req { color: var(--color-danger); font-weight: 700; }
 .booking-missing { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; padding: 11px 14px; border-radius: 12px; background: var(--color-warning-soft); color: var(--color-warning-ink); font-size: 14px; }

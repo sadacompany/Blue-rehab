@@ -1,18 +1,22 @@
 import { Activity, BadgeCheck, CalendarDays, ClipboardList, LoaderCircle, LogOut, NotebookPen, Plus, RefreshCcw, Stethoscope, Trash2, UserRound, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { deliveryLabel, formatCurrency, formatDateTime } from "../lib/format";
+import { deliveryLabel, formatCurrency, formatDateTime, formatDayLabel } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
 import {
   addExercise,
   createTreatmentPlan,
   deleteExercise,
+  closeSlot,
+  loadMySlots,
   loadSpecialistDashboard,
   NotASpecialistError,
+  openSlots,
   saveSessionNote,
   setAppointmentStatus,
   updateTreatmentPlan,
   type SessionNoteInput,
   type SpecialistAppointment,
+  type OpenSlot,
   type SpecialistDashboard as DashboardData,
   type TreatmentPlan,
 } from "../lib/specialist";
@@ -279,12 +283,122 @@ function PlanComposer({ specialistId, patients, onCreated }: {
   </div>;
 }
 
+/**
+ * Opening appointment times.
+ *
+ * Availability had no interface at all: the only slots that existed were the
+ * ones inserted by a seeding script, which meant a newly approved specialist was
+ * unbookable until someone touched the database. Days × times generates the
+ * grid in one pass, which is how a clinic actually thinks about a week.
+ */
+function AvailabilityPanel({ specialistId }: { specialistId: string }) {
+  const [slots, setSlots] = useState<OpenSlot[] | null>(null);
+  const [mode, setMode] = useState<"remote" | "clinic">("remote");
+  const [duration, setDuration] = useState(45);
+  const [days, setDays] = useState<string[]>([]);
+  const [times, setTimes] = useState<string[]>(["09:00", "11:00", "13:00"]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const reload = async () => {
+    try { setSlots(await loadMySlots(specialistId)); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "تعذر تحميل المواعيد"); }
+  };
+  useEffect(() => { void reload(); }, [specialistId]);
+
+  // The next fourteen days, which is as far ahead as a rehab schedule is useful.
+  const upcomingDays = useMemo(() => Array.from({ length: 14 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index + 1);
+    return date.toISOString().slice(0, 10);
+  }), []);
+
+  const toggle = (list: string[], value: string, set: (next: string[]) => void) =>
+    set(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
+
+  async function publish() {
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const created = await openSlots(specialistId, { dates: days, times, mode, durationMinutes: duration });
+      setMessage(created ? `تمت إضافة ${created} موعداً.` : "لم يُضف أي موعد — تحقق من الأيام والأوقات.");
+      setDays([]);
+      await reload();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر فتح المواعيد");
+    } finally { setBusy(false); }
+  }
+
+  async function remove(slotId: string) {
+    setBusy(true); setError("");
+    try { await closeSlot(slotId); await reload(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "تعذر إغلاق الموعد"); }
+    finally { setBusy(false); }
+  }
+
+  const open = slots?.filter((item) => item.isAvailable) ?? [];
+  const booked = slots?.filter((item) => !item.isAvailable) ?? [];
+
+  return <div className="availability-panel">
+    <div className="availability-composer">
+      <h3>فتح مواعيد جديدة</h3>
+
+      <label className="availability-field"><span>الأيام</span>
+        <div className="chip-grid">{upcomingDays.map((date) => <button
+          key={date} type="button" className={days.includes(date) ? "chip selected" : "chip"}
+          aria-pressed={days.includes(date)} onClick={() => toggle(days, date, setDays)}
+        >{formatDayLabel(date)}</button>)}</div>
+      </label>
+
+      <label className="availability-field"><span>الأوقات</span>
+        <div className="chip-grid">{["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00", "19:00"].map((time) => <button
+          key={time} type="button" className={times.includes(time) ? "chip selected" : "chip"}
+          aria-pressed={times.includes(time)} onClick={() => toggle(times, time, setTimes)}
+        >{time}</button>)}</div>
+      </label>
+
+      <div className="availability-row">
+        <label><span>طريقة الجلسة</span>
+          <select value={mode} onChange={(event) => setMode(event.target.value as "remote" | "clinic")}>
+            <option value="remote">عن بُعد</option>
+            <option value="clinic">في المركز</option>
+          </select>
+        </label>
+        <label><span>مدة الجلسة (دقيقة)</span>
+          <input type="number" min={15} max={180} step={5} value={duration} onChange={(event) => setDuration(Number(event.target.value) || 45)} />
+        </label>
+      </div>
+
+      {error && <p className="specialist-error">{error}</p>}
+      {message && <p className="availability-message">{message}</p>}
+      <p className="application-hint">سيتم إنشاء {days.length * times.length} موعداً.</p>
+
+      <button className="button" type="button" disabled={busy || !days.length || !times.length} onClick={() => void publish()}>
+        {busy ? <LoaderCircle className="spin" /> : <CalendarDays />} فتح المواعيد
+      </button>
+    </div>
+
+    <div className="availability-lists">
+      <h3>مواعيد مفتوحة ({open.length})</h3>
+      {open.length ? <div className="slot-times">{open.map((item) => <button
+        key={item.id} type="button" className="chip" disabled={busy}
+        title="اضغط لإغلاق الموعد" onClick={() => void remove(item.id)}
+      >{formatDateTime(item.startsAt)} ✕</button>)}</div>
+        : <p className="application-hint">لا توجد مواعيد مفتوحة. المرضى لن يتمكنوا من الحجز حتى تفتح مواعيد.</p>}
+
+      <h3>مواعيد محجوزة ({booked.length})</h3>
+      {booked.length ? <div className="slot-times">{booked.map((item) => <span key={item.id} className="chip is-booked">{formatDateTime(item.startsAt)}</span>)}</div>
+        : <p className="application-hint">لا توجد حجوزات قادمة.</p>}
+    </div>
+  </div>;
+}
+
 export default function SpecialistDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [denied, setDenied] = useState(false);
-  const [tab, setTab] = useState<"appointments" | "plans">("appointments");
+  const [tab, setTab] = useState<"appointments" | "plans" | "availability">("appointments");
 
   async function reload() {
     setLoading(true);
@@ -355,6 +469,7 @@ export default function SpecialistDashboard() {
       <div className="specialist-tabs" role="tablist">
         <button role="tab" aria-selected={tab === "appointments"} className={tab === "appointments" ? "is-active" : ""} onClick={() => setTab("appointments")}>المواعيد ({data.appointments.length})</button>
         <button role="tab" aria-selected={tab === "plans"} className={tab === "plans" ? "is-active" : ""} onClick={() => setTab("plans")}>الخطط العلاجية ({data.plans.length})</button>
+        <button role="tab" aria-selected={tab === "availability"} className={tab === "availability" ? "is-active" : ""} onClick={() => setTab("availability")}>مواعيدي المتاحة</button>
       </div>
 
       {tab === "appointments" && <section className="specialist-panel">
@@ -373,6 +488,10 @@ export default function SpecialistDashboard() {
           <summary><Plus /> خطة علاجية جديدة</summary>
           <PlanComposer specialistId={data.specialist.id} patients={data.patients} onCreated={() => void reload()} />
         </details>
+      </section>}
+
+      {tab === "availability" && <section className="specialist-panel">
+        <AvailabilityPanel specialistId={data.specialist.id} />
       </section>}
     </>}
   </div></section></PageShell>;

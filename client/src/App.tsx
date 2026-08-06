@@ -13,6 +13,7 @@ import HomePage from "./pages/HomePage";
  * data, that is the slowest moment of the entire journey.
  */
 const AboutPage = lazy(() => import("./pages/AboutPage"));
+const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const BookingFlowConnected = lazy(() => import("./components/BookingFlowConnected"));
 const ConnectedPortal = lazy(() => import("./components/ConnectedPortal"));
@@ -20,6 +21,7 @@ const ContactPage = lazy(() => import("./pages/ContactPage"));
 const CourseDetailConnected = lazy(() => import("./components/CourseDetailConnected"));
 const CoursesPage = lazy(() => import("./pages/CoursesPage"));
 const FaqPage = lazy(() => import("./pages/FaqPage"));
+const JoinProviderPage = lazy(() => import("./pages/JoinProviderPage"));
 const PaymentCallbackPage = lazy(() => import("./pages/PaymentCallbackPage"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const RefundPolicyPage = lazy(() => import("./pages/RefundPolicyPage"));
@@ -27,6 +29,7 @@ const ServicesPage = lazy(() => import("./pages/ServicesPage"));
 const SpecialistDashboard = lazy(() => import("./components/SpecialistDashboard"));
 const SpecialistsPage = lazy(() => import("./pages/SpecialistsPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
+const TrainerDashboard = lazy(() => import("./components/TrainerDashboard"));
 
 function RouteFallback() {
   return <PageShell><section className="section"><div className="container"><div className="booking-loader"><LoaderCircle className="spin" /><p>جارٍ التحميل…</p></div></div></section></PageShell>;
@@ -58,6 +61,9 @@ export default function App() {
       <Route path="/booking" element={<BookingPage />} />
       <Route path="/portal" element={<ConnectedPortal />} />
       <Route path="/specialist" element={<SpecialistDashboard />} />
+      <Route path="/trainer" element={<TrainerDashboard />} />
+      <Route path="/admin" element={<AdminDashboard />} />
+      <Route path="/join" element={<JoinProviderPage />} />
       <Route path="/payment/callback" element={<PaymentCallbackPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/faq" element={<FaqPage />} />

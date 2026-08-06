@@ -362,6 +362,70 @@ export async function deleteExercise(exerciseId: string) {
  * runs inside a SECURITY DEFINER function that re-checks ownership and refuses
  * anything other than completed/no_show from a confirmed booking.
  */
+export type OpenSlot = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  mode: DeliveryMode;
+  isAvailable: boolean;
+};
+
+/** Future slots on this specialist's own calendar, booked ones included. */
+export async function loadMySlots(specialistId: string): Promise<OpenSlot[]> {
+  const { data, error } = await supabase
+    .from("availability_slots")
+    .select("id,starts_at,ends_at,mode,is_available")
+    .eq("specialist_id", specialistId)
+    .gt("starts_at", new Date().toISOString())
+    .order("starts_at")
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    mode: row.mode as DeliveryMode,
+    isAvailable: Boolean(row.is_available),
+  }));
+}
+
+/**
+ * Open appointment times.
+ *
+ * Availability had no interface at all — the seeded slots existed only because
+ * they were inserted by script, so a newly approved specialist was unbookable.
+ * Writes are allowed by `availability_specialist_all`, scoped to their own row.
+ */
+export async function openSlots(
+  specialistId: string,
+  input: { dates: string[]; times: string[]; mode: DeliveryMode; durationMinutes: number },
+): Promise<number> {
+  const rows = input.dates.flatMap((date) =>
+    input.times.map((time) => {
+      const start = new Date(`${date}T${time}:00`);
+      return {
+        specialist_id: specialistId,
+        starts_at: start.toISOString(),
+        ends_at: new Date(start.getTime() + input.durationMinutes * 60_000).toISOString(),
+        mode: input.mode,
+        is_available: true,
+      };
+    }),
+  ).filter((row) => new Date(row.starts_at) > new Date());
+
+  if (!rows.length) return 0;
+
+  const { error } = await supabase.from("availability_slots").insert(rows);
+  if (error) throw new Error(error.message);
+  return rows.length;
+}
+
+/** Withdraw a time that nobody has booked. */
+export async function closeSlot(slotId: string) {
+  const { error } = await supabase.from("availability_slots").delete().eq("id", slotId).eq("is_available", true);
+  if (error) throw new Error(error.message);
+}
+
 export async function setAppointmentStatus(bookingId: string, status: "completed" | "no_show") {
   const { error } = await supabase.rpc("specialist_set_booking_status", {
     p_booking_id: bookingId,
