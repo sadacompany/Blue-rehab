@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, BookOpenCheck, CalendarDays, CheckCircle2, LoaderCircle, Video, XCircle } from "lucide-react";
+import { AlertCircle, BookOpenCheck, CalendarDays, CalendarPlus, CheckCircle2, LoaderCircle, MessageCircle, Video, XCircle } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { deliveryLabel, formatCurrency, formatDateTime } from "../lib/format";
+import { downloadIcs, whatsappShareUrl, type SessionInvite } from "../lib/invites";
 import { AuthenticationRequiredError, settlePayments, verifyPayment, type VerifyResult } from "../lib/platform";
 
 /** Seconds on the confirmation before the payer is moved on automatically. */
@@ -93,6 +94,23 @@ export default function PaymentCallbackPage() {
         {result?.orderNumber && <div><dt>رقم الطلب</dt><dd dir="ltr">{result.orderNumber}</dd></div>}
       </dl>
 
+      {!isCourse && result?.startsAt && <div className="booking-invite-actions">
+        <a className="button button-secondary" target="_blank" rel="noreferrer" href={whatsappShareUrl({
+          bookingId: result.bookingId ?? "", startsAt: result.startsAt, endsAt: null,
+          serviceName: result.title ?? "جلسة علاج طبيعي",
+          specialistName: result.specialistName ?? "المختص",
+          meetingUrl: result.meetingUrl ?? null,
+          isRemote: result.mode === "remote", branchName: null,
+        } satisfies SessionInvite)}><MessageCircle /> إرسال التفاصيل عبر واتساب</a>
+        <button type="button" className="button button-secondary" onClick={() => downloadIcs({
+          bookingId: result.bookingId ?? "", startsAt: result.startsAt!, endsAt: null,
+          serviceName: result.title ?? "جلسة علاج طبيعي",
+          specialistName: result.specialistName ?? "المختص",
+          meetingUrl: result.meetingUrl ?? null,
+          isRemote: result.mode === "remote", branchName: null,
+        } satisfies SessionInvite)}><CalendarPlus /> إضافة إلى التقويم</button>
+      </div>}
+
       {result?.meetingUrl && <p className="booking-meet-link">
         <Video /> رابط الجلسة: <a href={result.meetingUrl} target="_blank" rel="noreferrer" dir="ltr">{result.meetingUrl}</a>
       </p>}
@@ -104,10 +122,16 @@ export default function PaymentCallbackPage() {
       <p className="payment-redirect-note">سيتم تحويلك تلقائياً خلال {countdown} ثانية…</p>
     </div>}
 
-    {state === "done" && !succeeded && <div className="catalog-message">
+    {state === "done" && result?.status === "slot_taken" && <div className="catalog-message">
+      <AlertCircle /><strong>تعذر تأكيد الموعد — وأُعيد المبلغ إليك.</strong>
+      <p>حُجز هذا الموعد قبل اكتمال دفعك مباشرة. أُعيد المبلغ بالكامل إلى وسيلة الدفع نفسها، وقد يستغرق ظهوره أياماً حسب مصرفك.</p>
+      <div><a className="button" href="/booking">اختيار موعد آخر</a><a className="button button-secondary" href="/portal">حسابي</a></div>
+    </div>}
+
+    {state === "done" && !succeeded && result?.status !== "slot_taken" && <div className="catalog-message">
       <AlertCircle /><strong>لم تكتمل عملية الدفع.</strong>
-      <p>لم يُخصم أي مبلغ. الموعد ما يزال محجوزاً لك مؤقتاً — يمكنك إعادة المحاولة من حسابك.</p>
-      <div><a className="button" href="/portal">إعادة المحاولة من حسابي</a><a className="button button-secondary" href="/">العودة للرئيسية</a></div>
+      <p>لم يُخصم أي مبلغ ولم يُحجز أي موعد. يمكنك إعادة المحاولة.</p>
+      <div><a className="button" href="/booking">إعادة المحاولة</a><a className="button button-secondary" href="/portal">حسابي</a></div>
     </div>}
   </div></section></PageShell>;
 }

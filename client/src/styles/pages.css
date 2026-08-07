@@ -112,11 +112,14 @@
 .booking-page-head p { margin: 0; color: var(--color-muted); }
 .booking-shell { max-width: 1020px; margin: auto; }
 .booking-progress { display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; }
-.booking-progress button { position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; background: transparent; color: var(--color-muted); font-size: 10px; font-weight: 800; cursor: default; }
-.booking-progress button::before { content: ""; height: 2px; position: absolute; z-index: 0; inset-inline-end: -50%; inset-inline-start: 50%; top: 17px; background: var(--color-line); }
+/* Circle above label, not beside it: the connector line is drawn at the circle
+   centre, so a side-by-side layout ran it straight through the text. Stacking
+   keeps the line between the circles where it belongs. */
+.booking-progress button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; padding: 0 4px; border: 0; background: transparent; color: var(--color-muted); font-size: 13px; font-weight: 700; line-height: 1.35; text-align: center; cursor: default; }
+.booking-progress button::before { content: ""; height: 2px; position: absolute; z-index: 0; inset-inline-end: 50%; inset-inline-start: -50%; top: 17px; background: var(--color-line); }
 .booking-progress button:first-child::before { display: none; }
 .booking-progress button > * { position: relative; z-index: 2; }
-.booking-progress button i { width: 35px; height: 35px; display: grid; place-items: center; border: 2px solid var(--color-line); border-radius: 50%; background: var(--color-soft); font-style: normal; }
+.booking-progress button i { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border: 2px solid var(--color-line); border-radius: 50%; background: var(--color-soft); font-style: normal; }
 .booking-progress button i svg { width: 15px; }
 .booking-progress button.active, .booking-progress button.done { color: var(--color-brand-700); }
 .booking-progress button.active i, .booking-progress button.done i { border-color: var(--color-brand-700); background: var(--color-brand-700); color: #fff; }
@@ -633,6 +636,21 @@
 .payment-result { max-width: 720px; margin-inline: auto; }
 
 .portal-head-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.credential-upload > span { display: block; font-size: 13px; font-weight: 700; color: var(--color-ink-950); }
+.credential-upload > small { display: block; margin: 3px 0 9px; color: var(--color-muted); line-height: 1.6; }
+.credential-upload input[type=file] { font: inherit; font-size: 13px; }
+.credential-list { list-style: none; margin: 11px 0 0; padding: 0; display: grid; gap: 7px; }
+.credential-list li { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid var(--color-line); border-radius: 10px; background: #fff; font-size: 13px; }
+.credential-list li svg { width: 15px; height: 15px; color: var(--color-brand-700); flex: none; }
+.credential-list li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.branch-note { display: flex; gap: 10px; margin-top: 14px; padding: 14px 16px; border-radius: 12px; background: var(--color-brand-50); color: var(--color-brand-800); }
+.branch-note > svg { width: 18px; height: 18px; flex: none; margin-top: 2px; }
+.branch-note strong { display: block; color: var(--color-ink-950); margin-bottom: 7px; }
+.branch-note ul { margin: 0 0 8px; padding-inline-start: 18px; display: grid; gap: 7px; }
+.branch-note li b { display: block; color: var(--color-ink-950); font-size: 14px; }
+.branch-note small { display: block; color: var(--color-muted); line-height: 1.6; }
 
 /* Provider onboarding, administration and instructor surfaces */
 .admin-page { padding: 46px 0 90px; background: var(--color-soft); min-height: 70vh; }

@@ -49,13 +49,35 @@ function mockCredentials(phone: string) {
 export type StartResult = { mode: "mock" | "sms"; code?: string };
 
 /** Step 1 — ask for a code. In mock mode nothing is sent; the code is returned. */
-export async function startPhoneSignIn(rawPhone: string): Promise<StartResult> {
+export async function startPhoneSignIn(rawPhone: string, fullName?: string): Promise<StartResult> {
   const phone = normalizeSaudiPhone(rawPhone);
   if (isMockAuth()) return { mode: "mock", code: MOCK_OTP_CODE };
 
-  const { error } = await supabase.auth.signInWithOtp({ phone, options: { data: { account_type: "patient" } } });
-  if (error) throw new Error(error.message);
+  // The name travels as signup metadata, which is where `handle_new_user` reads
+  // it. Sending it only at verify time would be too late — the profile row is
+  // created by a trigger the moment the auth user appears, and a first-time
+  // caller would be stored as "مستخدم بلو" for good.
+  const { error } = await supabase.auth.signInWithOtp({
+    phone,
+    options: { data: { account_type: "patient", ...(fullName?.trim() ? { full_name: fullName.trim() } : {}) } },
+  });
+  if (error) throw new Error(translateAuthError(error.message));
   return { mode: "sms" };
+}
+
+/** Supabase surfaces these in English; patients should not see that. */
+function translateAuthError(message: string): string {
+  const map: Record<string, string> = {
+    "Signups not allowed for otp": "هذا الرقم غير مسجل. تأكد من الرقم أو تواصل مع الدعم.",
+    "Invalid phone": "رقم الجوال غير صحيح.",
+    "Phone logins are disabled": "الدخول برقم الجوال غير مفعّل حالياً.",
+    "sms send failed": "تعذر إرسال الرسالة. حاول مرة أخرى بعد قليل.",
+    "over_sms_send_rate_limit": "طلبت رمزاً قبل قليل. انتظر دقيقة ثم أعد المحاولة.",
+    "Token has expired or is invalid": "الرمز غير صحيح أو انتهت صلاحيته.",
+    "otp_expired": "انتهت صلاحية الرمز. اطلب رمزاً جديداً.",
+  };
+  const hit = Object.keys(map).find((key) => message.toLowerCase().includes(key.toLowerCase()));
+  return hit ? map[hit] : message;
 }
 
 /** Step 2 — verify the code and open a session. */

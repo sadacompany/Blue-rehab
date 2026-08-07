@@ -153,6 +153,7 @@ export default function AdminDashboard() {
               {item.bio && <small className="admin-quote">{item.bio}</small>}
               {item.credentialsNote && <small className="admin-quote">المؤهلات: {item.credentialsNote}</small>}
               {(item.contactEmail || item.contactPhone) && <small dir="ltr">{[item.contactEmail, item.contactPhone].filter(Boolean).join(" · ")}</small>}
+              {item.credentialFiles.length > 0 && <small>مرفقات المؤهلات: {item.credentialFiles.length} ملف</small>}
             </div>
             <em>{item.status === "pending" ? "قيد المراجعة" : item.status === "approved" ? "مقبول" : item.status === "rejected" ? "مرفوض" : "مسحوب"}</em>
           </div>

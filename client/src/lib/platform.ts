@@ -31,16 +31,21 @@ type BookingInput = {
   notes: string;
 };
 
+/**
+ * What the server returns when a patient asks to book.
+ *
+ * No booking id, because no booking exists yet — this is an intent with the
+ * price frozen and the slot held. The appointment is created after the payment
+ * is verified.
+ */
 export type BookingResult = {
-  id: string;
-  status: string;
+  orderNumber: string;
+  total: number;
+  currency: string;
   starts_at: string;
   ends_at: string | null;
   mode: DeliveryMode;
-  total: number;
-  orderNumber: string;
-  currency: string;
-  meetingUrl: string | null;
+  reservedUntil: string | null;
 };
 
 async function authorizedFetch(path: string, init?: RequestInit) {
@@ -114,6 +119,7 @@ export type VerifyResult = {
   kind?: "booking" | "course";
   amount?: number;
   title?: string;
+  specialistName?: string | null;
   startsAt?: string | null;
   mode?: DeliveryMode | null;
   meetingUrl?: string | null;
@@ -150,7 +156,7 @@ export async function enrollViaApi(courseId: string) {
     method: "POST",
     body: JSON.stringify({ courseId }),
   });
-  return payload.data as { id: string; status: string; amountDue: number; orderNumber: string | null; currency: string };
+  return payload.data as { status: string; amountDue: number; orderNumber: string; currency: string; courseTitle: string };
 }
 
 export type MeetingLinkResult = { meetingUrl: string | null; configured?: boolean; reused?: boolean };

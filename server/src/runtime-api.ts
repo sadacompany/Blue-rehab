@@ -9,6 +9,7 @@ import {
   isMoyasarTestMode,
   mapPaymentStatus,
   MoyasarError,
+  refundPayment,
   type MoyasarPayment,
 } from "./moyasar.js";
 import { adminClient, authenticatedClient, catalog } from "./supabase.js";
@@ -106,6 +107,16 @@ export async function getCourseDetail(slugValue: string): Promise<ApiResult> {
   };
 }
 
+type IntentRow = {
+  order_number: string;
+  amount: number;
+  currency: string;
+  starts_at: string;
+  ends_at: string | null;
+  mode: "remote" | "clinic";
+  reserved_until: string | null;
+};
+
 type BookingRow = {
   booking_id: string;
   order_number: string;
@@ -128,7 +139,11 @@ export async function createBookingDraft(authorization: string | null, payload: 
   if (!auth.ok) return auth.result;
   const body = bookingSchema.parse(payload);
 
-  const { data, error } = await auth.client.rpc("create_booking_with_payment", {
+  // Creates an *intent*, not a booking. The appointment only comes into
+  // existence once the payment is verified — an abandoned checkout should leave
+  // nothing behind, and no screen should say "booked" before money moves. The
+  // slot is held briefly so two payers rarely collide over the same time.
+  const { data, error } = await auth.client.rpc("create_booking_intent", {
     p_service_id: body.serviceId,
     p_specialist_id: body.specialistId,
     p_slot_id: body.slotId,
@@ -139,57 +154,25 @@ export async function createBookingDraft(authorization: string | null, payload: 
     if (mapped) return { status: mapped.status, body: { error: mapped.message }, cacheControl: noStore };
     throw error;
   }
-  const booking = (Array.isArray(data) ? data[0] : data) as BookingRow | undefined;
-  if (!booking) return { status: 409, body: { error: "تعذر إنشاء الحجز." }, cacheControl: noStore };
-
-  const meeting = booking.mode === "remote"
-    ? await scheduleMeeting(auth.client, booking, auth.user.email ?? null)
-    : null;
+  const intent = (Array.isArray(data) ? data[0] : data) as IntentRow | undefined;
+  if (!intent) return { status: 409, body: { error: "تعذر تجهيز الطلب." }, cacheControl: noStore };
 
   return {
     status: 201,
     cacheControl: noStore,
     body: {
       data: {
-        id: booking.booking_id,
-        status: booking.status,
-        starts_at: booking.starts_at,
-        ends_at: booking.ends_at,
-        mode: booking.mode,
-        total: Number(booking.amount),
-        orderNumber: booking.order_number,
-        currency: booking.currency,
-        meetingUrl: meeting?.url ?? null,
+        orderNumber: intent.order_number,
+        total: Number(intent.amount),
+        currency: intent.currency,
+        starts_at: intent.starts_at,
+        ends_at: intent.ends_at,
+        mode: intent.mode,
+        reservedUntil: intent.reserved_until,
       },
       next: isMoyasarConfigured() ? "payment" : "payment_unconfigured",
     },
   };
-}
-
-/**
- * Best-effort meeting link. A failure here never fails the booking — the patient
- * still has a confirmed slot and the link can be requested again later.
- */
-async function scheduleMeeting(client: SupabaseClientLike, booking: BookingRow, email: string | null) {
-  if (!isMeetingConfigured()) return null;
-  try {
-    const meeting = await createMeeting({
-      bookingId: booking.booking_id,
-      orderNumber: booking.order_number,
-      startsAt: booking.starts_at,
-      endsAt: booking.ends_at,
-      attendeeEmail: email,
-    });
-    if (!meeting) return null;
-    await client
-      .from("bookings")
-      .update({ meeting_url: meeting.url, meeting_event_id: meeting.eventId ?? null, meeting_provider: meeting.provider })
-      .eq("id", booking.booking_id);
-    return meeting;
-  } catch (error) {
-    console.error("meet_scheduling_failed", error);
-    return null;
-  }
 }
 
 const meetingParamsSchema = z.object({ bookingId: z.string().uuid() });
@@ -252,7 +235,7 @@ export async function createEnrollment(authorization: string | null, payload: un
   if (!auth.ok) return auth.result;
   const body = enrollmentSchema.parse(payload);
 
-  const { data, error } = await auth.client.rpc("create_enrollment_with_payment", { p_course_id: body.courseId });
+  const { data, error } = await auth.client.rpc("create_enrollment_intent", { p_course_id: body.courseId });
   if (error) {
     const mapped = mapDomainError(error.message);
     if (mapped) return { status: mapped.status, body: { error: mapped.message }, cacheControl: noStore };
@@ -470,13 +453,44 @@ export async function verifyPayment(authorization: string | null, payload: unkno
     }).eq("id", payment.id);
   }
 
+  let conflict = false;
+
   if (mappedStatus === "succeeded" && !alreadySettled) {
-    if (payment.booking_id) {
-      await admin.from("bookings").update({ status: "confirmed", updated_at: now }).eq("id", payment.booking_id);
+    // The booking is created here, not before payment. If the held slot lapsed
+    // and somebody else took the time in the meantime, the money goes straight
+    // back — a patient must never be left paid-up against an appointment that
+    // belongs to someone else.
+    const { data: outcome, error: convertError } = await admin.rpc("convert_paid_intent", {
+      p_order_number: payment.order_number,
+    });
+    if (convertError) throw convertError;
+
+    if (outcome === "slot_taken") {
+      conflict = true;
+      try {
+        await refundPayment(remote.id);
+        await admin.from("payments").update({
+          status: "refunded", failure_reason: "slot_taken_refunded",
+          provider_payment_id: remote.id, updated_at: now,
+        }).eq("id", payment.id);
+      } catch (refundError) {
+        // Flag it loudly: money is held against nothing and needs a human.
+        console.error("refund_failed", payment.order_number, refundError);
+        await admin.from("payments").update({
+          status: "succeeded", failure_reason: "slot_taken_refund_failed",
+          provider_payment_id: remote.id, paid_at: now, updated_at: now,
+        }).eq("id", payment.id);
+      }
+      await admin.from("notifications").insert({
+        user_id: payment.user_id, channel: "in_app", event_type: "booking_slot_taken",
+        title: "تعذر تأكيد الموعد",
+        body: "حُجز هذا الموعد قبل إتمام دفعك مباشرة، وتمت إعادة المبلغ إليك. يمكنك اختيار موعد آخر.",
+        data: { order_number: payment.order_number },
+      });
     }
-    if (payment.enrollment_id) {
-      await admin.from("enrollments").update({ status: "active" }).eq("id", payment.enrollment_id);
-    }
+  }
+
+  if (mappedStatus === "succeeded" && !alreadySettled && !conflict) {
     // Retire the "awaiting payment" notice for this order. Left unread it sits
     // directly under the confirmation saying the opposite thing, which reads as
     // the platform contradicting itself.
@@ -499,33 +513,49 @@ export async function verifyPayment(authorization: string | null, payload: unkno
         ? { order_number: payment.order_number, booking_id: payment.booking_id }
         : { order_number: payment.order_number, enrollment_id: payment.enrollment_id },
     });
-  } else if (mappedStatus === "failed" && payment.booking_id) {
-    // Release the slot so the moment is not lost to a failed attempt.
-    const { data: released } = await admin.from("bookings").select("slot_id").eq("id", payment.booking_id).maybeSingle();
-    if (released?.slot_id) await admin.from("availability_slots").update({ is_available: true }).eq("id", released.slot_id);
+  } else if (mappedStatus === "failed") {
+    // Hand the held time back rather than letting the reservation run its course.
+    await admin.rpc("release_intent", { p_order_number: payment.order_number });
+  }
+
+  if (conflict) {
+    return {
+      status: 200,
+      cacheControl: noStore,
+      body: {
+        status: "slot_taken", persisted: true, orderNumber: payment.order_number,
+        kind: "booking", amount: Number(payment.amount),
+      },
+    };
   }
 
   // Enough context for the callback screen to confirm what was actually bought,
   // rather than showing one generic message for a session and a course alike.
   let receipt: Record<string, unknown> = {};
-  if (mappedStatus === "succeeded" && payment.booking_id) {
+  const settled = await findLocalPayment(auth.client, remote);
+  const bookingId = settled?.booking_id ?? payment.booking_id;
+  const enrollmentId = settled?.enrollment_id ?? payment.enrollment_id;
+
+  if (mappedStatus === "succeeded" && bookingId) {
     const { data: booked } = await admin
       .from("bookings")
-      .select("starts_at,mode,meeting_url,service_id,services(name)")
-      .eq("id", payment.booking_id)
+      .select("starts_at,mode,meeting_url,service_id,services(name),specialists(display_name)")
+      .eq("id", bookingId)
       .maybeSingle();
     const service = booked?.services as { name?: string } | { name?: string }[] | null | undefined;
+    const spec = booked?.specialists as { display_name?: string } | { display_name?: string }[] | null | undefined;
     receipt = {
       title: (Array.isArray(service) ? service[0]?.name : service?.name) ?? "جلسة علاج طبيعي",
+      specialistName: (Array.isArray(spec) ? spec[0]?.display_name : spec?.display_name) ?? null,
       startsAt: booked?.starts_at ?? null,
       mode: booked?.mode ?? null,
       meetingUrl: booked?.meeting_url ?? null,
     };
-  } else if (mappedStatus === "succeeded" && payment.enrollment_id) {
+  } else if (mappedStatus === "succeeded" && enrollmentId) {
     const { data: enrolled } = await admin
       .from("enrollments")
       .select("course_id,courses(title,slug)")
-      .eq("id", payment.enrollment_id)
+      .eq("id", enrollmentId)
       .maybeSingle();
     const course = enrolled?.courses as { title?: string; slug?: string } | { title?: string; slug?: string }[] | null | undefined;
     const first = Array.isArray(course) ? course[0] : course;
@@ -539,9 +569,9 @@ export async function verifyPayment(authorization: string | null, payload: unkno
       status: mappedStatus,
       persisted: true,
       orderNumber: payment.order_number,
-      bookingId: payment.booking_id,
-      enrollmentId: payment.enrollment_id,
-      kind: payment.booking_id ? "booking" : "course",
+      bookingId,
+      enrollmentId,
+      kind: bookingId ? "booking" : "course",
       amount: Number(payment.amount),
       ...receipt,
     },

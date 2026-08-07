@@ -122,7 +122,8 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       yearsExperience: row.years_experience ?? 0, licenseNumber: row.license_number,
       credentialsNote: row.credentials_note, contactEmail: row.contact_email,
       contactPhone: row.contact_phone, status: row.status, reviewNote: row.review_note,
-      reviewedAt: row.reviewed_at, createdAt: row.created_at,
+      reviewedAt: row.reviewed_at, credentialFiles: row.credential_files ?? [],
+      createdAt: row.created_at,
     })),
     users: (users.data ?? []).map((row: any) => ({
       id: row.id, fullName: row.full_name, phone: row.phone, roles: row.roles ?? [], createdAt: row.created_at,

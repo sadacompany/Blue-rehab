@@ -12,6 +12,28 @@ import { supabase } from "./supabase";
 export type ProviderKind = "specialist" | "trainer";
 export type ApplicationStatus = "pending" | "approved" | "rejected" | "withdrawn";
 
+/** Objects live at <user-id>/<file>, which is what the storage policy checks. */
+export async function uploadCredential(file: File): Promise<string> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData.session?.user;
+  if (!user) throw new AuthenticationRequiredError();
+
+  if (file.size > 10 * 1024 * 1024) throw new Error("حجم الملف يتجاوز ١٠ ميغابايت.");
+  const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+  if (!allowed.includes(file.type)) throw new Error("يُقبل PDF أو صورة فقط.");
+
+  const safe = file.name.replace(/[^\w.-]+/g, "_").slice(-60);
+  const path = `${user.id}/${Date.now()}-${safe}`;
+  const { error } = await supabase.storage.from("provider-credentials").upload(path, file, { upsert: false });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
+export async function removeCredential(path: string) {
+  const { error } = await supabase.storage.from("provider-credentials").remove([path]);
+  if (error) throw new Error(error.message);
+}
+
 export type ProviderApplication = {
   id: string;
   kind: ProviderKind;
@@ -28,6 +50,7 @@ export type ProviderApplication = {
   status: ApplicationStatus;
   reviewNote: string | null;
   reviewedAt: string | null;
+  credentialFiles: string[];
   createdAt: string;
 };
 
@@ -62,6 +85,7 @@ function toApplication(row: any): ProviderApplication {
     status: row.status,
     reviewNote: row.review_note,
     reviewedAt: row.reviewed_at,
+    credentialFiles: row.credential_files ?? [],
     createdAt: row.created_at,
   };
 }
@@ -92,6 +116,7 @@ export type ApplicationInput = {
   credentialsNote: string;
   contactEmail: string;
   contactPhone: string;
+  credentialFiles: string[];
 };
 
 export async function submitApplication(input: ApplicationInput): Promise<ProviderApplication> {
@@ -107,6 +132,7 @@ export async function submitApplication(input: ApplicationInput): Promise<Provid
     p_credentials_note: input.credentialsNote || null,
     p_contact_email: input.contactEmail || null,
     p_contact_phone: input.contactPhone || null,
+    p_credential_files: input.credentialFiles ?? [],
   });
   if (error) throw new Error(translate(error.message));
   return toApplication(data);

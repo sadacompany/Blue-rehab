@@ -29,7 +29,7 @@ export default function AuthPage() {
     setBusy(true);
     setMessage("");
     try {
-      const result = await startPhoneSignIn(phone);
+      const result = await startPhoneSignIn(phone, fullName);
       setPhone(normalizeSaudiPhone(phone));
       setStep("verify");
       if (result.code) {
@@ -77,15 +77,15 @@ export default function AuthPage() {
 
     <div className="auth-card">
       {step === "phone" && <form onSubmit={requestOtp}>
-        <Phone /><h2>رقم الجوال</h2><p>أدخل رقمًا سعوديًا بصيغة 05xxxxxxxx.</p>
+        <Phone /><h2>رقم الجوال</h2><p>{mock ? "أدخل رقمًا سعوديًا بصيغة 05xxxxxxxx." : "سنرسل لك رمز تحقق برسالة نصية. أدخل رقمًا سعوديًا بصيغة 05xxxxxxxx."}</p>
         <label><span>رقم الجوال</span><input dir="ltr" inputMode="tel" autoComplete="tel" required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="05xxxxxxxx" /></label>
-        {mock && <label><span>الاسم الكامل <small>(للحسابات الجديدة)</small></span><input autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="اكتب اسمك" /></label>}
+        <label><span>الاسم الكامل <small>(للحسابات الجديدة)</small></span><input autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="اكتب اسمك" /></label>
         <button className="button" disabled={busy}>{busy ? <LoaderCircle className="spin" /> : <LogIn />} إرسال رمز التحقق</button>
       </form>}
 
       {step === "verify" && <form onSubmit={submitOtp}>
         <Phone /><h2>تحقق من الرمز</h2>
-        <p>{mock ? <>الوضع التجريبي فعّال — استخدم الرمز الظاهر أدناه للرقم <b dir="ltr">{phone}</b>.</> : <>أدخل الرمز المرسل إلى <b dir="ltr">{phone}</b>.</>}</p>
+        <p>{mock ? <>الوضع التجريبي فعّال — استخدم الرمز الظاهر أدناه للرقم <b dir="ltr">{phone}</b>.</> : <>أدخل الرمز المرسل برسالة نصية إلى <b dir="ltr">{phone}</b>. قد يستغرق وصوله بضع ثوانٍ.</>}</p>
         {mock && issuedCode && <div className="otp-mock-panel" role="status">
           <span>رمز التحقق التجريبي</span>
           <strong dir="ltr">{issuedCode}</strong>
