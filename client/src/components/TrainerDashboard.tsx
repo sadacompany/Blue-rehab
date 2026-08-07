@@ -4,6 +4,7 @@ import { formatCurrency, formatDate } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
 import {
   addModule,
+  createCourse,
   loadTrainerCourses,
   setCoursePublished,
   setStudentProgress,
@@ -45,6 +46,58 @@ function ModuleComposer({ course, onAdded }: { course: TrainerCourse; onAdded: (
     {error && <p className="specialist-error">{error}</p>}
     <button className="button button-small" type="button" disabled={busy} onClick={() => void submit()}>
       {busy ? <LoaderCircle className="spin" /> : <Plus />} إضافة وحدة
+    </button>
+  </div>;
+}
+
+/** Instructors could not create a course at all — only manage assigned ones. */
+function CourseComposer({ onCreated }: { onCreated: () => void }) {
+  const [form, setForm] = useState({ title: "", summary: "", price: "", durationHours: "6", mode: "onsite", level: "متوسط" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    if (form.title.trim().length < 3) { setError("عنوان الدورة مطلوب"); return; }
+    setBusy(true); setError("");
+    try {
+      await createCourse({
+        title: form.title, summary: form.summary,
+        price: Number(form.price) || 0, durationHours: Number(form.durationHours) || 1,
+        mode: form.mode, level: form.level,
+      });
+      setForm({ title: "", summary: "", price: "", durationHours: "6", mode: "onsite", level: "متوسط" });
+      onCreated();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر إنشاء الدورة");
+    } finally { setBusy(false); }
+  }
+
+  return <div className="specialist-plan-composer">
+    <label><span>عنوان الدورة <b className="req">*</b></span><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="مثال: التأهيل المتقدم للكتف" /></label>
+    <label><span>وصف مختصر</span><textarea rows={2} value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} /></label>
+    <div className="specialist-plan-composer-row">
+      <label><span>السعر (ر.س)</span><input type="number" min={0} step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label>
+      <label><span>عدد الساعات</span><input type="number" min={1} value={form.durationHours} onChange={(e) => setForm({ ...form, durationHours: e.target.value })} /></label>
+    </div>
+    <div className="specialist-plan-composer-row">
+      <label><span>طريقة التقديم</span>
+        <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
+          <option value="onsite">حضوري</option>
+          <option value="recorded">مسجل</option>
+          <option value="hybrid">هجين</option>
+          <option value="remote">عن بُعد</option>
+        </select>
+      </label>
+      <label><span>المستوى</span>
+        <select value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })}>
+          <option>مبتدئ</option><option>متوسط</option><option>متقدم</option>
+        </select>
+      </label>
+    </div>
+    {error && <p className="specialist-error">{error}</p>}
+    <p className="application-hint">تُنشأ الدورة كمسودة، ولا تظهر للطلاب حتى تنشرها.</p>
+    <button className="button" type="button" disabled={busy} onClick={() => void submit()}>
+      {busy ? <LoaderCircle className="spin" /> : <Plus />} إنشاء الدورة
     </button>
   </div>;
 }
@@ -93,12 +146,16 @@ export default function TrainerDashboard() {
 
     {error && <div className="form-error" role="alert">{error}</div>}
 
-    {courses && courses.length === 0 && <div className="catalog-message">
+{courses && courses.length === 0 && <div className="catalog-message">
       <BookOpenCheck />
-      <strong>لا توجد دورات مرتبطة بحسابك.</strong>
-      <p>تُسند الدورات إليك من الإدارة. تواصل معها لربط دوراتك بحسابك كمدرب.</p>
-      <a className="button button-secondary" href="/portal">حسابي</a>
+      <strong>لا توجد دورات مرتبطة بحسابك بعد.</strong>
+      <p>أنشئ دورتك الأولى أدناه، أو انتظر إسناد دورة قائمة إليك من الإدارة.</p>
     </div>}
+
+    <details className="specialist-new-plan" open={courses?.length === 0}>
+      <summary><Plus /> دورة جديدة</summary>
+      <CourseComposer onCreated={() => void reload()} />
+    </details>
 
     {courses?.map((course) => {
       const active = course.students.filter((s) => s.status === "active").length;

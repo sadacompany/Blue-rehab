@@ -31,6 +31,18 @@ const SpecialistsPage = lazy(() => import("./pages/SpecialistsPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const TrainerDashboard = lazy(() => import("./components/TrainerDashboard"));
 
+// The two sections and their content live in one module: they share layout and
+// data shapes, and splitting them further would trade a real gain in cohesion
+// for a few kilobytes.
+const ConsultationsHub = lazy(() => import("./pages/SectionPages").then((m) => ({ default: m.ConsultationsHub })));
+const AcademyHub = lazy(() => import("./pages/SectionPages").then((m) => ({ default: m.AcademyHub })));
+const ProgramsPage = lazy(() => import("./pages/SectionPages").then((m) => ({ default: m.ProgramsPage })));
+const ProgramDetailPage = lazy(() => import("./pages/SectionPages").then((m) => ({ default: m.ProgramDetailPage })));
+const ArticlesPage = lazy(() => import("./pages/SectionPages").then((m) => ({ default: m.ArticlesPage })));
+const ArticleDetailPage = lazy(() => import("./pages/SectionPages").then((m) => ({ default: m.ArticleDetailPage })));
+const ResearchPage = lazy(() => import("./pages/SectionPages").then((m) => ({ default: m.ResearchPage })));
+const ResearchDetailPage = lazy(() => import("./pages/SectionPages").then((m) => ({ default: m.ResearchDetailPage })));
+
 function RouteFallback() {
   return <PageShell><section className="section"><div className="container"><div className="booking-loader"><LoaderCircle className="spin" /><p>جارٍ التحميل…</p></div></div></section></PageShell>;
 }
@@ -54,6 +66,14 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<AuthPage />} />
+      <Route path="/consultations" element={<ConsultationsHub />} />
+      <Route path="/academy" element={<AcademyHub />} />
+      <Route path="/programs" element={<ProgramsPage />} />
+      <Route path="/programs/:slug" element={<ProgramDetailPage />} />
+      <Route path="/articles" element={<ArticlesPage />} />
+      <Route path="/articles/:slug" element={<ArticleDetailPage />} />
+      <Route path="/research" element={<ResearchPage />} />
+      <Route path="/research/:slug" element={<ResearchDetailPage />} />
       <Route path="/services" element={<ServicesPage />} />
       <Route path="/specialists" element={<SpecialistsPage />} />
       <Route path="/courses" element={<CoursesPage />} />

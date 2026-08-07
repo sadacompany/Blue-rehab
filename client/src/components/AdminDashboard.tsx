@@ -1,13 +1,17 @@
-import { AlertCircle, BadgeCheck, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, LifeBuoy, LoaderCircle, RefreshCcw, ShieldCheck, Users, Wallet, XCircle } from "lucide-react";
+import { AlertCircle, BadgeCheck, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, FileText, LifeBuoy, LoaderCircle, Plus, RefreshCcw, ShieldCheck, Users, Wallet, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatCurrency, formatDateTime } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
 import {
+  assignCourseTrainer,
   loadAdminSnapshot,
   NotAnAdminError,
   reviewApplication,
+  saveService,
+  setContentStatus,
   setSupportStatus,
   setUserRoles,
+  type AdminService,
   type AdminSnapshot,
 } from "../lib/admin";
 import PageShell from "./PageShell";
@@ -38,7 +42,66 @@ const SUPPORT_STATUS: Record<string, string> = {
   new: "جديد", in_progress: "قيد المعالجة", resolved: "تم الحل", closed: "مغلق",
 };
 
-type Tab = "overview" | "applications" | "users" | "bookings" | "payments" | "support";
+type Tab = "overview" | "applications" | "users" | "catalogue" | "content" | "bookings" | "payments" | "support";
+
+const CONTENT_LABEL: Record<string, string> = {
+  articles: "مقال", research_reviews: "مراجعة بحثية", rehab_programs: "برنامج علاجي",
+};
+const CONTENT_STATUS: Record<string, string> = {
+  draft: "مسودة", in_review: "قيد المراجعة", published: "منشور", archived: "مؤرشف",
+};
+
+/** Create or edit a service. Pricing is administrative — see the RLS note. */
+function ServiceEditor({ service, onSaved }: { service?: AdminService; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    name: service?.name ?? "",
+    price: String(service?.price ?? ""),
+    durationMinutes: String(service?.durationMinutes ?? "45"),
+    modes: service?.modes ?? ["remote"],
+    isActive: service?.isActive ?? true,
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const toggleMode = (mode: string) =>
+    setForm({ ...form, modes: form.modes.includes(mode) ? form.modes.filter((m) => m !== mode) : [...form.modes, mode] });
+
+  async function submit() {
+    if (form.name.trim().length < 2) { setError("اسم الخدمة مطلوب"); return; }
+    if (!form.modes.length) { setError("اختر طريقة جلسة واحدة على الأقل"); return; }
+    setBusy(true); setError("");
+    try {
+      await saveService({
+        id: service?.id, name: form.name, price: Number(form.price) || 0,
+        durationMinutes: Number(form.durationMinutes) || 45, modes: form.modes, isActive: form.isActive,
+      });
+      if (!service) setForm({ name: "", price: "", durationMinutes: "45", modes: ["remote"], isActive: true });
+      onSaved();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر الحفظ");
+    } finally { setBusy(false); }
+  }
+
+  return <div className="specialist-exercise-composer">
+    <input placeholder="اسم الخدمة" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+    <div className="availability-row">
+      <label><span>السعر (ر.س)</span><input type="number" min={0} step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label>
+      <label><span>المدة (دقيقة)</span><input type="number" min={5} step={5} value={form.durationMinutes} onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })} /></label>
+    </div>
+    <div className="role-picker admin-row-actions">
+      {[["remote", "عن بُعد"], ["clinic", "في المركز"]].map(([value, label]) => <button
+        key={value} type="button" className={form.modes.includes(value) ? "chip selected" : "chip"}
+        aria-pressed={form.modes.includes(value)} onClick={() => toggleMode(value)}
+      >{label}</button>)}
+      <button type="button" className={form.isActive ? "chip selected" : "chip"} aria-pressed={form.isActive}
+        onClick={() => setForm({ ...form, isActive: !form.isActive })}>{form.isActive ? "مفعّلة" : "معطّلة"}</button>
+    </div>
+    {error && <p className="specialist-error">{error}</p>}
+    <button className="button button-small" type="button" disabled={busy} onClick={() => void submit()}>
+      {busy ? <LoaderCircle className="spin" /> : <Plus />} {service ? "حفظ التعديل" : "إضافة خدمة"}
+    </button>
+  </div>;
+}
 
 function Metric({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string | number; hint?: string }) {
   return <article>{icon}<span><small>{label}</small><strong>{value}</strong>{hint && <i>{hint}</i>}</span></article>;
@@ -113,6 +176,8 @@ export default function AdminDashboard() {
         ["overview", "نظرة عامة"],
         ["applications", `طلبات الانضمام${pendingApps.length ? ` (${pendingApps.length})` : ""}`],
         ["users", `المستخدمون (${data.users.length})`],
+        ["catalogue", `الخدمات والدورات (${data.services.length})`],
+        ["content", `المحتوى (${data.content.length})`],
         ["bookings", `الحجوزات (${data.bookings.length})`],
         ["payments", `المدفوعات (${data.payments.length})`],
         ["support", `الدعم${overview.support.open ? ` (${overview.support.open})` : ""}`],
@@ -194,6 +259,65 @@ export default function AdminDashboard() {
           </div>
         </article>)}
       </div>
+    </section>}
+
+    {tab === "catalogue" && <section className="specialist-panel">
+      <h3 className="trainer-section-title">الخدمات — يحدد سعرها ما يُخصم من المستفيد</h3>
+      <div className="admin-list">
+        {data.services.map((service) => <article key={service.id} className="admin-row">
+          <div className="admin-row-main">
+            <div>
+              <strong>{service.name}</strong>
+              <small>{formatCurrency(service.price)} · {service.durationMinutes} دقيقة</small>
+              <small>{service.modes.map((m) => (m === "remote" ? "عن بُعد" : "في المركز")).join("، ")}</small>
+            </div>
+            <em>{service.isActive ? "مفعّلة" : "معطّلة"}</em>
+          </div>
+          <details><summary className="link-button">تعديل</summary><ServiceEditor service={service} onSaved={() => void reload()} /></details>
+        </article>)}
+      </div>
+      <details className="specialist-new-plan">
+        <summary><Plus /> خدمة جديدة</summary>
+        <div className="specialist-plan-composer"><ServiceEditor onSaved={() => void reload()} /></div>
+      </details>
+
+      <h3 className="trainer-section-title">إسناد الدورات إلى المدربين</h3>
+      <div className="admin-list">
+        {data.courses.map((course) => <article key={course.id} className="admin-row">
+          <div className="admin-row-main">
+            <div><strong>{course.title}</strong><small>{course.isPublished ? "منشورة" : "مسودة"}</small></div>
+            <em>{data.trainers.find((t) => t.id === course.trainerId)?.fullName ?? "بلا مدرب"}</em>
+          </div>
+          <div className="admin-row-actions role-picker">
+            {data.trainers.length === 0 && <small className="application-hint">لا يوجد مدربون معتمدون بعد.</small>}
+            {data.trainers.map((trainer) => <button key={trainer.id} type="button"
+              className={course.trainerId === trainer.id ? "chip selected" : "chip"} disabled={busy === course.id}
+              onClick={() => void run(course.id, () => assignCourseTrainer(course.id, course.trainerId === trainer.id ? null : trainer.id))}
+            >{trainer.fullName}</button>)}
+          </div>
+        </article>)}
+      </div>
+    </section>}
+
+    {tab === "content" && <section className="specialist-panel">
+      {data.content.length ? <div className="admin-list">
+        {data.content.map((item) => <article key={`${item.table}-${item.id}`} className={`admin-row status-${item.status}`}>
+          <div className="admin-row-main">
+            <div>
+              <strong>{item.title}</strong>
+              <small>{CONTENT_LABEL[item.table]}</small>
+              <small dir="ltr">/{item.table === "articles" ? "articles" : item.table === "research_reviews" ? "research" : "programs"}/{item.slug}</small>
+            </div>
+            <em>{CONTENT_STATUS[item.status] ?? item.status}</em>
+          </div>
+          <div className="admin-row-actions role-picker">
+            {Object.entries(CONTENT_STATUS).map(([value, label]) => <button key={value} type="button"
+              className={item.status === value ? "chip selected" : "chip"} disabled={busy === item.id}
+              onClick={() => void run(item.id, () => setContentStatus(item.table, item.id, value))}
+            >{label}</button>)}
+          </div>
+        </article>)}
+      </div> : <div className="portal-empty"><FileText /><p>لا يوجد محتوى بعد.</p></div>}
     </section>}
 
     {tab === "bookings" && <section className="specialist-panel">

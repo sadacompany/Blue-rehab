@@ -139,6 +139,36 @@ export async function addModule(courseId: string, title: string, summary: string
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Create a course.
+ *
+ * trainer_id is forced to the caller: RLS demands it match, and the policy also
+ * requires the `trainer` role, so this cannot be used to publish under someone
+ * else's name or by someone whose application was refused.
+ */
+export async function createCourse(input: {
+  title: string; summary: string; price: number; durationHours: number; mode: string; level: string;
+}) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData.session?.user;
+  if (!user) throw new AuthenticationRequiredError();
+
+  const slug = `${input.title.trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 60) || "course"}-${Date.now().toString(36)}`;
+
+  const { error } = await supabase.from("courses").insert({
+    title: input.title.trim(),
+    slug,
+    summary: input.summary.trim() || null,
+    price: input.price,
+    duration_hours: input.durationHours,
+    mode: input.mode,
+    level: input.level,
+    trainer_id: user.id,
+    is_published: false,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function setCoursePublished(courseId: string, isPublished: boolean) {
   const { error } = await supabase.from("courses").update({ is_published: isPublished }).eq("id", courseId);
   if (error) throw new Error(error.message);

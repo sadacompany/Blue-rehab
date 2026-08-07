@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpenCheck, CalendarDays, CheckCircle2, Clock3, HeartHandshake, MapPin, MessageCircle, ShieldCheck, Stethoscope, Video } from "lucide-react";
+import { ArrowLeft, BookOpenCheck, CalendarDays, CheckCircle2, Clock3, FlaskConical, GraduationCap, HeartHandshake, MapPin, MessageCircle, ShieldCheck, Stethoscope, Target, Video } from "lucide-react";
 import { HomeCatalog } from "../components/CatalogSections";
 import PageShell from "../components/PageShell";
 
@@ -40,6 +40,34 @@ export default function HomePage() {
     <section className="care-services"><div className="container care-services-grid"><div className="care-service-photo" role="img" aria-label="جلسة علاج طبيعي داخل عيادة" /><div className="care-services-copy"><span className="care-label">ماذا نقدم؟</span><h2>من التقييم الأول إلى متابعة التقدم</h2><p>اختر المسار المناسب، وسيظهر لك ما تحتاج معرفته قبل الجلسة وما الذي يحدث بعدها.</p><div className="care-service-list"><a href="/booking"><Stethoscope /><span><strong>التقييم الأولي</strong><small>فهم الحالة، تحديد الهدف، واقتراح الخطوة التالية.</small></span><ArrowLeft /></a><a href="/booking"><HeartHandshake /><span><strong>جلسات العلاج والمتابعة</strong><small>تدخل علاجي وخطة منزلية قابلة للمراجعة.</small></span><ArrowLeft /></a><a href="/booking"><Video /><span><strong>متابعة عن بُعد</strong><small>للحالات المناسبة وبعد تقييم احتياجها.</small></span><ArrowLeft /></a></div></div></div></section>
 
     <section className="care-steps"><div className="container"><header className="care-section-head"><span className="care-label">كيف تبدأ؟</span><h2>ثلاث خطوات واضحة</h2></header><div className="care-step-grid"><article><b>1</b><h3>اختر الخدمة</h3><p>حدد نوع الجلسة وطريقة تقديمها.</p></article><article><b>2</b><h3>اختر الموعد</h3><p>راجع الأوقات المتاحة واختر الأنسب.</p></article><article><b>3</b><h3>أكمل بياناتك</h3><p>سجّل الدخول وأرسل ملخص الحالة بأمان.</p></article></div><div className="care-center-action"><a className="button care-primary" href="/booking">ابدأ الحجز الآن</a></div></div></section>
+
+    {/* The first real decision a visitor makes: care, or learning. Placing it
+        above everything else stops the page asking them to pick a service
+        before they have decided why they came. */}
+    <section className="section"><div className="container">
+      <div className="section-split">
+        <article className="section-card">
+          <span className="section-card-mark"><Stethoscope /></span>
+          <h2>استشارة بلو</h2>
+          <p>الاستشارات والبرامج العلاجية — احجز موعداً مع أخصائي أو ابدأ برنامجاً متدرجاً يناسب حالتك.</p>
+          <ul className="section-card-list">
+            <li><CalendarDays /> حجز موعد عن بُعد أو حضوري</li>
+            <li><Target /> برامج علاجية ممتدة</li>
+          </ul>
+          <a className="button" href="/consultations">ادخل القسم <ArrowLeft /></a>
+        </article>
+        <article className="section-card">
+          <span className="section-card-mark"><GraduationCap /></span>
+          <h2>أكاديمية بلو</h2>
+          <p>الأكاديمية والأبحاث العلمية — دورات تدريبية، مقالات مبنية على أدلة، ومراجعات لأحدث الأبحاث.</p>
+          <ul className="section-card-list">
+            <li><BookOpenCheck /> دورات حضورية ومسجلة</li>
+            <li><FlaskConical /> مقالات ومراجعات بحثية</li>
+          </ul>
+          <a className="button button-secondary" href="/academy">ادخل القسم <ArrowLeft /></a>
+        </article>
+      </div>
+    </div></section>
 
     <section className="care-learning"><div className="container"><header className="care-learning-head"><div><span className="care-label">للطلبة والممارسين</span><h2>تعلم مهني مرتبط بالممارسة</h2><p>دورات توضّح النتائج والمتطلبات وطريقة الحضور قبل التسجيل.</p></div><a className="care-link" href="/courses">عرض جميع الدورات <ArrowLeft /></a></header><HomeCatalog /></div></section>
 

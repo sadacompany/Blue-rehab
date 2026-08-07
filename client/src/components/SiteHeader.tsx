@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, LogIn, Menu, X } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogIn, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import mascotIcon from "../assets/brand/mascot-icon.png";
 
@@ -13,7 +13,31 @@ export function Brand() {
   );
 }
 
-const links = [["الخدمات", "/services"],["الأخصائيون", "/specialists"],["الدورات", "/courses"],["عن المنصة", "/about"],["الأسئلة الشائعة", "/faq"]];
+/**
+ * Navigation follows the two halves of the platform rather than listing every
+ * page flat. A visitor decides which side they are on — care, or learning —
+ * before being asked to pick anything specific.
+ */
+const sections = [
+  {
+    label: "استشارة بلو", href: "/consultations",
+    items: [
+      ["حجز موعد", "/booking"],
+      ["البرامج العلاجية", "/programs"],
+      ["الخدمات", "/services"],
+      ["الأخصائيون", "/specialists"],
+    ],
+  },
+  {
+    label: "أكاديمية بلو", href: "/academy",
+    items: [
+      ["الدورات", "/courses"],
+      ["المقالات", "/articles"],
+      ["مراجعة الأبحاث", "/research"],
+    ],
+  },
+];
+const plainLinks = [["عن المنصة", "/about"], ["الأسئلة الشائعة", "/faq"]];
 
 export default function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -41,7 +65,13 @@ export default function SiteHeader() {
     <div className="environment-bar"><div className="container"><span>نسخة تشغيلية تجريبية</span><p>بيانات مقدمي الخدمة والأسعار والمواعيد الحالية نماذج واضحة وليست عروضاً تجارية معتمدة.</p></div></div>
     <header className="site-header"><nav className="container nav" aria-label="التنقل الرئيسي">
       <Brand />
-      <div className={`nav-links ${open ? "is-open" : ""}`}>{links.map(([label, href]) => <a href={href} key={href} onClick={() => setOpen(false)}>{label}</a>)}</div>
+      <div className={`nav-links ${open ? "is-open" : ""}`}>
+        {sections.map((section) => <div className="nav-section" key={section.href}>
+          <a className="nav-section-head" href={section.href} onClick={() => setOpen(false)}>{section.label}<ChevronDown /></a>
+          <div className="nav-menu">{section.items.map(([label, href]) => <a href={href} key={href} onClick={() => setOpen(false)}>{label}</a>)}</div>
+        </div>)}
+        {plainLinks.map(([label, href]) => <a href={href} key={href} onClick={() => setOpen(false)}>{label}</a>)}
+      </div>
       <div className="nav-actions">
         <a className="nav-portal" href={signedIn ? "/portal" : "/login"}>{signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}</a>
         <a className="button button-small" href="/booking">ابدأ الحجز</a>

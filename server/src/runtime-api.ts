@@ -33,6 +33,7 @@ const BOOKING_ERRORS: Record<string, { status: number; message: string }> = {
   SLOT_UNAVAILABLE: { status: 409, message: "هذا الموعد لم يعد متاحاً. اختر موعداً آخر." },
   SLOT_SPECIALIST_MISMATCH: { status: 409, message: "الموعد لا يخص المختص المحدد." },
   MODE_NOT_ALLOWED: { status: 409, message: "طريقة الجلسة غير متاحة لهذه الخدمة." },
+  SERVICE_NOT_OFFERED: { status: 409, message: "هذا المختص لا يقدم هذه الخدمة. اختر خدمة أخرى أو مختصاً آخر." },
   COURSE_UNAVAILABLE: { status: 409, message: "الدورة غير متاحة للتسجيل." },
   COURSE_FULL: { status: 409, message: "اكتمل العدد في هذه الدورة." },
 };

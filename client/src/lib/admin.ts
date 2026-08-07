@@ -75,7 +75,28 @@ export type AdminSupportRequest = {
   createdAt: string;
 };
 
+export type AdminService = {
+  id: string;
+  name: string;
+  price: number;
+  durationMinutes: number;
+  modes: string[];
+  isActive: boolean;
+};
+
+export type AdminContentItem = {
+  id: string;
+  table: "articles" | "research_reviews" | "rehab_programs";
+  title: string;
+  slug: string;
+  status: string;
+};
+
 export type AdminSnapshot = {
+  services: AdminService[];
+  content: AdminContentItem[];
+  trainers: Array<{ id: string; fullName: string }>;
+  courses: Array<{ id: string; title: string; trainerId: string | null; isPublished: boolean }>;
   overview: AdminOverview;
   applications: ProviderApplication[];
   users: AdminUser[];
@@ -99,7 +120,7 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
     throw new Error(overviewResult.error.message);
   }
 
-  const [applications, users, bookings, payments, support] = await Promise.all([
+  const [applications, users, bookings, payments, support, services, articles, research, programs, courses] = await Promise.all([
     supabase.from("provider_applications").select("*").order("created_at", { ascending: false }).limit(100),
     supabase.from("profiles").select("id,full_name,phone,roles,created_at").order("created_at", { ascending: false }).limit(200),
     supabase.from("bookings")
@@ -109,13 +130,36 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       .select("id,order_number,status,amount,currency,paid_at,failure_reason,created_at,booking_id,enrollment_id,user:profiles(full_name)")
       .order("created_at", { ascending: false }).limit(100),
     supabase.from("support_requests").select("*").order("created_at", { ascending: false }).limit(100),
+    supabase.from("services").select("id,name,price,duration_minutes,allowed_modes,is_active").order("name"),
+    supabase.from("articles").select("id,title,slug,status").order("created_at", { ascending: false }).limit(50),
+    supabase.from("research_reviews").select("id,title,slug,status").order("created_at", { ascending: false }).limit(50),
+    supabase.from("rehab_programs").select("id,title,slug,status").order("position").limit(50),
+    supabase.from("courses").select("id,title,trainer_id,is_published").order("title"),
   ]);
 
-  const failed = [applications, users, bookings, payments, support].find((r) => r.error);
+  const failed = [applications, users, bookings, payments, support, services, articles, research, programs, courses].find((r) => r.error);
   if (failed?.error) throw new Error(failed.error.message);
+
+  const asContent = (rows: any[], table: AdminContentItem["table"]): AdminContentItem[] =>
+    (rows ?? []).map((row) => ({ id: row.id, table, title: row.title, slug: row.slug, status: row.status }));
 
   return {
     overview: overviewResult.data as AdminOverview,
+    services: (services.data ?? []).map((row: any) => ({
+      id: row.id, name: row.name, price: Number(row.price),
+      durationMinutes: Number(row.duration_minutes), modes: row.allowed_modes ?? [],
+      isActive: Boolean(row.is_active),
+    })),
+    content: [
+      ...asContent(articles.data ?? [], "articles"),
+      ...asContent(research.data ?? [], "research_reviews"),
+      ...asContent(programs.data ?? [], "rehab_programs"),
+    ],
+    trainers: (users.data ?? []).filter((row: any) => (row.roles ?? []).includes("trainer"))
+      .map((row: any) => ({ id: row.id, fullName: row.full_name })),
+    courses: (courses.data ?? []).map((row: any) => ({
+      id: row.id, title: row.title, trainerId: row.trainer_id, isPublished: Boolean(row.is_published),
+    })),
     applications: (applications.data ?? []).map((row: any) => ({
       id: row.id, kind: row.kind, displayName: row.display_name, title: row.title,
       bio: row.bio ?? "", specialties: row.specialties ?? [], languages: row.languages ?? [],
@@ -177,6 +221,34 @@ export async function reviewApplication(applicationId: string, approve: boolean,
 
 export async function setUserRoles(userId: string, roles: string[]) {
   const { error } = await supabase.rpc("admin_set_user_roles", { p_user_id: userId, p_roles: roles });
+  if (error) throw new Error(translate(error.message));
+}
+
+/** Pricing is administrative: the amount charged is derived from this row. */
+export async function saveService(input: {
+  id?: string; name: string; price: number; durationMinutes: number; modes: string[]; isActive: boolean;
+}) {
+  const row = {
+    name: input.name.trim(),
+    price: input.price,
+    duration_minutes: input.durationMinutes,
+    allowed_modes: input.modes,
+    is_active: input.isActive,
+  };
+  const { error } = input.id
+    ? await supabase.from("services").update(row).eq("id", input.id)
+    : await supabase.from("services").insert(row);
+  if (error) throw new Error(translate(error.message));
+}
+
+/** Publication runs through a checked function so the timestamp is never missed. */
+export async function setContentStatus(table: string, id: string, status: string) {
+  const { error } = await supabase.rpc("publish_content", { p_table: table, p_id: id, p_status: status });
+  if (error) throw new Error(translate(error.message));
+}
+
+export async function assignCourseTrainer(courseId: string, trainerId: string | null) {
+  const { error } = await supabase.from("courses").update({ trainer_id: trainerId }).eq("id", courseId);
   if (error) throw new Error(translate(error.message));
 }
 
