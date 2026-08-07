@@ -1,4 +1,4 @@
-import { BookOpenCheck, CheckCircle2, GraduationCap, LoaderCircle, Plus, RefreshCcw, Users } from "lucide-react";
+import { AlertCircle, BookOpenCheck, CheckCircle2, GraduationCap, LoaderCircle, Plus, RefreshCcw, Send, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
@@ -6,11 +6,19 @@ import {
   addModule,
   createCourse,
   loadTrainerCourses,
-  setCoursePublished,
   setStudentProgress,
+  submitCourseForReview,
   type TrainerCourse,
 } from "../lib/trainer";
 import PageShell from "./PageShell";
+import { SkeletonGrid, SkeletonLine } from "./Skeleton";
+
+const REVIEW_LABEL: Record<string, string> = {
+  draft: "مسودة",
+  in_review: "قيد المراجعة",
+  published: "معتمدة ومنشورة",
+  archived: "موقوفة",
+};
 
 const ENROL_STATUS: Record<string, string> = {
   pending_payment: "بانتظار الدفع",
@@ -132,14 +140,17 @@ export default function TrainerDashboard() {
     finally { setBusy(""); }
   }
 
-  if (loading) return <PageShell><section className="section"><div className="container"><div className="booking-loader"><LoaderCircle className="spin" /><p>جارٍ تحميل لوحة المدرب…</p></div></div></section></PageShell>;
+  if (loading) return <PageShell><section className="specialist-page"><div className="container" aria-busy="true">
+    <div className="skeleton-head"><SkeletonLine width="110px" height={13} /><SkeletonLine width="230px" height={34} /></div>
+    <SkeletonGrid count={2} lines={4} />
+  </div></section></PageShell>;
 
   return <PageShell><section className="specialist-page"><div className="container">
     <header className="specialist-head">
       <div>
         <span className="eyebrow"><GraduationCap /> لوحة المدرب</span>
         <h1>دوراتي التدريبية</h1>
-        <p>تابع المتدربين، حدّث التقدم، وأدر محتوى الدورة.</p>
+        <p>جهّز محتوى دورتك وقدّمها للاعتماد، وتابع متدربيك بعد النشر.</p>
       </div>
       <button className="button button-secondary" onClick={() => void reload()}><RefreshCcw /> تحديث</button>
     </header>
@@ -166,13 +177,19 @@ export default function TrainerDashboard() {
             <small>{formatCurrency(course.price)} · {course.startsAt ? formatDate(course.startsAt) : "يحدد لاحقاً"}{course.capacity ? ` · السعة ${course.capacity}` : ""}</small>
           </div>
           <div className="trainer-course-actions">
-            <em className={course.isPublished ? "is-published" : ""}>{course.isPublished ? "منشورة" : "مسودة"}</em>
-            <button className="button button-small button-secondary" disabled={busy === course.id}
-              onClick={() => void run(course.id, () => setCoursePublished(course.id, !course.isPublished))}>
-              {course.isPublished ? "إلغاء النشر" : "نشر الدورة"}
-            </button>
+            <em className={course.reviewStatus === "published" ? "is-published" : ""}>{REVIEW_LABEL[course.reviewStatus] ?? course.reviewStatus}</em>
+            {course.reviewStatus === "draft" && <button className="button button-small" disabled={busy === course.id}
+              onClick={() => void run(course.id, () => submitCourseForReview(course.id))}>
+              <Send /> تقديم للمراجعة
+            </button>}
+            {course.reviewStatus === "in_review" && <small className="application-hint">بانتظار قرار الإدارة.</small>}
           </div>
         </header>
+
+        {course.reviewNote && <p className="application-note">ملاحظة الإدارة: {course.reviewNote}</p>}
+        {course.reviewStatus === "draft" && course.modules.length === 0 && <p className="booking-missing">
+          <AlertCircle /> أضف وحدة واحدة على الأقل ووصفاً للدورة قبل التقديم للمراجعة.
+        </p>}
 
         <div className="portal-live-metrics">
           <article><Users /><span><small>المسجلون</small><strong>{course.students.length}</strong></span></article>

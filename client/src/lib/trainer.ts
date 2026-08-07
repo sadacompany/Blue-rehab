@@ -43,6 +43,8 @@ export type TrainerCourse = {
   price: number;
   capacity: number | null;
   isPublished: boolean;
+  reviewStatus: string;
+  reviewNote: string | null;
   startsAt: string | null;
   students: TrainerStudent[];
   modules: TrainerModule[];
@@ -56,7 +58,7 @@ export async function loadTrainerCourses(): Promise<TrainerCourse[]> {
 
   const coursesResult = await supabase
     .from("courses")
-    .select("id,title,slug,summary,price,capacity,is_published,starts_at")
+    .select("id,title,slug,summary,price,capacity,is_published,review_status,review_note,starts_at")
     .eq("trainer_id", user.id)
     .order("created_at", { ascending: false });
   if (coursesResult.error) throw new Error(coursesResult.error.message);
@@ -90,6 +92,8 @@ export async function loadTrainerCourses(): Promise<TrainerCourse[]> {
     price: Number(course.price),
     capacity: course.capacity,
     isPublished: Boolean(course.is_published),
+    reviewStatus: course.review_status ?? "draft",
+    reviewNote: course.review_note,
     startsAt: course.starts_at,
     students: (enrolResult.data ?? [])
       .filter((row: any) => row.course_id === course.id)
@@ -169,9 +173,28 @@ export async function createCourse(input: {
   if (error) throw new Error(error.message);
 }
 
-export async function setCoursePublished(courseId: string, isPublished: boolean) {
-  const { error } = await supabase.from("courses").update({ is_published: isPublished }).eq("id", courseId);
-  if (error) throw new Error(error.message);
+const REVIEW_ERRORS: Record<string, string> = {
+  TITLE_REQUIRED: "عنوان الدورة مطلوب.",
+  DESCRIPTION_REQUIRED: "أضف وصفاً للدورة قبل التقديم.",
+  CONTENT_REQUIRED: "أضف وحدة واحدة على الأقل قبل التقديم للمراجعة.",
+  ALREADY_SUBMITTED: "الدورة قيد المراجعة بالفعل.",
+  ALREADY_PUBLISHED: "الدورة منشورة بالفعل.",
+  FORBIDDEN: "هذه الدورة ليست لك.",
+};
+
+/**
+ * Hand the course to administration.
+ *
+ * Instructors no longer publish their own work — `is_published` is outside their
+ * column grant and is set only by the review function. This submits the course
+ * for a decision, and refuses if there is nothing substantial to review.
+ */
+export async function submitCourseForReview(courseId: string) {
+  const { error } = await supabase.rpc("submit_course_for_review", { p_course_id: courseId });
+  if (error) {
+    const code = Object.keys(REVIEW_ERRORS).find((key) => error.message.includes(key));
+    throw new Error(code ? REVIEW_ERRORS[code] : error.message);
+  }
 }
 
 export async function markAttendance(enrollmentId: string, sessionTitle: string, status: string) {

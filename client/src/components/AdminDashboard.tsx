@@ -5,6 +5,8 @@ import { AuthenticationRequiredError } from "../lib/platform";
 import {
   assignCourseTrainer,
   loadAdminSnapshot,
+  reviewCourse,
+  unpublishCourse,
   NotAnAdminError,
   reviewApplication,
   saveService,
@@ -15,6 +17,7 @@ import {
   type AdminSnapshot,
 } from "../lib/admin";
 import PageShell from "./PageShell";
+import { SkeletonLine, SkeletonMetrics } from "./Skeleton";
 
 const ALL_ROLES = ["patient", "student", "specialist", "trainer", "receptionist", "admin"] as const;
 
@@ -43,6 +46,11 @@ const SUPPORT_STATUS: Record<string, string> = {
 };
 
 type Tab = "overview" | "applications" | "users" | "catalogue" | "content" | "bookings" | "payments" | "support";
+
+const COURSE_REVIEW: Record<string, string> = {
+  draft: "مسودة لدى المدرب", in_review: "بانتظار المراجعة",
+  published: "معتمدة ومنشورة", archived: "موقوفة",
+};
 
 const CONTENT_LABEL: Record<string, string> = {
   articles: "مقال", research_reviews: "مراجعة بحثية", rehab_programs: "برنامج علاجي",
@@ -143,7 +151,10 @@ export default function AdminDashboard() {
     finally { setBusy(""); }
   }
 
-  if (loading) return <PageShell><section className="section"><div className="container"><div className="booking-loader"><LoaderCircle className="spin" /><p>جارٍ تحميل لوحة الإدارة…</p></div></div></section></PageShell>;
+  if (loading) return <PageShell><section className="admin-page"><div className="container" aria-busy="true">
+    <div className="skeleton-head"><SkeletonLine width="110px" height={13} /><SkeletonLine width="240px" height={34} /></div>
+    <SkeletonMetrics /><SkeletonMetrics />
+  </div></section></PageShell>;
 
   if (denied) return <PageShell><section className="section"><div className="container catalog-message">
     <ShieldCheck /><strong>هذه اللوحة مخصصة للإدارة.</strong>
@@ -176,7 +187,7 @@ export default function AdminDashboard() {
         ["overview", "نظرة عامة"],
         ["applications", `طلبات الانضمام${pendingApps.length ? ` (${pendingApps.length})` : ""}`],
         ["users", `المستخدمون (${data.users.length})`],
-        ["catalogue", `الخدمات والدورات (${data.services.length})`],
+        ["catalogue", `الخدمات والدورات${data.courses.filter((c) => c.reviewStatus === "in_review").length ? ` (${data.courses.filter((c) => c.reviewStatus === "in_review").length})` : ""}`],
         ["content", `المحتوى (${data.content.length})`],
         ["bookings", `الحجوزات (${data.bookings.length})`],
         ["payments", `المدفوعات (${data.payments.length})`],
@@ -200,6 +211,10 @@ export default function AdminDashboard() {
         <Metric icon={<BookOpenCheck />} label="تسجيلات الدورات" value={overview.courses.enrollments} hint={`${overview.courses.published} دورة منشورة`} />
         <Metric icon={<LifeBuoy />} label="طلبات دعم مفتوحة" value={overview.support.open} hint={`${overview.capacity.free_slots} موعد متاح`} />
       </div>
+      {data.courses.filter((c) => c.reviewStatus === "in_review").length > 0 && <div className="admin-callout">
+        <AlertCircle /><span>{data.courses.filter((c) => c.reviewStatus === "in_review").length} دورة بانتظار الاعتماد.</span>
+        <button className="button button-small" onClick={() => setTab("catalogue")}>مراجعتها الآن</button>
+      </div>}
       {overview.applications.pending > 0 && <div className="admin-callout">
         <AlertCircle /><span>لديك {overview.applications.pending} طلب انضمام بانتظار المراجعة.</span>
         <button className="button button-small" onClick={() => setTab("applications")}>مراجعتها الآن</button>
@@ -281,14 +296,34 @@ export default function AdminDashboard() {
         <div className="specialist-plan-composer"><ServiceEditor onSaved={() => void reload()} /></div>
       </details>
 
-      <h3 className="trainer-section-title">إسناد الدورات إلى المدربين</h3>
+<h3 className="trainer-section-title">الدورات — المراجعة والإسناد</h3>
       <div className="admin-list">
-        {data.courses.map((course) => <article key={course.id} className="admin-row">
+        {data.courses.map((course) => <article key={course.id} className={`admin-row status-${course.reviewStatus}`}>
           <div className="admin-row-main">
-            <div><strong>{course.title}</strong><small>{course.isPublished ? "منشورة" : "مسودة"}</small></div>
-            <em>{data.trainers.find((t) => t.id === course.trainerId)?.fullName ?? "بلا مدرب"}</em>
+            <div>
+              <strong>{course.title}</strong>
+              {course.summary && <small className="admin-quote">{course.summary}</small>}
+              <small>{formatCurrency(course.price)} · {course.modules} وحدة</small>
+            </div>
+            <em>{COURSE_REVIEW[course.reviewStatus] ?? course.reviewStatus}</em>
           </div>
+          {course.reviewStatus === "in_review" && <div className="admin-row-actions">
+            <input placeholder="ملاحظة للمدرب (اختيارية)" value={note[course.id] ?? ""} onChange={(e) => setNote({ ...note, [course.id]: e.target.value })} />
+            <button className="button button-small" disabled={busy === course.id}
+              onClick={() => void run(course.id, () => reviewCourse(course.id, true, note[course.id] ?? ""))}>
+              <CheckCircle2 /> اعتماد ونشر
+            </button>
+            <button className="button button-small button-ghost" disabled={busy === course.id}
+              onClick={() => void run(course.id, () => reviewCourse(course.id, false, note[course.id] ?? ""))}>
+              <XCircle /> إعادة للمدرب
+            </button>
+          </div>}
+          {course.reviewStatus === "published" && <div className="admin-row-actions">
+            <button className="button button-small button-ghost" disabled={busy === course.id}
+              onClick={() => void run(course.id, () => unpublishCourse(course.id, note[course.id] ?? ""))}>إيقاف النشر</button>
+          </div>}
           <div className="admin-row-actions role-picker">
+            <small className="application-hint">المدرب:</small>
             {data.trainers.length === 0 && <small className="application-hint">لا يوجد مدربون معتمدون بعد.</small>}
             {data.trainers.map((trainer) => <button key={trainer.id} type="button"
               className={course.trainerId === trainer.id ? "chip selected" : "chip"} disabled={busy === course.id}

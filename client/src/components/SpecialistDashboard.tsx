@@ -22,6 +22,7 @@ import {
 } from "../lib/specialist";
 import { supabase } from "../lib/supabase";
 import PageShell from "./PageShell";
+import { SkeletonLine, SkeletonMetrics, SkeletonRows } from "./Skeleton";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "مسودة",
@@ -436,7 +437,10 @@ export default function SpecialistDashboard() {
   }, [data]);
 
   return <PageShell><section className="specialist-page"><div className="container">
-    {loading && <div className="booking-loader"><LoaderCircle className="spin" /><p>جار تحميل لوحة الأخصائي…</p></div>}
+    {loading && <div aria-busy="true">
+      <div className="skeleton-head"><SkeletonLine width="110px" height={13} /><SkeletonLine width="250px" height={34} /></div>
+      <SkeletonMetrics /><SkeletonRows count={3} />
+    </div>}
 
     {!loading && denied && <div className="catalog-message">
       <strong>هذه اللوحة مخصصة للأخصائيين.</strong>

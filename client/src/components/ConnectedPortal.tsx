@@ -1,9 +1,10 @@
-import { BadgeCheck, Bell, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, GraduationCap, LoaderCircle, LogOut, RefreshCcw, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
+import { BadgeCheck, Bell, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, GraduationCap, LogOut, RefreshCcw, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatCurrency, formatDateTime } from "../lib/format";
 import { AuthenticationRequiredError, loadPortalSnapshot, markNotificationsRead, settlePayments, type PortalSnapshot } from "../lib/platform";
 import { supabase } from "../lib/supabase";
 import PageShell from "./PageShell";
+import { PortalSkeleton } from "./Skeleton";
 
 function statusLabel(status: string) {
   const labels: Record<string, string> = {
@@ -28,10 +29,6 @@ export default function ConnectedPortal() {
     setLoading(true);
     setError("");
     try {
-      // Repair any order the payer paid for but never confirmed — a closed tab
-      // or a wallet redirect that did not return used to leave the booking
-      // showing as unpaid forever. Best-effort: never block the portal on it.
-      await settlePayments().catch(() => undefined);
       setData(await loadPortalSnapshot());
     }
     catch (reason) {
@@ -45,6 +42,22 @@ export default function ConnectedPortal() {
   }
 
   useEffect(() => { void reload(); }, []);
+
+  // Reconciliation runs *after* the page is on screen, not before it.
+  //
+  // It re-reads every open order from the payment gateway, which took over a
+  // second on its own, and the account page used to sit behind it showing a
+  // spinner. Nothing here is needed to render: it only matters when an order was
+  // paid but never confirmed, so it runs in the background and the page is
+  // refreshed only if it actually changed something.
+  useEffect(() => {
+    let alive = true;
+    void settlePayments()
+      .then((result) => { if (alive && result.settled > 0) void reload(); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function markAllRead() {
     setData((current) => current && { ...current, notifications: current.notifications.map((item) => ({ ...item, read_at: item.read_at ?? new Date().toISOString() })) });
@@ -62,7 +75,7 @@ export default function ConnectedPortal() {
   }
 
   return <PageShell><section className="portal-live-page"><div className="container">
-    {loading && <div className="booking-loader"><LoaderCircle className="spin" /><p>جار تحميل حسابك…</p></div>}
+    {loading && <PortalSkeleton />}
     {!loading && error && <div className="catalog-message"><strong>تعذر تحميل الحساب.</strong><p>{error}</p><button className="button button-secondary" onClick={() => void reload()}><RefreshCcw /> إعادة المحاولة</button></div>}
     {!loading && data && <>
       <header className="portal-live-head"><div><span className="eyebrow"><UserRound /> الحساب الشخصي</span><h1>مرحبًا، {data.profile?.full_name || "المستخدم"}</h1><p>تابع حجوزاتك ودوراتك ومدفوعاتك من مكان واحد.</p></div><div className="portal-head-actions">{data.profile?.roles.includes("admin") && <a className="button button-secondary" href="/admin"><ShieldCheck /> لوحة الإدارة</a>}{data.profile?.roles.includes("specialist") && <a className="button button-secondary" href="/specialist"><Stethoscope /> لوحة الأخصائي</a>}{data.profile?.roles.includes("trainer") && <a className="button button-secondary" href="/trainer"><GraduationCap /> لوحة المدرب</a>}{!data.profile?.roles.some((role) => ["specialist", "trainer"].includes(role)) && <a className="button button-secondary" href="/join"><BadgeCheck /> انضم كمقدم خدمة</a>}<button className="button button-secondary" onClick={() => void signOut()}><LogOut /> تسجيل الخروج</button></div></header>

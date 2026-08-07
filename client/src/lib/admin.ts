@@ -96,7 +96,7 @@ export type AdminSnapshot = {
   services: AdminService[];
   content: AdminContentItem[];
   trainers: Array<{ id: string; fullName: string }>;
-  courses: Array<{ id: string; title: string; trainerId: string | null; isPublished: boolean }>;
+  courses: Array<{ id: string; title: string; trainerId: string | null; isPublished: boolean; reviewStatus: string; summary: string; price: number; modules: number }>;
   overview: AdminOverview;
   applications: ProviderApplication[];
   users: AdminUser[];
@@ -134,7 +134,7 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
     supabase.from("articles").select("id,title,slug,status").order("created_at", { ascending: false }).limit(50),
     supabase.from("research_reviews").select("id,title,slug,status").order("created_at", { ascending: false }).limit(50),
     supabase.from("rehab_programs").select("id,title,slug,status").order("position").limit(50),
-    supabase.from("courses").select("id,title,trainer_id,is_published").order("title"),
+    supabase.from("courses").select("id,title,summary,price,trainer_id,is_published,review_status,submitted_at,course_modules(count)").order("submitted_at", { ascending: false, nullsFirst: false }),
   ]);
 
   const failed = [applications, users, bookings, payments, support, services, articles, research, programs, courses].find((r) => r.error);
@@ -158,7 +158,10 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
     trainers: (users.data ?? []).filter((row: any) => (row.roles ?? []).includes("trainer"))
       .map((row: any) => ({ id: row.id, fullName: row.full_name })),
     courses: (courses.data ?? []).map((row: any) => ({
-      id: row.id, title: row.title, trainerId: row.trainer_id, isPublished: Boolean(row.is_published),
+      id: row.id, title: row.title, trainerId: row.trainer_id,
+      isPublished: Boolean(row.is_published), reviewStatus: row.review_status ?? "draft",
+      summary: row.summary ?? "", price: Number(row.price ?? 0),
+      modules: row.course_modules?.[0]?.count ?? 0,
     })),
     applications: (applications.data ?? []).map((row: any) => ({
       id: row.id, kind: row.kind, displayName: row.display_name, title: row.title,
@@ -244,6 +247,19 @@ export async function saveService(input: {
 /** Publication runs through a checked function so the timestamp is never missed. */
 export async function setContentStatus(table: string, id: string, status: string) {
   const { error } = await supabase.rpc("publish_content", { p_table: table, p_id: id, p_status: status });
+  if (error) throw new Error(translate(error.message));
+}
+
+/** Approving publishes the course; refusing returns it to the instructor. */
+export async function reviewCourse(courseId: string, approve: boolean, note: string) {
+  const { error } = await supabase.rpc("review_course", {
+    p_course_id: courseId, p_approve: approve, p_note: note || null,
+  });
+  if (error) throw new Error(translate(error.message));
+}
+
+export async function unpublishCourse(courseId: string, note: string) {
+  const { error } = await supabase.rpc("unpublish_course", { p_course_id: courseId, p_note: note || null });
   if (error) throw new Error(translate(error.message));
 }
 

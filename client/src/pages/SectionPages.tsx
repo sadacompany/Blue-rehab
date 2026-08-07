@@ -1,7 +1,8 @@
-import { ArrowLeft, BookOpenCheck, CalendarDays, Clock3, FileText, FlaskConical, GraduationCap, LoaderCircle, MapPin, Stethoscope, Target, Video } from "lucide-react";
+import { ArrowLeft, BookOpenCheck, CalendarDays, Clock3, FileText, FlaskConical, GraduationCap, MapPin, Stethoscope, Target, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import PageShell from "../components/PageShell";
+import { SkeletonGrid, SkeletonLine } from "../components/Skeleton";
 import { formatDate } from "../lib/format";
 import {
   loadArticle, loadArticles, loadProgram, loadPrograms, loadResearch, loadResearchReview,
@@ -36,8 +37,9 @@ function useAsync<T>(loader: () => Promise<T>, deps: unknown[] = []) {
   return { data, loading, error };
 }
 
-function Loading() {
-  return <div className="booking-loader"><LoaderCircle className="spin" /><p>جارٍ التحميل…</p></div>;
+/** Cards arrive in the shape they will occupy, so nothing shifts on arrival. */
+function Loading({ cards = 3 }: { cards?: number }) {
+  return <SkeletonGrid count={cards} lines={3} />;
 }
 
 function Empty({ icon, text }: { icon: React.ReactNode; text: string }) {
@@ -123,7 +125,11 @@ export function ProgramDetailPage() {
   const { slug = "" } = useParams();
   const { data: program, loading } = useAsync(() => loadProgram(slug), [slug]);
 
-  if (loading) return <PageShell><section className="section"><div className="container"><Loading /></div></section></PageShell>;
+  if (loading) return <PageShell><section className="section"><div className="container narrow" aria-busy="true">
+    <div className="skeleton-head"><SkeletonLine width="130px" height={13} /><SkeletonLine width="80%" height={34} /><SkeletonLine width="60%" height={16} /></div>
+    <SkeletonLine height={13} /><SkeletonLine height={13} /><SkeletonLine width="85%" height={13} />
+    <SkeletonLine height={13} /><SkeletonLine width="70%" height={13} />
+  </div></section></PageShell>;
   if (!program) return <PageShell><section className="section"><div className="container catalog-message">
     <strong>لم نجد هذا البرنامج.</strong><a className="button" href="/programs">كل البرامج</a>
   </div></section></PageShell>;
@@ -256,7 +262,11 @@ export function ArticleDetailPage() {
   const { slug = "" } = useParams();
   const { data: article, loading } = useAsync(() => loadArticle(slug), [slug]);
 
-  if (loading) return <PageShell><section className="section"><div className="container"><Loading /></div></section></PageShell>;
+  if (loading) return <PageShell><section className="section"><div className="container narrow" aria-busy="true">
+    <div className="skeleton-head"><SkeletonLine width="130px" height={13} /><SkeletonLine width="80%" height={34} /><SkeletonLine width="60%" height={16} /></div>
+    <SkeletonLine height={13} /><SkeletonLine height={13} /><SkeletonLine width="85%" height={13} />
+    <SkeletonLine height={13} /><SkeletonLine width="70%" height={13} />
+  </div></section></PageShell>;
   if (!article) return <PageShell><section className="section"><div className="container catalog-message">
     <strong>لم نجد هذا المقال.</strong><a className="button" href="/articles">كل المقالات</a>
   </div></section></PageShell>;
@@ -303,7 +313,11 @@ export function ResearchDetailPage() {
   const { slug = "" } = useParams();
   const { data: review, loading } = useAsync(() => loadResearchReview(slug), [slug]);
 
-  if (loading) return <PageShell><section className="section"><div className="container"><Loading /></div></section></PageShell>;
+  if (loading) return <PageShell><section className="section"><div className="container narrow" aria-busy="true">
+    <div className="skeleton-head"><SkeletonLine width="130px" height={13} /><SkeletonLine width="80%" height={34} /><SkeletonLine width="60%" height={16} /></div>
+    <SkeletonLine height={13} /><SkeletonLine height={13} /><SkeletonLine width="85%" height={13} />
+    <SkeletonLine height={13} /><SkeletonLine width="70%" height={13} />
+  </div></section></PageShell>;
   if (!review) return <PageShell><section className="section"><div className="container catalog-message">
     <strong>لم نجد هذه المراجعة.</strong><a className="button" href="/research">كل المراجعات</a>
   </div></section></PageShell>;

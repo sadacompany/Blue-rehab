@@ -610,20 +610,23 @@ export async function settlePendingPayments(authorization: string | null): Promi
   if (error) throw error;
 
   const pending = open ?? [];
-  let settled = 0;
 
-  for (const row of pending) {
+  // Concurrently: these are independent reads of independent orders, and the
+  // caller is a page waiting to render.
+  const outcomes = await Promise.all(pending.map(async (row) => {
     try {
       const result = await verifyPayment(authorization,
         row.provider_payment_id
           ? { paymentId: row.provider_payment_id }
           : { invoiceId: row.provider_invoice_id });
       const body = result.body as { status?: string } | undefined;
-      if (result.status === 200 && body?.status === "succeeded") settled += 1;
+      return result.status === 200 && body?.status === "succeeded";
     } catch {
       // One unreachable order must not block the rest.
+      return false;
     }
-  }
+  }));
+  const settled = outcomes.filter(Boolean).length;
 
   return { status: 200, body: { checked: pending.length, settled }, cacheControl: noStore };
 }

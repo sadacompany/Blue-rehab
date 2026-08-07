@@ -266,13 +266,17 @@ export async function loadPortalSnapshot(): Promise<PortalSnapshot> {
   const user = sessionData.session?.user;
   if (!user) throw new AuthenticationRequiredError();
 
-  const [profileResult, bookingsResult, enrollmentsResult, paymentsResult, notificationsResult, catalogData] = await Promise.all([
+  // Two name lookups, not the entire catalogue. loadCatalog() also pulls
+  // specialists, branches, availability and every description — none of which
+  // this page shows — and it was the slowest call in the set.
+  const [profileResult, bookingsResult, enrollmentsResult, paymentsResult, notificationsResult, serviceNames, courseNames] = await Promise.all([
     supabase.from("profiles").select("full_name,phone,roles").eq("id", user.id).maybeSingle(),
     supabase.from("bookings").select("id,status,starts_at,total,service_id").order("starts_at", { ascending: false }).limit(20),
     supabase.from("enrollments").select("id,status,progress,amount_due,course_id").order("created_at", { ascending: false }).limit(20),
     supabase.from("payments").select("id,status,amount,order_number,created_at").order("created_at", { ascending: false }).limit(20),
     supabase.from("notifications").select("id,title,body,read_at,created_at").order("created_at", { ascending: false }).limit(20),
-    loadCatalog(),
+    supabase.from("services").select("id,name"),
+    supabase.from("courses").select("id,title"),
   ]);
 
   const error = firstError([profileResult, bookingsResult, enrollmentsResult, paymentsResult, notificationsResult]);
@@ -288,7 +292,7 @@ export async function loadPortalSnapshot(): Promise<PortalSnapshot> {
     enrollments: (enrollmentsResult.data ?? []).map((item) => ({ ...item, amount_due: Number(item.amount_due) })),
     payments: (paymentsResult.data ?? []).map((item) => ({ ...item, amount: Number(item.amount) })),
     notifications: notificationsResult.data ?? [],
-    services: Object.fromEntries(catalogData.services.map((item) => [item.id, item.name])),
-    courses: Object.fromEntries(catalogData.courses.map((item) => [item.id, item.title])),
+    services: Object.fromEntries((serviceNames.data ?? []).map((item) => [item.id, item.name])),
+    courses: Object.fromEntries((courseNames.data ?? []).map((item) => [item.id, item.title])),
   };
 }
