@@ -317,6 +317,8 @@ export async function createPaymentCheckout(authorization: string | null, payloa
     amount: Number(payment.amount),
     description: payment.booking_id ? `جلسة علاج طبيعي — ${payment.order_number}` : `دورة تأهيلية — ${payment.order_number}`,
     callbackUrl: `${config.PUBLIC_SITE_URL.replace(/\/$/, "")}/payment/callback`,
+    successUrl: `${config.PUBLIC_SITE_URL.replace(/\/$/, "")}/payment/callback`,
+    backUrl: `${config.PUBLIC_SITE_URL.replace(/\/$/, "")}/portal`,
     orderNumber: payment.order_number,
   });
 

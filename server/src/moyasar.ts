@@ -93,6 +93,10 @@ export type CreateInvoiceInput = {
   amount: number;
   description: string;
   callbackUrl: string;
+  /** Where Moyasar sends the payer once the payment succeeds. */
+  successUrl?: string;
+  /** The "back" link on Moyasar's own page. */
+  backUrl?: string;
   orderNumber: string;
   metadata?: Record<string, string>;
 };
@@ -123,6 +127,11 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<MoyasarI
       currency: "SAR",
       description: input.description,
       callback_url: input.callbackUrl,
+      // Without success_url the payer lands on Moyasar's receipt page and stops
+      // there: no button back, nothing that tells our platform to confirm. It is
+      // the field that actually moves them on; callback_url alone does not.
+      success_url: input.successUrl ?? input.callbackUrl,
+      back_url: input.backUrl ?? null,
       metadata: { order_number: input.orderNumber, ...(input.metadata ?? {}) },
     }),
   });
