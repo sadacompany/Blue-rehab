@@ -1,6 +1,6 @@
 import { ArrowLeft, BookOpenCheck, CalendarDays, Clock3, FileText, FlaskConical, GraduationCap, MapPin, Stethoscope, Target, Video } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams  } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { SkeletonGrid, SkeletonLine } from "../components/Skeleton";
 import { formatDate } from "../lib/format";
@@ -69,7 +69,7 @@ export function ConsultationsHub() {
             <li><MapPin /> جلسة في المركز</li>
             <li><Stethoscope /> اختيار الأخصائي</li>
           </ul>
-          <a className="button" href="/booking">ابدأ الحجز <ArrowLeft /></a>
+          <Link className="button" to="/booking">ابدأ الحجز <ArrowLeft /></Link>
         </article>
 
         <article className="section-card">
@@ -81,7 +81,7 @@ export function ConsultationsHub() {
             <li><Clock3 /> جدول أسبوعي واضح</li>
             <li><Stethoscope /> متابعة من أخصائي</li>
           </ul>
-          <a className="button button-secondary" href="/programs">استعراض البرامج <ArrowLeft /></a>
+          <Link className="button button-secondary" to="/programs">استعراض البرامج <ArrowLeft /></Link>
         </article>
       </div>
 
@@ -94,7 +94,7 @@ export function ConsultationsHub() {
 }
 
 function ProgramCard({ program }: { program: RehabProgram }) {
-  return <a className="program-card" href={`/programs/${program.slug}`}>
+  return <Link className="program-card" to={`/programs/${program.slug}`}>
     <span className="program-level">{program.level}</span>
     <h3>{program.title}</h3>
     <p>{program.summary}</p>
@@ -102,7 +102,7 @@ function ProgramCard({ program }: { program: RehabProgram }) {
       {program.durationWeeks && <span><Clock3 /> {program.durationWeeks} أسبوع</span>}
       {program.sessionsPerWeek && <span><CalendarDays /> {program.sessionsPerWeek} جلسات أسبوعياً</span>}
     </div>
-  </a>;
+  </Link>;
 }
 
 export function ProgramsPage() {
@@ -131,7 +131,7 @@ export function ProgramDetailPage() {
     <SkeletonLine height={13} /><SkeletonLine width="70%" height={13} />
   </div></section></PageShell>;
   if (!program) return <PageShell><section className="section"><div className="container catalog-message">
-    <strong>لم نجد هذا البرنامج.</strong><a className="button" href="/programs">كل البرامج</a>
+    <strong>لم نجد هذا البرنامج.</strong><Link className="button" to="/programs">كل البرامج</Link>
   </div></section></PageShell>;
 
   return <PageShell>
@@ -164,7 +164,7 @@ export function ProgramDetailPage() {
           <strong>ابدأ بجلسة تقييم</strong>
           <small>يحدد الأخصائي نقطة البداية المناسبة لك قبل الدخول في البرنامج.</small>
         </div>
-        <a className="button" href="/booking">حجز جلسة تقييم <ArrowLeft /></a>
+        <Link className="button" to="/booking">حجز جلسة تقييم <ArrowLeft /></Link>
       </div>
     </div></section>
   </PageShell>;
@@ -189,19 +189,19 @@ export function AcademyHub() {
           <span className="section-card-mark"><BookOpenCheck /></span>
           <h2>الدورات</h2>
           <p>دورات حضورية ومسجلة وهجينة للممارسين والطلاب.</p>
-          <a className="button button-secondary" href="/courses">استعراض الدورات <ArrowLeft /></a>
+          <Link className="button button-secondary" to="/courses">استعراض الدورات <ArrowLeft /></Link>
         </article>
         <article className="section-card">
           <span className="section-card-mark"><FileText /></span>
           <h2>المقالات</h2>
           <p>شرح مبسّط لمفاهيم التأهيل والألم، بلغة يفهمها المصاب والممارس.</p>
-          <a className="button button-secondary" href="/articles">اقرأ المقالات <ArrowLeft /></a>
+          <Link className="button button-secondary" to="/articles">اقرأ المقالات <ArrowLeft /></Link>
         </article>
         <article className="section-card">
           <span className="section-card-mark"><FlaskConical /></span>
           <h2>مراجعة الأبحاث</h2>
           <p>قراءة نقدية لأبحاث منشورة، وما تعنيه عملياً في العيادة.</p>
-          <a className="button button-secondary" href="/research">استعراض المراجعات <ArrowLeft /></a>
+          <Link className="button button-secondary" to="/research">استعراض المراجعات <ArrowLeft /></Link>
         </article>
       </div>
 
@@ -219,7 +219,7 @@ export function AcademyHub() {
 }
 
 function ArticleCard({ article }: { article: Article }) {
-  return <a className="editorial-card" href={`/articles/${article.slug}`}>
+  return <Link className="editorial-card" to={`/articles/${article.slug}`}>
     <span className="editorial-kicker">{article.category ?? "مقال"}</span>
     <h3>{article.title}</h3>
     <p>{article.excerpt}</p>
@@ -227,11 +227,11 @@ function ArticleCard({ article }: { article: Article }) {
       {article.readingMinutes && <span><Clock3 /> {article.readingMinutes} دقائق قراءة</span>}
       {article.publishedAt && <span>{formatDate(article.publishedAt)}</span>}
     </div>
-  </a>;
+  </Link>;
 }
 
 function ResearchCard({ review }: { review: ResearchReview }) {
-  return <a className="editorial-card research" href={`/research/${review.slug}`}>
+  return <Link className="editorial-card research" to={`/research/${review.slug}`}>
     <span className="editorial-kicker">{review.evidenceLevel ?? "مراجعة"}</span>
     <h3>{review.title}</h3>
     <p>{review.excerpt}</p>
@@ -239,7 +239,7 @@ function ResearchCard({ review }: { review: ResearchReview }) {
       {review.sourceJournal && <span>{review.sourceJournal}</span>}
       {review.sourceYear && <span>{review.sourceYear}</span>}
     </div>
-  </a>;
+  </Link>;
 }
 
 export function ArticlesPage() {
@@ -268,7 +268,7 @@ export function ArticleDetailPage() {
     <SkeletonLine height={13} /><SkeletonLine width="70%" height={13} />
   </div></section></PageShell>;
   if (!article) return <PageShell><section className="section"><div className="container catalog-message">
-    <strong>لم نجد هذا المقال.</strong><a className="button" href="/articles">كل المقالات</a>
+    <strong>لم نجد هذا المقال.</strong><Link className="button" to="/articles">كل المقالات</Link>
   </div></section></PageShell>;
 
   return <PageShell>
@@ -287,7 +287,7 @@ export function ArticleDetailPage() {
       {article.tags.length > 0 && <div className="tag-row">{article.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
       <div className="program-cta">
         <div><strong>لديك حالة تريد تقييمها؟</strong><small>احجز جلسة مع أخصائي لمناقشة وضعك تحديداً.</small></div>
-        <a className="button" href="/booking">حجز جلسة <ArrowLeft /></a>
+        <Link className="button" to="/booking">حجز جلسة <ArrowLeft /></Link>
       </div>
     </div></section>
   </PageShell>;
@@ -319,7 +319,7 @@ export function ResearchDetailPage() {
     <SkeletonLine height={13} /><SkeletonLine width="70%" height={13} />
   </div></section></PageShell>;
   if (!review) return <PageShell><section className="section"><div className="container catalog-message">
-    <strong>لم نجد هذه المراجعة.</strong><a className="button" href="/research">كل المراجعات</a>
+    <strong>لم نجد هذه المراجعة.</strong><Link className="button" to="/research">كل المراجعات</Link>
   </div></section></PageShell>;
 
   return <PageShell>

@@ -2,14 +2,15 @@
 
 import { ChevronDown, LayoutDashboard, LogIn, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import mascotIcon from "../assets/brand/mascot-icon.png";
 
 export function Brand() {
   return (
-    <a className="brand" href="/" aria-label="تأهيل بلو — الرئيسية">
+    <Link className="brand" to="/" aria-label="تأهيل بلو — الرئيسية">
       <span className="brand-mark" aria-hidden="true"><img src={mascotIcon} alt="" /></span>
       <span className="brand-copy"><strong>تأهيل <b>بلو</b></strong><small>علاج طبيعي وتأهيل مهني</small></span>
-    </a>
+    </Link>
   );
 }
 
@@ -67,14 +68,14 @@ export default function SiteHeader() {
       <Brand />
       <div className={`nav-links ${open ? "is-open" : ""}`}>
         {sections.map((section) => <div className="nav-section" key={section.href}>
-          <a className="nav-section-head" href={section.href} onClick={() => setOpen(false)}>{section.label}<ChevronDown /></a>
-          <div className="nav-menu">{section.items.map(([label, href]) => <a href={href} key={href} onClick={() => setOpen(false)}>{label}</a>)}</div>
+          <Link className="nav-section-head" to={section.href} onClick={() => setOpen(false)}>{section.label}<ChevronDown /></Link>
+          <div className="nav-menu">{section.items.map(([label, href]) => <Link to={href} key={href} onClick={() => setOpen(false)}>{label}</Link>)}</div>
         </div>)}
-        {plainLinks.map(([label, href]) => <a href={href} key={href} onClick={() => setOpen(false)}>{label}</a>)}
+        {plainLinks.map(([label, href]) => <Link to={href} key={href} onClick={() => setOpen(false)}>{label}</Link>)}
       </div>
       <div className="nav-actions">
-        <a className="nav-portal" href={signedIn ? "/portal" : "/login"}>{signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}</a>
-        <a className="button button-small" href="/booking">ابدأ الحجز</a>
+        <Link className="nav-portal" to={signedIn ? "/portal" : "/login"}>{signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}</Link>
+        <Link className="button button-small" to="/booking">ابدأ الحجز</Link>
         <button className="menu-button" type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}>{open ? <X /> : <Menu />}</button>
       </div>
     </nav></header>

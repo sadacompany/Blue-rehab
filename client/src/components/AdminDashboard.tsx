@@ -1,6 +1,7 @@
 import { AlertCircle, BadgeCheck, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, FileText, LifeBuoy, LoaderCircle, Plus, RefreshCcw, ShieldCheck, Users, Wallet, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { formatCurrency, formatDateTime } from "../lib/format";
+import { Link } from "react-router-dom";
+import { countLabel, formatCurrency, formatDateTime } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
 import {
   assignCourseTrainer,
@@ -159,7 +160,7 @@ export default function AdminDashboard() {
   if (denied) return <PageShell><section className="section"><div className="container catalog-message">
     <ShieldCheck /><strong>هذه اللوحة مخصصة للإدارة.</strong>
     <p>حسابك لا يملك صلاحية إدارية.</p>
-    <a className="button" href="/portal">الذهاب إلى حسابي</a>
+    <Link className="button" to="/portal">الذهاب إلى حسابي</Link>
   </div></section></PageShell>;
 
   if (!data) return <PageShell><section className="section"><div className="container catalog-message">
@@ -201,22 +202,22 @@ export default function AdminDashboard() {
     {tab === "overview" && <>
       <div className="portal-live-metrics admin-metrics">
         <Metric icon={<Wallet />} label="المحصّل" value={formatCurrency(overview.revenue.collected)} hint={`آخر ٣٠ يوماً: ${formatCurrency(overview.revenue.collected_30d)}`} />
-        <Metric icon={<CreditCard />} label="مستحق غير محصّل" value={formatCurrency(overview.revenue.outstanding)} hint={`${overview.revenue.failed_count} عملية فاشلة`} />
-        <Metric icon={<CalendarDays />} label="حجوزات اليوم" value={overview.bookings.today} hint={`${overview.bookings.upcoming} قادمة مؤكدة`} />
-        <Metric icon={<Users />} label="المستخدمون" value={overview.users.total} hint={`${overview.users.specialists} أخصائي · ${overview.users.trainers} مدرب`} />
+        <Metric icon={<CreditCard />} label="مستحق غير محصّل" value={formatCurrency(overview.revenue.outstanding)} hint={`${countLabel(overview.revenue.failed_count, ["عملية فاشلة واحدة","عمليتان فاشلتان","عمليات فاشلة","عملية فاشلة"])}`} />
+        <Metric icon={<CalendarDays />} label="حجوزات اليوم" value={overview.bookings.today} hint={`${countLabel(overview.bookings.upcoming, ["جلسة قادمة مؤكدة","جلستان قادمتان","جلسات قادمة مؤكدة","جلسة قادمة مؤكدة"])}`} />
+        <Metric icon={<Users />} label="المستخدمون" value={overview.users.total} hint={`${countLabel(overview.users.specialists, ["أخصائي واحد","أخصائيان","أخصائيين","أخصائياً"])} · ${countLabel(overview.users.trainers, ["مدرب واحد","مدربان","مدربين","مدرباً"])}`} />
       </div>
       <div className="portal-live-metrics admin-metrics">
-        <Metric icon={<BadgeCheck />} label="طلبات انضمام معلّقة" value={overview.applications.pending} hint={`${overview.applications.approved} مقبول`} />
-        <Metric icon={<CheckCircle2 />} label="حجوزات مؤكدة" value={overview.bookings.confirmed} hint={`${overview.bookings.pending_payment} بانتظار الدفع`} />
-        <Metric icon={<BookOpenCheck />} label="تسجيلات الدورات" value={overview.courses.enrollments} hint={`${overview.courses.published} دورة منشورة`} />
-        <Metric icon={<LifeBuoy />} label="طلبات دعم مفتوحة" value={overview.support.open} hint={`${overview.capacity.free_slots} موعد متاح`} />
+        <Metric icon={<BadgeCheck />} label="طلبات انضمام معلّقة" value={overview.applications.pending} hint={`${countLabel(overview.applications.approved, ["طلب مقبول واحد","طلبان مقبولان","طلبات مقبولة","طلباً مقبولاً"])}`} />
+        <Metric icon={<CheckCircle2 />} label="حجوزات مؤكدة" value={overview.bookings.confirmed} hint={`${countLabel(overview.bookings.pending_payment, ["حجز بانتظار الدفع","حجزان بانتظار الدفع","حجوزات بانتظار الدفع","حجزاً بانتظار الدفع"])}`} />
+        <Metric icon={<BookOpenCheck />} label="تسجيلات الدورات" value={overview.courses.enrollments} hint={`${countLabel(overview.courses.published, ["دورة منشورة واحدة","دورتان منشورتان","دورات منشورة","دورة منشورة"])}`} />
+        <Metric icon={<LifeBuoy />} label="طلبات دعم مفتوحة" value={overview.support.open} hint={`${countLabel(overview.capacity.free_slots, ["موعد متاح واحد","موعدان متاحان","مواعيد متاحة","موعداً متاحاً"])}`} />
       </div>
       {data.courses.filter((c) => c.reviewStatus === "in_review").length > 0 && <div className="admin-callout">
-        <AlertCircle /><span>{data.courses.filter((c) => c.reviewStatus === "in_review").length} دورة بانتظار الاعتماد.</span>
+        <AlertCircle /><span>{countLabel(data.courses.filter((c) => c.reviewStatus === "in_review").length, ["دورة واحدة بانتظار الاعتماد.","دورتان بانتظار الاعتماد.","دورات بانتظار الاعتماد.","دورة بانتظار الاعتماد."])}</span>
         <button className="button button-small" onClick={() => setTab("catalogue")}>مراجعتها الآن</button>
       </div>}
       {overview.applications.pending > 0 && <div className="admin-callout">
-        <AlertCircle /><span>لديك {overview.applications.pending} طلب انضمام بانتظار المراجعة.</span>
+        <AlertCircle /><span>لديك {countLabel(overview.applications.pending, ["طلب انضمام واحد","طلبا انضمام","طلبات انضمام","طلب انضمام"])} بانتظار المراجعة.</span>
         <button className="button button-small" onClick={() => setTab("applications")}>مراجعتها الآن</button>
       </div>}
     </>}
@@ -303,7 +304,7 @@ export default function AdminDashboard() {
             <div>
               <strong>{course.title}</strong>
               {course.summary && <small className="admin-quote">{course.summary}</small>}
-              <small>{formatCurrency(course.price)} · {course.modules} وحدة</small>
+              <small>{formatCurrency(course.price)} · {countLabel(course.modules, ["وحدة واحدة","وحدتان","وحدات","وحدة"])}</small>
             </div>
             <em>{COURSE_REVIEW[course.reviewStatus] ?? course.reviewStatus}</em>
           </div>

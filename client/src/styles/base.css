@@ -8,6 +8,19 @@ button, a { -webkit-tap-highlight-color: transparent; }
 img, svg { display: block; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid rgba(79, 120, 131, .35); outline-offset: 3px; }
 
+/* Routing is client-side now, so the page heading takes focus on navigation to
+   announce the new page. That focus is programmatic, not a keyboard action —
+   showing the ring there would look like a stray box nobody asked for. */
+main h1:focus, main h1:focus-visible { outline: none; }
+
+/* The header is a long two-level menu; a keyboard visitor should be able to
+   step over it. Off-screen until focused, which is the only time it is useful. */
+.skip-link { position: absolute; inset-inline-start: -9999px; top: 0; z-index: 100; padding: 12px 20px; border-radius: 0 0 12px 12px; background: var(--color-brand-700); color: #fff; font-weight: 800; }
+.skip-link:focus { inset-inline-start: 12px; }
+
+.not-found-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-block: 22px; }
+.catalog-message a:not(.button) { color: var(--color-brand-700); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
 .container { width: min(1180px, calc(100% - 44px)); margin-inline: auto; }
 .narrow { max-width: 860px; }
 .section { padding-block: 94px; }

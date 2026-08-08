@@ -721,10 +721,36 @@
 .trainer-course-actions em.is-published { color: var(--color-brand-700); background: var(--color-brand-100); }
 .trainer-section-title { margin: 22px 0 10px; font-size: 16px; color: var(--color-ink-950); }
 
+/* A module and the lessons inside it. The module is a heading; the lessons are
+   the course, so they are what the instructor sees listed under it. */
+.trainer-module { margin-bottom: 14px; padding: 14px; border: 1px solid var(--color-line); border-radius: 12px; background: #fff; }
+.trainer-module > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.trainer-module > header strong { display: block; font-size: 15px; }
+.trainer-module > header small { display: block; margin-top: 3px; color: var(--color-muted); font-size: 12px; }
+.trainer-module > header em { flex: none; font-style: normal; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; color: var(--color-brand-700); background: var(--color-brand-100); }
+
+.trainer-lesson-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.trainer-lesson-list li { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; background: var(--color-soft); }
+.trainer-lesson-list li > div { flex: 1; min-width: 0; }
+.trainer-lesson-list strong { display: block; font-size: 14px; }
+.trainer-lesson-list small { display: block; margin-top: 2px; color: var(--color-muted); font-size: 12px; }
+.trainer-lesson-kind { flex: none; padding: 4px 9px; border-radius: 7px; background: #fff; border: 1px solid var(--color-line); font-size: 11px; font-weight: 700; color: var(--color-brand-700); }
+
+.icon-button { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--color-line); border-radius: 9px; background: #fff; color: var(--color-muted); cursor: pointer; }
+.icon-button:hover:not(:disabled) { color: var(--color-danger-ink, #b4232a); border-color: currentColor; }
+.icon-button:disabled { opacity: .5; cursor: default; }
+.icon-button svg { width: 17px; }
+
+.trainer-lesson-composer { margin-top: 12px; }
+.trainer-lesson-composer > summary { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 8px 12px; border-radius: 9px; color: var(--color-brand-700); font-size: 13px; font-weight: 800; cursor: pointer; }
+.trainer-lesson-composer > summary svg { width: 16px; }
+.trainer-lesson-composer[open] > summary { margin-bottom: 8px; }
+
 @media (max-width: 700px) {
   .kind-picker, .availability-row { grid-template-columns: 1fr; }
   .admin-row-main { flex-direction: column; }
   .trainer-course-head { flex-direction: column; }
+  .trainer-lesson-list li { flex-wrap: wrap; }
 }
 
 /* Booking wizard — required fields, blocked-step hint, day-grouped times */

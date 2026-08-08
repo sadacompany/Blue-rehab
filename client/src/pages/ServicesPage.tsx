@@ -1,13 +1,14 @@
 import { AlertCircle, ArrowLeft, Building2, Camera, CheckCircle2, ClipboardList, FileUp, MonitorCheck, ShieldAlert, Video } from "lucide-react";
 import { ServicesCatalog } from "../components/CatalogSections";
 import PageShell from "../components/PageShell";
+import { Link } from "react-router-dom";
 
 
 export default function ServicesPage() {
   return (
     <PageShell>
       <section className="page-hero">
-        <div className="container narrow"><span className="eyebrow">مسار العلاج الطبيعي</span><h1>جلسة واضحة الغرض، وخطة يمكن متابعتها بعد الموعد</h1><p>ابدأ بتقييم أولي أو جلسة علاجية أو متابعة. تظهر طريقة التقديم والمدة والسعر والسياسة قبل تأكيد الطلب.</p><div className="page-actions"><a className="button" href="/booking">ابدأ الحجز</a><a className="button button-secondary" href="#service-list">قارن الخدمات</a></div></div>
+        <div className="container narrow"><span className="eyebrow">مسار العلاج الطبيعي</span><h1>جلسة واضحة الغرض، وخطة يمكن متابعتها بعد الموعد</h1><p>ابدأ بتقييم أولي أو جلسة علاجية أو متابعة. تظهر طريقة التقديم والمدة والسعر والسياسة قبل تأكيد الطلب.</p><div className="page-actions"><Link className="button" to="/booking">ابدأ الحجز</Link><a className="button button-secondary" href="#service-list">قارن الخدمات</a></div></div>
       </section>
 
       <section className="section" id="service-list">
@@ -34,7 +35,7 @@ export default function ServicesPage() {
       </section>
 
       <section className="section safety-panel-section">
-        <div className="container safety-panel"><ShieldAlert /><div><span className="kicker light">حدود السلامة</span><h2>لا وعود بنتائج علاجية، ولا تشخيص إسعافي عبر المنصة</h2><p>النتائج تختلف باختلاف الحالة والالتزام والاستجابة. أي ألم حاد مفاجئ، ضعف جديد، صعوبة تنفس، فقدان وعي أو أعراض مقلقة يستدعي التواصل مع جهة صحية عاجلة.</p></div><a className="button button-light" href="/faq">الأسئلة الصحية الشائعة <ArrowLeft /></a></div>
+        <div className="container safety-panel"><ShieldAlert /><div><span className="kicker light">حدود السلامة</span><h2>لا وعود بنتائج علاجية، ولا تشخيص إسعافي عبر المنصة</h2><p>النتائج تختلف باختلاف الحالة والالتزام والاستجابة. أي ألم حاد مفاجئ، ضعف جديد، صعوبة تنفس، فقدان وعي أو أعراض مقلقة يستدعي التواصل مع جهة صحية عاجلة.</p></div><Link className="button button-light" to="/faq">الأسئلة الصحية الشائعة <ArrowLeft /></Link></div>
       </section>
 
       <section className="section compact-section"><div className="container info-callout"><AlertCircle /><div><strong>رفع الملفات غير مفعل للزائر.</strong><p>لا تُرفع التقارير أو الأشعة إلا داخل حساب موثق وبعد الموافقة على مشاركة البيانات مع الأخصائي المعالج.</p></div></div></section>

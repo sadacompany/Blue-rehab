@@ -5,6 +5,7 @@ import { courseModeLabel, formatCurrency, formatDate } from "../lib/format";
 import { loadCourseDetail } from "../lib/catalog";
 import { AuthenticationRequiredError, enrollInCourse, startCheckout } from "../lib/platform";
 import DemoBadge from "./DemoBadge";
+import { Link } from "react-router-dom";
 
 export default function CourseDetailConnected({ slug }: { slug: string }) {
   const [data, setData] = useState<CourseDetailResponse | null>(null);
@@ -64,7 +65,7 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
   }
 
   if (loading) return <section className="section"><div className="container course-detail-loading"><LoaderCircle className="spin" /><i /><i /></div></section>;
-  if (error || !data) return <section className="section"><div className="container catalog-message"><strong>تعذر تحميل الدورة.</strong><p>قد تكون الدورة غير منشورة أو تعذر الاتصال مؤقتًا.</p><button className="button button-secondary" onClick={() => void reload()}><RefreshCcw /> إعادة المحاولة</button><a className="button" href="/courses">العودة إلى الدورات</a></div></section>;
+  if (error || !data) return <section className="section"><div className="container catalog-message"><strong>تعذر تحميل الدورة.</strong><p>قد تكون الدورة غير منشورة أو تعذر الاتصال مؤقتًا.</p><button className="button button-secondary" onClick={() => void reload()}><RefreshCcw /> إعادة المحاولة</button><Link className="button" to="/courses">العودة إلى الدورات</Link></div></section>;
 
   const { course, modules } = data;
   return <>

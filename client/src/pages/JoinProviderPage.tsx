@@ -1,5 +1,6 @@
 import { AlertCircle, BadgeCheck, CheckCircle2, Clock3, GraduationCap, LoaderCircle, Paperclip, Send, Stethoscope, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { formatDateTime } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
@@ -176,9 +177,9 @@ export default function JoinProviderPage() {
               </em>
             </header>
             {item.reviewNote && <p className="application-note">ملاحظة الإدارة: {item.reviewNote}</p>}
-            {item.status === "approved" && <a className="button button-small" href={item.kind === "specialist" ? "/specialist" : "/trainer"}>
+            {item.status === "approved" && <Link className="button button-small" to={item.kind === "specialist" ? "/specialist" : "/trainer"}>
               {item.kind === "specialist" ? <Stethoscope /> : <GraduationCap />} فتح لوحتي
-            </a>}
+            </Link>}
             {item.status === "pending" && <button className="button button-small button-secondary" type="button" disabled={busy} onClick={() => void withdraw(item.id)}>سحب الطلب</button>}
           </article>)}
         </div>}
@@ -236,7 +237,7 @@ export default function JoinProviderPage() {
 
         {alreadyHasRole && <div className="catalog-message">
           <strong>حسابك مفعّل بالفعل كـ{KIND_LABEL[kind]}.</strong>
-          <a className="button" href={kind === "specialist" ? "/specialist" : "/trainer"}>فتح لوحتي</a>
+          <Link className="button" to={kind === "specialist" ? "/specialist" : "/trainer"}>فتح لوحتي</Link>
         </div>}
       </>}
     </div></section>

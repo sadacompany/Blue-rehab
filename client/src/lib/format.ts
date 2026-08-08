@@ -36,6 +36,32 @@ export const formatTime = (value: string) =>
     minute: "2-digit",
   }).format(new Date(value));
 
+/**
+ * A counted noun in Arabic changes shape with the number, and the dashboards
+ * were reading «3 طلب انضمام» and «3 دورة منشورة» — the count is right and the
+ * sentence is wrong, which in an Arabic-first product reads as carelessness.
+ *
+ *   1        مفرد            طلب
+ *   2        مثنى            طلبان
+ *   3–10     جمع             ٣ طلبات
+ *   0, 11+   مفرد منصوب      ١١ طلباً   ·   ٠ طلبات
+ *
+ * `forms` is [مفرد, مثنى, جمع, مفرد منصوب]. Zero takes the plural, which is how
+ * an empty count is normally read aloud.
+ */
+export type CountForms = [one: string, two: string, few: string, many: string];
+
+export const arabicNumber = (value: number) => new Intl.NumberFormat("ar-SA").format(value);
+
+export function countLabel(value: number, forms: CountForms): string {
+  const [one, two, few, many] = forms;
+  if (value === 1) return one;
+  if (value === 2) return two;
+  const n = arabicNumber(value);
+  if (value === 0) return `${n} ${few}`;
+  return value % 100 >= 3 && value % 100 <= 10 ? `${n} ${few}` : `${n} ${many}`;
+}
+
 export const deliveryLabel = (mode: DeliveryMode) =>
   mode === "remote" ? "عن بُعد" : "في المركز";
 

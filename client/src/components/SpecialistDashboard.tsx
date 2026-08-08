@@ -1,6 +1,7 @@
 import { Activity, BadgeCheck, CalendarDays, ClipboardList, LoaderCircle, LogOut, NotebookPen, Plus, RefreshCcw, Stethoscope, Trash2, UserRound, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { deliveryLabel, formatCurrency, formatDateTime, formatDayLabel } from "../lib/format";
+import { Link } from "react-router-dom";
+import { countLabel, deliveryLabel, formatCurrency, formatDateTime, formatDayLabel } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
 import {
   addExercise,
@@ -322,7 +323,7 @@ function AvailabilityPanel({ specialistId }: { specialistId: string }) {
     setBusy(true); setError(""); setMessage("");
     try {
       const created = await openSlots(specialistId, { dates: days, times, mode, durationMinutes: duration });
-      setMessage(created ? `تمت إضافة ${created} موعداً.` : "لم يُضف أي موعد — تحقق من الأيام والأوقات.");
+      setMessage(created ? `تمت إضافة ${countLabel(created, ["موعد واحد","موعدين","مواعيد","موعداً"])}.` : "لم يُضف أي موعد — تحقق من الأيام والأوقات.");
       setDays([]);
       await reload();
     } catch (reason) {
@@ -372,7 +373,7 @@ function AvailabilityPanel({ specialistId }: { specialistId: string }) {
 
       {error && <p className="specialist-error">{error}</p>}
       {message && <p className="availability-message">{message}</p>}
-      <p className="application-hint">سيتم إنشاء {days.length * times.length} موعداً.</p>
+      <p className="application-hint">سيتم إنشاء {countLabel(days.length * times.length, ["موعد واحد","موعدين","مواعيد","موعداً"])}.</p>
 
       <button className="button" type="button" disabled={busy || !days.length || !times.length} onClick={() => void publish()}>
         {busy ? <LoaderCircle className="spin" /> : <CalendarDays />} فتح المواعيد
@@ -445,7 +446,7 @@ export default function SpecialistDashboard() {
     {!loading && denied && <div className="catalog-message">
       <strong>هذه اللوحة مخصصة للأخصائيين.</strong>
       <p>حسابك غير مرتبط بملف أخصائي. إن كنت أخصائيًا، تواصل مع الإدارة لتفعيل ملفك.</p>
-      <a className="button" href="/portal">الذهاب إلى حسابي</a>
+      <Link className="button" to="/portal">الذهاب إلى حسابي</Link>
     </div>}
 
     {!loading && !denied && error && <div className="catalog-message">

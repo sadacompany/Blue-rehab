@@ -1,7 +1,8 @@
 import { lazy, Suspense } from "react";
-import { Route, Routes, useParams, useSearchParams } from "react-router-dom";
+import { Link, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 import { LoaderCircle } from "lucide-react";
 import PageShell from "./components/PageShell";
+import RouteChange from "./components/RouteChange";
 import HomePage from "./pages/HomePage";
 
 /**
@@ -57,12 +58,24 @@ function CoursePage() {
   return <PageShell><CourseDetailConnected slug={slug} /></PageShell>;
 }
 
+/**
+ * A wrong link is usually a stale one, so the page offers the two halves of the
+ * platform rather than only the front door — the visitor was heading somewhere.
+ */
 function NotFoundPage() {
-  return <PageShell><section className="section"><div className="container catalog-message"><strong>الصفحة غير موجودة.</strong><p>تحقق من الرابط أو عد إلى الصفحة الرئيسية.</p><a className="button" href="/">العودة للرئيسية</a></div></section></PageShell>;
+  return <PageShell><section className="section"><div className="container narrow catalog-message">
+    <h1>الصفحة غير موجودة</h1>
+    <p>قد يكون الرابط قديماً أو غير مكتمل. اختر وجهتك من هنا:</p>
+    <div className="not-found-actions">
+      <Link className="button" to="/consultations">استشارة بلو — الحجز والبرامج</Link>
+      <Link className="button button-secondary" to="/academy">أكاديمية بلو — الدورات والمقالات</Link>
+    </div>
+    <p><Link to="/">العودة للصفحة الرئيسية</Link> · <Link to="/contact">تواصل معنا</Link></p>
+  </div></section></PageShell>;
 }
 
 export default function App() {
-  return <Suspense fallback={<RouteFallback />}>
+  return <><RouteChange /><Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<AuthPage />} />
@@ -93,5 +106,5 @@ export default function App() {
       <Route path="/refund-policy" element={<RefundPolicyPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
-  </Suspense>;
+  </Suspense></>;
 }

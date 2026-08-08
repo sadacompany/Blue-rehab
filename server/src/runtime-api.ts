@@ -36,6 +36,12 @@ const BOOKING_ERRORS: Record<string, { status: number; message: string }> = {
   SERVICE_NOT_OFFERED: { status: 409, message: "هذا المختص لا يقدم هذه الخدمة. اختر خدمة أخرى أو مختصاً آخر." },
   COURSE_UNAVAILABLE: { status: 409, message: "الدورة غير متاحة للتسجيل." },
   COURSE_FULL: { status: 409, message: "اكتمل العدد في هذه الدورة." },
+  // Unmapped codes fell through to "خطأ غير متوقع", so a student who pressed
+  // enrol twice was told the server had broken rather than that they were
+  // already on the course.
+  ALREADY_ENROLLED: { status: 409, message: "أنت مسجل في هذه الدورة بالفعل. تجدها في «دوراتي»." },
+  PAYMENT_NOT_FOUND: { status: 404, message: "لم نجد عملية الدفع. حدّث الصفحة أو تواصل معنا." },
+  INTENT_KIND_UNKNOWN: { status: 409, message: "تعذّر تحديد نوع الطلب. ابدأ من جديد أو تواصل معنا." },
 };
 
 function mapDomainError(message: string | undefined) {

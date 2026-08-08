@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Copy, LoaderCircle, LogIn, Phone, ShieldCheck, Sparkles } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { MOCK_OTP_CODE, isMockAuth, normalizeSaudiPhone, signOut, startPhoneSignIn, verifyPhoneSignIn } from "../lib/auth";
 import { supabase } from "../lib/supabase";
@@ -98,7 +98,7 @@ export default function AuthPage() {
 
       {step === "done" && <div className="auth-success">
         <CheckCircle2 /><h2>أنت مسجل الدخول</h2><p>يمكنك متابعة الإجراء المطلوب أو فتح لوحة حسابك.</p>
-        <a className="button" href={returnTo}>متابعة</a>
+        <Link className="button" to={returnTo}>متابعة</Link>
         <button className="button button-secondary" type="button" onClick={() => void handleSignOut()}>تسجيل الخروج</button>
       </div>}
 

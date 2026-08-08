@@ -27,13 +27,34 @@ export type TrainerStudent = {
   createdAt: string;
 };
 
+export type TrainerLesson = {
+  id: string;
+  title: string;
+  contentType: string;
+  contentUrl: string | null;
+  durationMinutes: number | null;
+  position: number;
+  isPreview: boolean;
+};
+
 export type TrainerModule = {
   id: string;
   title: string;
   summary: string;
   position: number;
-  lessonCount: number;
+  lessons: TrainerLesson[];
 };
+
+/** The seven kinds `course_lessons.content_type` accepts, named for a human. */
+export const LESSON_TYPES: Array<{ value: string; label: string }> = [
+  { value: "video", label: "فيديو" },
+  { value: "text", label: "نص" },
+  { value: "pdf", label: "ملف PDF" },
+  { value: "presentation", label: "عرض تقديمي" },
+  { value: "link", label: "رابط خارجي" },
+  { value: "quiz", label: "اختبار" },
+  { value: "assignment", label: "تكليف" },
+];
 
 export type TrainerCourse = {
   id: string;
@@ -78,7 +99,9 @@ export async function loadTrainerCourses(): Promise<TrainerCourse[]> {
 
   const moduleIds = (moduleResult.data ?? []).map((row) => row.id);
   const lessonResult = moduleIds.length
-    ? await supabase.from("course_lessons").select("id,module_id").in("module_id", moduleIds)
+    ? await supabase.from("course_lessons")
+        .select("id,module_id,title,content_type,content_url,duration_minutes,position,is_preview")
+        .in("module_id", moduleIds).order("position")
     : { data: [], error: null };
   if (lessonResult.error) throw new Error(lessonResult.error.message);
 
@@ -114,7 +137,17 @@ export async function loadTrainerCourses(): Promise<TrainerCourse[]> {
         title: row.title,
         summary: row.summary ?? "",
         position: row.position,
-        lessonCount: (lessonResult.data ?? []).filter((lesson: any) => lesson.module_id === row.id).length,
+        lessons: (lessonResult.data ?? [])
+          .filter((lesson: any) => lesson.module_id === row.id)
+          .map((lesson: any) => ({
+            id: lesson.id,
+            title: lesson.title,
+            contentType: lesson.content_type,
+            contentUrl: lesson.content_url,
+            durationMinutes: lesson.duration_minutes,
+            position: lesson.position,
+            isPreview: Boolean(lesson.is_preview),
+          })),
       })),
   }));
 }
@@ -140,6 +173,38 @@ export async function addModule(courseId: string, title: string, summary: string
     summary: summary.trim() || null,
     position,
   });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Add a lesson to a module.
+ *
+ * A module is a heading; the lessons are the course. The instructor could build
+ * modules but never fill them, so every course read «٠ دروس» and could still be
+ * submitted for approval and sold. `course_lessons_trainer_all` already allowed
+ * this write — only the interface was missing.
+ *
+ * `is_preview` opens a lesson to visitors who have not paid, which is the only
+ * field here that reaches beyond the enrolled students, so it is opt-in.
+ */
+export async function addLesson(moduleId: string, input: {
+  title: string; contentType: string; contentUrl: string; durationMinutes: number | null;
+  isPreview: boolean; position: number;
+}) {
+  const { error } = await supabase.from("course_lessons").insert({
+    module_id: moduleId,
+    title: input.title.trim(),
+    content_type: input.contentType,
+    content_url: input.contentUrl.trim() || null,
+    duration_minutes: input.durationMinutes && input.durationMinutes > 0 ? input.durationMinutes : null,
+    position: input.position,
+    is_preview: input.isPreview,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteLesson(lessonId: string) {
+  const { error } = await supabase.from("course_lessons").delete().eq("id", lessonId);
   if (error) throw new Error(error.message);
 }
 
@@ -177,6 +242,7 @@ const REVIEW_ERRORS: Record<string, string> = {
   TITLE_REQUIRED: "عنوان الدورة مطلوب.",
   DESCRIPTION_REQUIRED: "أضف وصفاً للدورة قبل التقديم.",
   CONTENT_REQUIRED: "أضف وحدة واحدة على الأقل قبل التقديم للمراجعة.",
+  LESSONS_REQUIRED: "أضف درساً واحداً على الأقل داخل الوحدات قبل التقديم للمراجعة.",
   ALREADY_SUBMITTED: "الدورة قيد المراجعة بالفعل.",
   ALREADY_PUBLISHED: "الدورة منشورة بالفعل.",
   FORBIDDEN: "هذه الدورة ليست لك.",

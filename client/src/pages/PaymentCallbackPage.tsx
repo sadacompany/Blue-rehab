@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, BookOpenCheck, CalendarDays, CalendarPlus, CheckCircle2, LoaderCircle, MessageCircle, Video, XCircle } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { deliveryLabel, formatCurrency, formatDateTime } from "../lib/format";
 import { downloadIcs, whatsappShareUrl, type SessionInvite } from "../lib/invites";
@@ -23,6 +23,7 @@ const REDIRECT_AFTER = 6;
  */
 export default function PaymentCallbackPage() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const paymentId = params.get("id") ?? params.get("payment_id") ?? "";
   const invoiceId = params.get("invoice_id") ?? params.get("invoiceId") ?? "";
 
@@ -63,10 +64,12 @@ export default function PaymentCallbackPage() {
 
   useEffect(() => {
     if (state !== "done" || !succeeded) return;
-    if (countdown <= 0) { window.location.href = destination; return; }
+    // Client-side: the payer has already waited through the gateway round trip,
+    // and a reload here would re-fetch the whole application to show the portal.
+    if (countdown <= 0) { navigate(destination, { replace: true }); return; }
     const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000);
     return () => window.clearTimeout(timer);
-  }, [state, succeeded, countdown, destination]);
+  }, [state, succeeded, countdown, destination, navigate]);
 
   return <PageShell><section className="section"><div className="container payment-result">
     {state === "checking" && <div className="booking-loader"><LoaderCircle className="spin" /><p>جارٍ التحقق من عملية الدفع…</p></div>}
@@ -74,7 +77,7 @@ export default function PaymentCallbackPage() {
     {state === "error" && <div className="catalog-message">
       <XCircle /><strong>تعذر تأكيد الدفع.</strong><p>{error}</p>
       <p>إن كان المبلغ قد خُصم من حسابك فلا داعي للدفع مرة أخرى — افتح حسابك وسيظهر الطلب مؤكداً خلال لحظات.</p>
-      <a className="button" href="/portal">فتح حسابي</a>
+      <Link className="button" to="/portal">فتح حسابي</Link>
     </div>}
 
     {state === "done" && succeeded && <div className="payment-success">
@@ -116,8 +119,8 @@ export default function PaymentCallbackPage() {
       </p>}
 
       <div className="payment-success-actions">
-        <a className="button" href={destination}>{isCourse ? <BookOpenCheck /> : <CalendarDays />} {destinationLabel}</a>
-        <a className="button button-secondary" href="/">العودة للرئيسية</a>
+        <Link className="button" to={destination}>{isCourse ? <BookOpenCheck /> : <CalendarDays />} {destinationLabel}</Link>
+        <Link className="button button-secondary" to="/">العودة للرئيسية</Link>
       </div>
       <p className="payment-redirect-note">سيتم تحويلك تلقائياً خلال {countdown} ثانية…</p>
     </div>}
@@ -125,13 +128,13 @@ export default function PaymentCallbackPage() {
     {state === "done" && result?.status === "slot_taken" && <div className="catalog-message">
       <AlertCircle /><strong>تعذر تأكيد الموعد — وأُعيد المبلغ إليك.</strong>
       <p>حُجز هذا الموعد قبل اكتمال دفعك مباشرة. أُعيد المبلغ بالكامل إلى وسيلة الدفع نفسها، وقد يستغرق ظهوره أياماً حسب مصرفك.</p>
-      <div><a className="button" href="/booking">اختيار موعد آخر</a><a className="button button-secondary" href="/portal">حسابي</a></div>
+      <div><Link className="button" to="/booking">اختيار موعد آخر</Link><Link className="button button-secondary" to="/portal">حسابي</Link></div>
     </div>}
 
     {state === "done" && !succeeded && result?.status !== "slot_taken" && <div className="catalog-message">
       <AlertCircle /><strong>لم تكتمل عملية الدفع.</strong>
       <p>لم يُخصم أي مبلغ ولم يُحجز أي موعد. يمكنك إعادة المحاولة.</p>
-      <div><a className="button" href="/booking">إعادة المحاولة</a><a className="button button-secondary" href="/portal">حسابي</a></div>
+      <div><Link className="button" to="/booking">إعادة المحاولة</Link><Link className="button button-secondary" to="/portal">حسابي</Link></div>
     </div>}
   </div></section></PageShell>;
 }

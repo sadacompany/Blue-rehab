@@ -1,14 +1,18 @@
-import { AlertCircle, BookOpenCheck, CheckCircle2, GraduationCap, LoaderCircle, Plus, RefreshCcw, Send, Users } from "lucide-react";
+import { AlertCircle, BookOpenCheck, CheckCircle2, GraduationCap, LoaderCircle, Plus, RefreshCcw, Send, Trash2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { formatCurrency, formatDate } from "../lib/format";
+import { countLabel, formatCurrency, formatDate } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
 import {
+  addLesson,
   addModule,
   createCourse,
+  deleteLesson,
+  LESSON_TYPES,
   loadTrainerCourses,
   setStudentProgress,
   submitCourseForReview,
   type TrainerCourse,
+  type TrainerModule,
 } from "../lib/trainer";
 import PageShell from "./PageShell";
 import { SkeletonGrid, SkeletonLine } from "./Skeleton";
@@ -56,6 +60,60 @@ function ModuleComposer({ course, onAdded }: { course: TrainerCourse; onAdded: (
       {busy ? <LoaderCircle className="spin" /> : <Plus />} إضافة وحدة
     </button>
   </div>;
+}
+
+/**
+ * A lesson is the actual content. Modules could be created but never filled, so
+ * a course could reach approval with every module empty.
+ */
+function LessonComposer({ module, onAdded }: { module: TrainerModule; onAdded: () => void }) {
+  const [form, setForm] = useState({ title: "", contentType: "video", contentUrl: "", duration: "", isPreview: false });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    if (!form.title.trim()) { setError("عنوان الدرس مطلوب"); return; }
+    setBusy(true);
+    setError("");
+    try {
+      // `course_lessons` has a unique (module_id, position); continue the sequence.
+      const next = module.lessons.reduce((max, item) => Math.max(max, item.position), 0) + 1;
+      await addLesson(module.id, {
+        title: form.title, contentType: form.contentType, contentUrl: form.contentUrl,
+        durationMinutes: Number(form.duration) || null, isPreview: form.isPreview, position: next,
+      });
+      setForm({ title: "", contentType: "video", contentUrl: "", duration: "", isPreview: false });
+      onAdded();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر إضافة الدرس");
+    } finally { setBusy(false); }
+  }
+
+  return <details className="trainer-lesson-composer">
+    <summary><Plus /> إضافة درس إلى «{module.title}»</summary>
+    <div className="specialist-plan-composer">
+      <label><span>عنوان الدرس <b className="req">*</b></span>
+        <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="مثال: تشريح مفصل الكتف" /></label>
+      <div className="specialist-plan-composer-row">
+        <label><span>نوع المحتوى</span>
+          <select value={form.contentType} onChange={(e) => setForm({ ...form, contentType: e.target.value })}>
+            {LESSON_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+          </select></label>
+        <label><span>المدة (دقيقة)</span>
+          <input type="number" min={1} value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="اختياري" /></label>
+      </div>
+      <label><span>رابط المحتوى</span>
+        <input dir="ltr" value={form.contentUrl} onChange={(e) => setForm({ ...form, contentUrl: e.target.value })} placeholder="https://… — اختياري" /></label>
+      <label className="policy-check">
+        <input type="checkbox" checked={form.isPreview} onChange={(e) => setForm({ ...form, isPreview: e.target.checked })} />
+        <span>إتاحة هذا الدرس كمعاينة مجانية قبل الشراء</span>
+      </label>
+      {error && <p className="specialist-error">{error}</p>}
+      <button className="button button-small" type="button" disabled={busy} onClick={() => void submit()}>
+        {busy ? <LoaderCircle className="spin" /> : <Plus />} إضافة الدرس
+      </button>
+    </div>
+  </details>;
 }
 
 /** Instructors could not create a course at all — only manage assigned ones. */
@@ -187,14 +245,14 @@ export default function TrainerDashboard() {
         </header>
 
         {course.reviewNote && <p className="application-note">ملاحظة الإدارة: {course.reviewNote}</p>}
-        {course.reviewStatus === "draft" && course.modules.length === 0 && <p className="booking-missing">
-          <AlertCircle /> أضف وحدة واحدة على الأقل ووصفاً للدورة قبل التقديم للمراجعة.
+        {course.reviewStatus === "draft" && course.modules.reduce((sum, m) => sum + m.lessons.length, 0) === 0 && <p className="booking-missing">
+          <AlertCircle /> أضف وصفاً للدورة، ووحدة تحتوي على درس واحد على الأقل، قبل التقديم للمراجعة.
         </p>}
 
         <div className="portal-live-metrics">
           <article><Users /><span><small>المسجلون</small><strong>{course.students.length}</strong></span></article>
           <article><CheckCircle2 /><span><small>نشط</small><strong>{active}</strong></span></article>
-          <article><BookOpenCheck /><span><small>الوحدات</small><strong>{course.modules.length}</strong></span></article>
+          <article><BookOpenCheck /><span><small>الوحدات والدروس</small><strong>{course.modules.length} · {course.modules.reduce((sum, m) => sum + m.lessons.length, 0)}</strong></span></article>
         </div>
 
         <h3 className="trainer-section-title">المتدربون</h3>
@@ -205,7 +263,6 @@ export default function TrainerDashboard() {
                 <strong>{student.studentName}</strong>
                 <small>{ENROL_STATUS[student.status] ?? student.status}</small>
                 <div className="portal-progress"><i style={{ width: `${student.progress}%` }} /></div>
-                <small>التقدم: {student.progress}%</small>
               </div>
               <em>{student.completedAt ? "أكمل الدورة" : `${student.progress}%`}</em>
             </div>
@@ -222,15 +279,34 @@ export default function TrainerDashboard() {
         </div> : <div className="portal-empty"><Users /><p>لم يسجل أحد في هذه الدورة بعد.</p></div>}
 
         <h3 className="trainer-section-title">محتوى الدورة</h3>
-        {course.modules.length > 0 && <ol className="specialist-exercise-list">
-          {course.modules.map((module) => <li key={module.id}>
+        {course.modules.map((module) => <div className="trainer-module" key={module.id}>
+          <header>
             <div>
               <strong>{module.title}</strong>
               {module.summary && <small>{module.summary}</small>}
-              <small>{module.lessonCount} درس</small>
             </div>
-          </li>)}
-        </ol>}
+            <em>{countLabel(module.lessons.length, ["درس واحد", "درسان", "دروس", "درساً"])}</em>
+          </header>
+
+          {module.lessons.length > 0 ? <ol className="trainer-lesson-list">
+            {module.lessons.map((lesson) => <li key={lesson.id}>
+              <span className="trainer-lesson-kind">{LESSON_TYPES.find((t) => t.value === lesson.contentType)?.label ?? lesson.contentType}</span>
+              <div>
+                <strong>{lesson.title}</strong>
+                <small>
+                  {lesson.durationMinutes ? `${countLabel(lesson.durationMinutes, ["دقيقة واحدة", "دقيقتان", "دقائق", "دقيقة"])}` : "المدة غير محددة"}
+                  {lesson.isPreview && " · معاينة مجانية"}
+                </small>
+              </div>
+              <button type="button" className="icon-button" aria-label={`حذف الدرس: ${lesson.title}`}
+                disabled={busy === lesson.id}
+                onClick={() => void run(lesson.id, () => deleteLesson(lesson.id))}><Trash2 /></button>
+            </li>)}
+          </ol> : <p className="booking-missing"><AlertCircle /> لا توجد دروس في هذه الوحدة بعد — أضف درساً حتى يكون للوحدة محتوى.</p>}
+
+          <LessonComposer module={module} onAdded={() => void reload()} />
+        </div>)}
+
         <ModuleComposer course={course} onAdded={() => void reload()} />
       </section>;
     })}

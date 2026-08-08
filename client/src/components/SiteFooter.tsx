@@ -1,5 +1,6 @@
 import { ArrowUpLeft } from "lucide-react";
 import { Brand } from "./SiteHeader";
+import { Link } from "react-router-dom";
 
 export default function SiteFooter() {
   return (
@@ -11,27 +12,27 @@ export default function SiteFooter() {
         </div>
         <div>
           <strong>العلاج</strong>
-          <a href="/services">الجلسات والخدمات</a>
-          <a href="/specialists">ملفات المختصين</a>
-          <a href="/booking">مسار الحجز</a>
+          <Link to="/services">الجلسات والخدمات</Link>
+          <Link to="/specialists">ملفات المختصين</Link>
+          <Link to="/booking">مسار الحجز</Link>
         </div>
         <div>
           <strong>التعلم</strong>
-          <a href="/courses">الدورات التأهيلية</a>
-          <a href="/portal?view=student">لوحة الطالب</a>
-          <a href="/portal?view=trainer">لوحة المدرب</a>
+          <Link to="/courses">الدورات التأهيلية</Link>
+          <Link to="/portal?view=student">لوحة الطالب</Link>
+          <Link to="/portal?view=trainer">لوحة المدرب</Link>
         </div>
         <div>
           <strong>الحوكمة</strong>
-          <a href="/privacy">سياسة الخصوصية</a>
-          <a href="/terms">الشروط والأحكام</a>
-          <a href="/refund-policy">الإلغاء والاسترداد</a>
-          <a href="/contact">تواصل معنا</a>
+          <Link to="/privacy">سياسة الخصوصية</Link>
+          <Link to="/terms">الشروط والأحكام</Link>
+          <Link to="/refund-policy">الإلغاء والاسترداد</Link>
+          <Link to="/contact">تواصل معنا</Link>
         </div>
       </div>
       <div className="container footer-bottom">
         <span>© 2026 بلو ريهاب. جميع الحقوق محفوظة.</span>
-        <a href="/about">تعرف على حدود النسخة الحالية <ArrowUpLeft /></a>
+        <Link to="/about">تعرف على حدود النسخة الحالية <ArrowUpLeft /></Link>
       </div>
     </footer>
   );

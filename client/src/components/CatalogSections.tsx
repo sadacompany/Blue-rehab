@@ -4,6 +4,7 @@ import type { CatalogResponse, Course, Specialist } from "../lib/catalog-types";
 import { courseModeLabel, formatCurrency, formatDate } from "../lib/format";
 import { loadCatalog } from "../lib/catalog";
 import DemoBadge from "./DemoBadge";
+import { Link } from "react-router-dom";
 
 export function useCatalog() {
   const [data, setData] = useState<CatalogResponse | null>(null);
@@ -36,11 +37,11 @@ function CatalogError({ retry }: { retry: () => void }) {
 
 export function SpecialistCard({ specialist }: { specialist: Specialist }) {
   const initials = specialist.name.replace("ملف تجريبي — ", "").split(" ").map((part) => part[0]).join("").slice(0, 2);
-  return <article className="profile-card"><div className="profile-head"><span className="profile-avatar" aria-hidden="true">{initials}</span>{specialist.isDemo ? <DemoBadge compact /> : <span className="verified-badge"><ShieldCheck /> ملف موثق</span>}</div><div className="profile-body"><p className="overline">{specialist.title}</p><h3>{specialist.name}</h3><p>{specialist.bio}</p><div className="chip-row">{specialist.specialties.map((item) => <span key={item}>{item}</span>)}</div><div className="profile-meta"><Languages /> {specialist.languages.join("، ")}</div><a className="card-link" href={`/booking?specialist=${specialist.id}`}>عرض المواعيد <ArrowLeft /></a></div></article>;
+  return <article className="profile-card"><div className="profile-head"><span className="profile-avatar" aria-hidden="true">{initials}</span>{specialist.isDemo ? <DemoBadge compact /> : <span className="verified-badge"><ShieldCheck /> ملف موثق</span>}</div><div className="profile-body"><p className="overline">{specialist.title}</p><h3>{specialist.name}</h3><p>{specialist.bio}</p><div className="chip-row">{specialist.specialties.map((item) => <span key={item}>{item}</span>)}</div><div className="profile-meta"><Languages /> {specialist.languages.join("، ")}</div><Link className="card-link" to={`/booking?specialist=${specialist.id}`}>عرض المواعيد <ArrowLeft /></Link></div></article>;
 }
 
 export function CourseCard({ course }: { course: Course }) {
-  return <article className="course-card"><div className={`course-cover course-${course.mode}`}><span><BookOpen /></span><small>{courseModeLabel(course.mode)}</small></div><div className="course-body"><div className="course-labels"><span>{course.level}</span>{course.isDemo && <DemoBadge compact />}</div><h3>{course.title}</h3><p>{course.summary}</p><div className="course-facts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span></div><div className="course-date">{course.startsAt ? `${course.isDemo ? "موعد توضيحي: " : "تاريخ البدء: "}${formatDate(course.startsAt)}` : "يعلن الموعد عند اعتماد الجدول"}</div><div className="course-footer"><div><small>{course.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatCurrency(course.price)}</strong></div><a href={`/courses/${course.slug}`}>التفاصيل <ArrowLeft /></a></div></div></article>;
+  return <article className="course-card"><div className={`course-cover course-${course.mode}`}><span><BookOpen /></span><small>{courseModeLabel(course.mode)}</small></div><div className="course-body"><div className="course-labels"><span>{course.level}</span>{course.isDemo && <DemoBadge compact />}</div><h3>{course.title}</h3><p>{course.summary}</p><div className="course-facts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span></div><div className="course-date">{course.startsAt ? `${course.isDemo ? "موعد توضيحي: " : "تاريخ البدء: "}${formatDate(course.startsAt)}` : "يعلن الموعد عند اعتماد الجدول"}</div><div className="course-footer"><div><small>{course.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatCurrency(course.price)}</strong></div><Link to={`/courses/${course.slug}`}>التفاصيل <ArrowLeft /></Link></div></div></article>;
 }
 
 export function HomeCatalog() {
@@ -74,12 +75,12 @@ export function CoursesCatalog() {
 export function CatalogSummary() {
   const { data } = useCatalog();
   if (!data) return null;
-  return <span className="live-source"><Video /> {data.services.length} خدمات و{data.courses.length} دورات متصلة بقاعدة البيانات</span>;
+  return <span className="live-source"><Video /> {data.services.length} خدمات و{data.courses.length} دورات متاحة الآن</span>;
 }
 
 export function ServicesCatalog() {
   const { data, error, loading, reload } = useCatalog();
   if (error) return <CatalogError retry={reload} />;
   if (loading || !data) return <LoadingCards />;
-  return <div className="service-catalog">{data.services.map((service) => <article key={service.id}><div className="service-title"><span><Monitor /></span><div><h3>{service.name}</h3>{service.isDemo && <DemoBadge compact />}</div></div><p>{service.description}</p><div className="service-details"><span><Clock3 /> {service.durationMinutes} دقيقة</span><span>{service.modes.map((mode) => mode === "remote" ? "عن بُعد" : "في المركز").join(" أو ")}</span></div><div className="service-price"><small>{service.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatCurrency(service.price)}</strong></div><a className="card-link" href={`/booking?service=${service.id}`}>اختيار الخدمة <ArrowLeft /></a></article>)}</div>;
+  return <div className="service-catalog">{data.services.map((service) => <article key={service.id}><div className="service-title"><span><Monitor /></span><div><h3>{service.name}</h3>{service.isDemo && <DemoBadge compact />}</div></div><p>{service.description}</p><div className="service-details"><span><Clock3 /> {service.durationMinutes} دقيقة</span><span>{service.modes.map((mode) => mode === "remote" ? "عن بُعد" : "في المركز").join(" أو ")}</span></div><div className="service-price"><small>{service.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatCurrency(service.price)}</strong></div><Link className="card-link" to={`/booking?service=${service.id}`}>اختيار الخدمة <ArrowLeft /></Link></article>)}</div>;
 }
