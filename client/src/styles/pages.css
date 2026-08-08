@@ -746,6 +746,11 @@
 .trainer-lesson-composer > summary svg { width: 16px; }
 .trainer-lesson-composer[open] > summary { margin-bottom: 8px; }
 
+/* A lesson the reader has paid for reads as available rather than withheld. */
+.module-list li.lesson-open { background: var(--color-brand-100); }
+.module-list li.lesson-open .button { flex: none; margin-inline-start: auto; }
+.module-list li.lesson-open > em { flex: none; margin-inline-start: auto; font-style: normal; font-size: 12px; font-weight: 800; color: var(--color-brand-700); }
+
 @media (max-width: 700px) {
   .kind-picker, .availability-row { grid-template-columns: 1fr; }
   .admin-row-main { flex-direction: column; }

@@ -100,7 +100,14 @@ export async function getCourseDetail(slugValue: string): Promise<ApiResult> {
   const modulesResult = await catalog.from("course_modules").select("id,title,summary,position").eq("course_id", courseResult.data.id).order("position");
   if (modulesResult.error) throw modulesResult.error;
   const moduleIds = (modulesResult.data ?? []).map((module) => module.id);
-  const lessonsResult = moduleIds.length ? await catalog.from("course_lessons").select("id,module_id,title,content_type,duration_minutes,is_preview,position").in("module_id", moduleIds).order("position") : { data: [], error: null };
+  // The syllabus is what a buyer is deciding on, so every lesson title belongs
+  // on the page — the padlock beside it is the point. Read through the anon key
+  // and RLS returns only the free previews, so a paid course looked like it had
+  // one lesson. This reads past that, and the column list is the guard: it has
+  // never included `content_url`, which is what actually needs paying for. A
+  // student's own access to that is granted by RLS, client-side, in learning.ts.
+  const lessonReader = adminClient() ?? catalog;
+  const lessonsResult = moduleIds.length ? await lessonReader.from("course_lessons").select("id,module_id,title,content_type,duration_minutes,is_preview,position").in("module_id", moduleIds).order("position") : { data: [], error: null };
   if (lessonsResult.error) throw lessonsResult.error;
   const row = courseResult.data;
   return {

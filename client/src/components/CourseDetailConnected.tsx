@@ -1,11 +1,40 @@
-import { Award, BookOpen, CalendarDays, CheckCircle2, ChevronDown, Clock3, CreditCard, Languages, LoaderCircle, LockKeyhole, MonitorPlay, RefreshCcw, ShieldCheck, UsersRound } from "lucide-react";
+import { Award, BookOpen, CalendarDays, CheckCircle2, ChevronDown, Clock3, CreditCard, Languages, LoaderCircle, LockKeyhole, MonitorPlay, PlayCircle, RefreshCcw, ShieldCheck, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { CourseDetailResponse } from "../lib/catalog-types";
-import { courseModeLabel, formatCurrency, formatDate } from "../lib/format";
+import type { CourseDetailResponse, CourseModule } from "../lib/catalog-types";
+import { countLabel, courseModeLabel, formatCurrency, formatDate } from "../lib/format";
 import { loadCourseDetail } from "../lib/catalog";
+import { loadLessonAccess, type LessonAccess } from "../lib/learning";
 import { AuthenticationRequiredError, enrollInCourse, startCheckout } from "../lib/platform";
 import DemoBadge from "./DemoBadge";
 import { Link } from "react-router-dom";
+
+/**
+ * One lesson in the syllabus.
+ *
+ * Every lesson used to render with a padlock whether or not the reader had paid,
+ * and no lesson was openable by anyone — the course ended at its table of
+ * contents. What can be opened is decided by the row-level policy: `access`
+ * carries only the lessons this reader is allowed to read, so a title appearing
+ * here without an entry is genuinely locked, not merely un-fetched.
+ */
+function LessonRow({ lesson, access }: { lesson: CourseModule["lessons"][number]; access: LessonAccess }) {
+  const open = access.content[lesson.id];
+  const label = <span><b>{lesson.title}</b><small>
+    {lesson.durationMinutes ? countLabel(lesson.durationMinutes, ["دقيقة واحدة", "دقيقتان", "دقائق", "دقيقة"]) : "المدة تحدد داخل المحتوى"}
+  </small></span>;
+
+  if (open?.contentUrl) return <li className="lesson-open">
+    <MonitorPlay />{label}
+    <a className="button button-small" href={open.contentUrl} target="_blank" rel="noreferrer">
+      <PlayCircle /> فتح الدرس
+    </a>
+  </li>;
+
+  // Readable, but the instructor has not attached anything to open yet.
+  if (open) return <li className="lesson-open"><MonitorPlay />{label}<em>متاح</em></li>;
+
+  return <li><MonitorPlay />{label}{lesson.isPreview ? <em>معاينة</em> : <LockKeyhole />}</li>;
+}
 
 export default function CourseDetailConnected({ slug }: { slug: string }) {
   const [data, setData] = useState<CourseDetailResponse | null>(null);
@@ -15,6 +44,7 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
   const [enrollment, setEnrollment] = useState<{ status: string; amountDue: number; orderNumber: string } | null>(null);
   const [enrollError, setEnrollError] = useState("");
   const [payBusy, setPayBusy] = useState(false);
+  const [access, setAccess] = useState<LessonAccess>({ status: null, unlocked: false, content: {} });
 
   async function reload() {
     setLoading(true);
@@ -25,6 +55,17 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
   }
 
   useEffect(() => { void reload(); }, [slug]);
+
+  // What this reader may open. Runs after the course arrives because it is keyed
+  // by course id, and never blocks the page: the catalogue renders either way.
+  useEffect(() => {
+    if (!data?.course.id) return;
+    let alive = true;
+    void loadLessonAccess(data.course.id)
+      .then((result) => { if (alive) setAccess(result); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [data?.course.id]);
 
   async function enroll() {
     if (!data) return;
@@ -69,7 +110,9 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
 
   const { course, modules } = data;
   return <>
-    <section className="course-detail-hero"><div className="container course-detail-grid"><div><div className="course-labels"><span>{courseModeLabel(course.mode)}</span><span>{course.level}</span>{course.isDemo && <DemoBadge compact />}</div><h1>{course.title}</h1><p>{course.description || course.summary}</p><div className="course-keyfacts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span><span><CalendarDays /> {course.startsAt ? formatDate(course.startsAt) : "يحدد لاحقًا"}</span></div></div><aside className="enrollment-card"><small>{course.isDemo ? "قيمة توضيحية" : "رسوم التسجيل"}</small><strong>{formatCurrency(course.price)}</strong><p>يُنشأ التسجيل والفاتورة بعد تسجيل الدخول.</p>{enrollment ? <div className="enrollment-success"><CreditCard /><span><b>الخطوة الأخيرة: إتمام الدفع</b><small>لا يُفعَّل التسجيل قبل اكتمال الدفع.</small><small>رقم الطلب: <span dir="ltr">{enrollment.orderNumber}</span></small><button className="button" disabled={payBusy} onClick={() => void payCourse()}>{payBusy ? <LoaderCircle className="spin" /> : <CreditCard />} ادفع {formatCurrency(enrollment.amountDue)}</button></span></div> : <button className="button" disabled={enrolling} onClick={() => void enroll()}>{enrolling ? <LoaderCircle className="spin" /> : <CheckCircle2 />} التسجيل في الدورة</button>}{enrollError && <div className="form-error" role="alert">{enrollError}</div>}<span><ShieldCheck /> لا تُخزن بيانات البطاقة في المنصة.</span></aside></div></section>
-    <section className="section"><div className="container detail-content-grid"><div><section className="detail-block"><h2>نتائج التعلم</h2><ul className="check-list">{course.learningOutcomes.map((item) => <li key={item}><CheckCircle2 /> {item}</li>)}</ul></section><section className="detail-block"><h2>المحتوى</h2><div className="module-list">{modules.length ? modules.map((module, index) => <details key={module.id} open={index === 0}><summary><span><i>{index + 1}</i><b>{module.title}</b></span><ChevronDown /></summary><div><p>{module.summary || "تظهر تفاصيل الوحدة عند نشر المحتوى."}</p>{module.lessons.length ? <ul>{module.lessons.map((lesson) => <li key={lesson.id}><MonitorPlay /><span><b>{lesson.title}</b><small>{lesson.durationMinutes ? `${lesson.durationMinutes} دقيقة` : "المدة تحدد داخل المحتوى"}</small></span>{lesson.isPreview ? <em>معاينة</em> : <LockKeyhole />}</li>)}</ul> : <span className="locked-note"><LockKeyhole /> تظهر الدروس للمسجلين حسب سياسة إتاحة المحتوى.</span>}</div></details>) : <div className="catalog-message"><strong>لم تنشر الوحدات بعد.</strong><p>تضاف الوحدات والدروس من لوحة المدرب.</p></div>}</div></section></div><aside className="detail-sidebar"><section><h3>المتطلبات السابقة</h3><ul>{course.prerequisites.map((item) => <li key={item}><UsersRound /> {item}</li>)}</ul></section><section><h3>شروط الشهادة</h3>{course.certificateAvailable ? <p><Award /> تصدر بعد استيفاء الحضور والمحتوى والتقييمات المحددة.</p> : <p>لا تتضمن هذه الدورة شهادة.</p>}</section><section><h3>إتاحة المحتوى</h3><p><BookOpen /> ينشر المحتوى وفق الجدول، وقد يشترط إكمال درس سابق.</p></section></aside></div></section>
+    <section className="course-detail-hero"><div className="container course-detail-grid"><div><div className="course-labels"><span>{courseModeLabel(course.mode)}</span><span>{course.level}</span>{course.isDemo && <DemoBadge compact />}</div><h1>{course.title}</h1><p>{course.description || course.summary}</p><div className="course-keyfacts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span><span><CalendarDays /> {course.startsAt ? formatDate(course.startsAt) : "يحدد لاحقًا"}</span></div></div><aside className="enrollment-card"><small>{course.isDemo ? "قيمة توضيحية" : "رسوم التسجيل"}</small><strong>{formatCurrency(course.price)}</strong><p>يُنشأ التسجيل والفاتورة بعد تسجيل الدخول.</p>{access.unlocked ? <div className="enrollment-success"><CheckCircle2 /><span><b>أنت مسجل في هذه الدورة</b><small>المحتوى مفتوح لك أدناه.</small><Link className="button" to="/portal">متابعة من حسابي</Link></span></div>
+      : enrollment ? <div className="enrollment-success"><CreditCard /><span><b>الخطوة الأخيرة: إتمام الدفع</b><small>لا يُفعَّل التسجيل قبل اكتمال الدفع.</small><small>رقم الطلب: <span dir="ltr">{enrollment.orderNumber}</span></small><button className="button" disabled={payBusy} onClick={() => void payCourse()}>{payBusy ? <LoaderCircle className="spin" /> : <CreditCard />} ادفع {formatCurrency(enrollment.amountDue)}</button></span></div>
+      : <button className="button" disabled={enrolling} onClick={() => void enroll()}>{enrolling ? <LoaderCircle className="spin" /> : <CheckCircle2 />} التسجيل في الدورة</button>}{enrollError && <div className="form-error" role="alert">{enrollError}</div>}<span><ShieldCheck /> لا تُخزن بيانات البطاقة في المنصة.</span></aside></div></section>
+    <section className="section"><div className="container detail-content-grid"><div><section className="detail-block"><h2>نتائج التعلم</h2><ul className="check-list">{course.learningOutcomes.map((item) => <li key={item}><CheckCircle2 /> {item}</li>)}</ul></section><section className="detail-block"><h2>المحتوى</h2><div className="module-list">{modules.length ? modules.map((module, index) => <details key={module.id} open={index === 0}><summary><span><i>{index + 1}</i><b>{module.title}</b></span><ChevronDown /></summary><div><p>{module.summary || "تظهر تفاصيل الوحدة عند نشر المحتوى."}</p>{module.lessons.length ? <ul>{module.lessons.map((lesson) => <LessonRow key={lesson.id} lesson={lesson} access={access} />)}</ul> : <span className="locked-note"><LockKeyhole /> تظهر الدروس للمسجلين حسب سياسة إتاحة المحتوى.</span>}</div></details>) : <div className="catalog-message"><strong>لم تنشر الوحدات بعد.</strong><p>تضاف الوحدات والدروس من لوحة المدرب.</p></div>}</div></section></div><aside className="detail-sidebar"><section><h3>المتطلبات السابقة</h3><ul>{course.prerequisites.map((item) => <li key={item}><UsersRound /> {item}</li>)}</ul></section><section><h3>شروط الشهادة</h3>{course.certificateAvailable ? <p><Award /> تصدر بعد استيفاء الحضور والمحتوى والتقييمات المحددة.</p> : <p>لا تتضمن هذه الدورة شهادة.</p>}</section><section><h3>إتاحة المحتوى</h3><p><BookOpen /> ينشر المحتوى وفق الجدول، وقد يشترط إكمال درس سابق.</p></section></aside></div></section>
   </>;
 }
