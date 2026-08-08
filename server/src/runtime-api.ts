@@ -44,6 +44,50 @@ const BOOKING_ERRORS: Record<string, { status: number; message: string }> = {
   INTENT_KIND_UNKNOWN: { status: 409, message: "تعذّر تحديد نوع الطلب. ابدأ من جديد أو تواصل معنا." },
 };
 
+/**
+ * Give a freshly converted remote booking somewhere to meet.
+ *
+ * Called once, straight after `convert_paid_intent` succeeds. Never throws: a
+ * missing meeting link is a degraded booking, not a failed payment, and the
+ * `/bookings/:id/meet` endpoint remains as the way to mint one later.
+ */
+async function issueMeetingLinkIfRemote(
+  admin: NonNullable<ReturnType<typeof adminClient>>,
+  orderNumber: string,
+) {
+  if (!isMeetingConfigured()) return;
+  try {
+    const { data: row } = await admin
+      .from("payments")
+      .select("booking:bookings(id,mode,starts_at,ends_at,meeting_url)")
+      .eq("order_number", orderNumber)
+      .maybeSingle();
+
+    const joined = (row as { booking?: unknown } | null)?.booking;
+    const booking = (Array.isArray(joined) ? joined[0] : joined) as
+      | { id: string; mode: string; starts_at: string; ends_at: string | null; meeting_url: string | null }
+      | undefined;
+
+    if (!booking || booking.mode !== "remote" || booking.meeting_url) return;
+
+    const meeting = await createMeeting({
+      bookingId: booking.id,
+      startsAt: booking.starts_at,
+      endsAt: booking.ends_at,
+      attendeeEmail: null,
+    });
+    if (!meeting) return;
+
+    await admin.from("bookings").update({
+      meeting_url: meeting.url,
+      meeting_event_id: meeting.eventId ?? null,
+      meeting_provider: meeting.provider,
+    }).eq("id", booking.id);
+  } catch (reason) {
+    console.error("meeting_link_issue_failed", orderNumber, reason);
+  }
+}
+
 function mapDomainError(message: string | undefined) {
   const key = Object.keys(BOOKING_ERRORS).find((code) => message?.includes(code));
   return key ? BOOKING_ERRORS[key] : null;
@@ -518,6 +562,16 @@ export async function verifyPayment(authorization: string | null, payload: unkno
       .contains("data", payment.booking_id
         ? { booking_id: payment.booking_id }
         : { enrollment_id: payment.enrollment_id });
+
+    // Issue the meeting link for a remote session.
+    //
+    // Under pay-first the booking does not exist until this moment, and nothing
+    // asked for a link afterwards — `requestMeetingLink` was written but never
+    // called from anywhere. The result was that a patient paid for a remote
+    // physiotherapy session and neither side had any way to meet. Doing it here
+    // means the link is on the booking before the confirmation is sent, so it is
+    // waiting in the account page and on the specialist's schedule.
+    await issueMeetingLinkIfRemote(admin, payment.order_number);
 
     await admin.from("notifications").insert({
       user_id: payment.user_id,

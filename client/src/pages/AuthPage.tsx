@@ -71,7 +71,7 @@ export default function AuthPage() {
       <span className="eyebrow"><ShieldCheck /> دخول آمن</span>
       <h1>سجّل الدخول برقم الجوال</h1>
       <p>تستخدم المنصة رمز تحقق لمرة واحدة. لا توجد كلمة مرور محفوظة، وتُربط الحجوزات والدورات بحسابك بعد نجاح التحقق.</p>
-      <div className="auth-assurance"><ShieldCheck /><span><strong>صلاحيات حسب المستخدم</strong><small>يرسل المتصفح المفتاح العام فقط، بينما تمنع سياسات RLS أي مستخدم من الوصول إلى سجلات مستخدم آخر.</small></span></div>
+      <div className="auth-assurance"><ShieldCheck /><span><strong>صلاحيات حسب المستخدم</strong><small>لا يصل أي مستخدم إلى سجلات غيره: ملفك وحجوزاتك ودوراتك مرتبطة بحسابك وحده.</small></span></div>
       {mock && <div className="auth-assurance auth-mock-note"><Sparkles /><span><strong>وضع تجريبي للتحقق</strong><small>لم تُربط بوابة الرسائل النصية بعد، لذلك الرمز ثابت ويظهر أمامك لتجربة المسار كاملاً. يُستبدل برمز حقيقي عند تفعيل مزود الرسائل.</small></span></div>}
     </div>
 

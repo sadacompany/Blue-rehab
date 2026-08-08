@@ -234,7 +234,10 @@ export async function createSupportRequest(input: SupportRequestInput) {
 
 export type PortalSnapshot = {
   profile: { full_name: string; phone: string | null; roles: string[] } | null;
-  bookings: Array<{ id: string; status: string; starts_at: string; total: number | null; service_id: string }>;
+  // `mode` and `meeting_url` are what a patient needs on the day: whether to
+  // travel to the centre or wait for a link, and where that link is. Neither was
+  // fetched, so the account page could not say either.
+  bookings: Array<{ id: string; status: string; starts_at: string; total: number | null; service_id: string; mode: string; meeting_url: string | null; specialist_name: string | null }>;
   enrollments: Array<{ id: string; status: string; progress: number; amount_due: number; course_id: string }>;
   payments: Array<{ id: string; status: string; amount: number; order_number: string; created_at: string }>;
   notifications: Array<{ id: string; title: string; body: string; read_at: string | null; created_at: string }>;
@@ -271,7 +274,7 @@ export async function loadPortalSnapshot(): Promise<PortalSnapshot> {
   // this page shows — and it was the slowest call in the set.
   const [profileResult, bookingsResult, enrollmentsResult, paymentsResult, notificationsResult, serviceNames, courseNames] = await Promise.all([
     supabase.from("profiles").select("full_name,phone,roles").eq("id", user.id).maybeSingle(),
-    supabase.from("bookings").select("id,status,starts_at,total,service_id").order("starts_at", { ascending: false }).limit(20),
+    supabase.from("bookings").select("id,status,starts_at,total,service_id,mode,meeting_url,specialist:specialists(display_name)").order("starts_at", { ascending: false }).limit(20),
     supabase.from("enrollments").select("id,status,progress,amount_due,course_id").order("created_at", { ascending: false }).limit(20),
     supabase.from("payments").select("id,status,amount,order_number,created_at").order("created_at", { ascending: false }).limit(20),
     supabase.from("notifications").select("id,title,body,read_at,created_at").order("created_at", { ascending: false }).limit(20),
@@ -288,7 +291,17 @@ export async function loadPortalSnapshot(): Promise<PortalSnapshot> {
       phone: profileResult.data.phone,
       roles: profileResult.data.roles ?? [],
     } : null,
-    bookings: (bookingsResult.data ?? []).map((item) => ({ ...item, total: item.total === null ? null : Number(item.total) })),
+    bookings: (bookingsResult.data ?? []).map((item) => {
+      // PostgREST returns an embedded row as an object or a single-element array
+      // depending on the relationship it infers; accept either.
+      const joined = item as typeof item & { specialist?: { display_name?: string } | Array<{ display_name?: string }> };
+      const specialist = Array.isArray(joined.specialist) ? joined.specialist[0] : joined.specialist;
+      return {
+        ...item,
+        total: item.total === null ? null : Number(item.total),
+        specialist_name: specialist?.display_name ?? null,
+      };
+    }),
     enrollments: (enrollmentsResult.data ?? []).map((item) => ({ ...item, amount_due: Number(item.amount_due) })),
     payments: (paymentsResult.data ?? []).map((item) => ({ ...item, amount: Number(item.amount) })),
     notifications: notificationsResult.data ?? [],

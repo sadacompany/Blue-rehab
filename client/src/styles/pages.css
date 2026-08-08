@@ -746,6 +746,9 @@
 .trainer-lesson-composer > summary svg { width: 16px; }
 .trainer-lesson-composer[open] > summary { margin-bottom: 8px; }
 
+/* What the patient needs on the day, on the booking itself. */
+.portal-booking-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+
 /* A lesson the reader has paid for reads as available rather than withheld. */
 .module-list li.lesson-open { background: var(--color-brand-100); }
 .module-list li.lesson-open .button { flex: none; margin-inline-start: auto; }
