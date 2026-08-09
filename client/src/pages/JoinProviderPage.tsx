@@ -1,6 +1,7 @@
-import { AlertCircle, BadgeCheck, CheckCircle2, Clock3, GraduationCap, LoaderCircle, Paperclip, Send, Stethoscope, XCircle } from "lucide-react";
+import { AlertCircle, BadgeCheck, CheckCircle2, Clock3, GraduationCap, LoaderCircle, Send, Stethoscope, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import FileField, { attachmentLabel } from "../components/FileField";
 import PageShell from "../components/PageShell";
 import { formatDateTime } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
@@ -59,13 +60,13 @@ export default function JoinProviderPage() {
   const [files, setFiles] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  async function attach(list: FileList | null) {
-    if (!list?.length) return;
+  async function attach(list: File[]) {
+    if (!list.length) return;
     setUploading(true);
     setError("");
     try {
       const added: string[] = [];
-      for (const file of Array.from(list)) added.push(await uploadCredential(file));
+      for (const file of list) added.push(await uploadCredential(file));
       setFiles((current) => [...current, ...added]);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر رفع الملف");
@@ -214,15 +215,17 @@ export default function JoinProviderPage() {
             <label><span>جوال للتواصل</span><input dir="ltr" placeholder="05xxxxxxxx" {...field("contactPhone")} /></label>
             <label className="wide"><span>نبذة تعريفية</span><textarea rows={3} placeholder="خبرتك ومجالات تركيزك." {...field("bio")} /></label>
             <label className="wide"><span>المؤهلات والشهادات</span><textarea rows={3} placeholder="اذكر شهاداتك وجهات الإصدار." {...field("credentialsNote")} /></label>
-            <div className="wide credential-upload">
-              <span>إرفاق ما يثبت المؤهلات</span>
-              <small>PDF أو صورة، حتى ١٠ ميغابايت لكل ملف. تُحفظ بشكل خاص ولا يراها إلا الإدارة.</small>
-              <input type="file" accept="application/pdf,image/*" multiple disabled={uploading} onChange={(event) => { void attach(event.target.files); event.target.value = ""; }} />
-              {uploading && <p className="application-hint"><LoaderCircle className="spin" /> جارٍ الرفع…</p>}
-              {files.length > 0 && <ul className="credential-list">{files.map((path) => <li key={path}>
-                <Paperclip /><span dir="ltr">{path.split("/").pop()}</span>
-                <button type="button" className="link-button" onClick={() => void detach(path)}>حذف</button>
-              </li>)}</ul>}
+            <div className="wide">
+              <FileField
+                label="إرفاق ما يثبت المؤهلات"
+                hint="PDF أو صورة، حتى ١٠ ميغابايت لكل ملف. تُحفظ بشكل خاص ولا يراها إلا الإدارة."
+                accept="application/pdf,image/*"
+                multiple
+                busy={uploading}
+                onSelect={(picked) => void attach(picked)}
+                attached={files.map((path, index) => ({ id: path, name: attachmentLabel(path, index) }))}
+                onRemove={(path) => void detach(path)}
+              />
             </div>
           </div>
 

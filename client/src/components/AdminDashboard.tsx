@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { countLabel, formatCurrency, formatDateTime } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
+import { attachmentLabel } from "./FileField";
+import { credentialUrl } from "../lib/provider";
 import { cvDownloadUrl, loadTrainingApplications, setTrainingStatus, type TrainingApplication } from "../lib/training";
 import {
   assignCourseTrainer,
@@ -252,10 +254,22 @@ export default function AdminDashboard() {
               {item.bio && <small className="admin-quote">{item.bio}</small>}
               {item.credentialsNote && <small className="admin-quote">المؤهلات: {item.credentialsNote}</small>}
               {(item.contactEmail || item.contactPhone) && <small dir="ltr">{[item.contactEmail, item.contactPhone].filter(Boolean).join(" · ")}</small>}
-              {item.credentialFiles.length > 0 && <small>مرفقات المؤهلات: {item.credentialFiles.length} ملف</small>}
             </div>
             <em>{item.status === "pending" ? "قيد المراجعة" : item.status === "approved" ? "مقبول" : item.status === "rejected" ? "مرفوض" : "مسحوب"}</em>
           </div>
+          {/* Approving means looking at the evidence, so the files are openable
+              rather than merely counted. The bucket is private; these are
+              short-lived signed links. */}
+          {item.credentialFiles.length > 0 && <ul className="file-list">
+            {item.credentialFiles.map((path, index) => <li key={path}>
+              <FileText />
+              <span><b dir="auto">{attachmentLabel(path, index)}</b></span>
+              <button type="button" className="button button-small button-secondary"
+                onClick={() => void credentialUrl(path).then((url) => window.open(url, "_blank", "noopener")).catch(() => setError("تعذر فتح المرفق."))}>
+                فتح
+              </button>
+            </li>)}
+          </ul>}
           {item.status === "pending" && <div className="admin-row-actions">
             <input placeholder="ملاحظة للمتقدم (اختيارية)" value={note[item.id] ?? ""} onChange={(event) => setNote({ ...note, [item.id]: event.target.value })} />
             <button className="button button-small" disabled={busy === item.id} onClick={() => void run(item.id, () => reviewApplication(item.id, true, note[item.id] ?? ""))}>

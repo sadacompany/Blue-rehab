@@ -746,6 +746,60 @@
 .trainer-lesson-composer > summary svg { width: 16px; }
 .trainer-lesson-composer[open] > summary { margin-bottom: 8px; }
 
+/* ============================================================================
+   File picker
+   The native control cannot be styled past its border — its button text is
+   fixed in English and laid out left-to-right — so it is hidden and this is
+   drawn in its place. Built from the same tokens as the rest of the forms.
+   ========================================================================= */
+
+.file-field { display: block; }
+.file-field-label { display: block; font-size: 13px; font-weight: 700; color: var(--color-ink-950); }
+.file-field-hint { display: block; margin: 3px 0 9px; color: var(--color-muted); font-size: 12px; line-height: 1.6; }
+
+.file-drop {
+  display: flex; align-items: center; gap: 13px; width: 100%;
+  padding: 16px 18px; border: 1.5px dashed var(--color-line); border-radius: 12px;
+  background: var(--color-soft); cursor: pointer; text-align: start;
+  transition: border-color .15s, background .15s;
+}
+.file-drop:hover:not(.is-disabled) { border-color: var(--color-brand-400); background: var(--color-brand-50); }
+.file-drop.is-dragging { border-color: var(--color-brand-600); border-style: solid; background: var(--color-brand-100); }
+.file-drop.is-disabled { cursor: default; opacity: .6; }
+.file-drop:focus-visible { outline: 3px solid rgba(79, 120, 131, .35); outline-offset: 3px; }
+
+.file-drop-mark { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 11px; background: #fff; border: 1px solid var(--color-line); color: var(--color-brand-700); }
+.file-drop-mark svg { width: 19px; }
+.file-drop-copy { display: block; min-width: 0; }
+.file-drop-copy strong { display: block; font-size: 14px; color: var(--color-ink-950); }
+.file-drop-copy small { display: block; margin-top: 2px; color: var(--color-muted); font-size: 12px; }
+
+/* Off-screen rather than display:none — a hidden input can still be opened by
+   .click(), and some browsers refuse to do that for a fully undisplayed one.
+   Selector carries the parent because `.form-grid input { width: 100% }` is more
+   specific than a lone class and was stretching this back to full width. */
+.file-field .file-field-input {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; border: 0; white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.file-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.file-list li { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid var(--color-line); border-radius: 10px; background: #fff; }
+.file-list li > svg { flex: none; width: 18px; color: var(--color-brand-700); }
+.file-list li > span { flex: 1; min-width: 0; }
+.file-list b { display: block; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-list small { display: block; margin-top: 2px; color: var(--color-muted); font-size: 12px; }
+.file-list .icon-button { width: 34px; height: 34px; }
+.file-list .icon-button svg { width: 15px; }
+
+.file-field-empty { display: flex; align-items: center; gap: 7px; margin: 9px 0 0; color: var(--color-muted); font-size: 12px; }
+.file-field-empty svg { width: 15px; }
+
+@media (max-width: 560px) {
+  .file-drop { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
+
 /* What the patient needs on the day, on the booking itself. */
 .portal-booking-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 

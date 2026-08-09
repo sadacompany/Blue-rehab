@@ -1,6 +1,7 @@
-import { AlertCircle, CheckCircle2, FileText, GraduationCap, LoaderCircle, Paperclip, Send, Stethoscope } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileText, GraduationCap, LoaderCircle, Send, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import FileField from "../components/FileField";
 import PageShell from "../components/PageShell";
 import {
   submitTrainingApplication, uploadTrainingCv, type TrainingApplicationInput,
@@ -133,12 +134,16 @@ export default function TrainingPage() {
         <label className="wide"><span>عدد الساعات أو الأسابيع المطلوبة من الجامعة</span>
           <input {...set("requiredHours")} placeholder="مثال: 240 ساعة خلال 8 أسابيع" /></label>
 
-        <label className="wide"><span>السيرة الذاتية (PDF أو صورة)</span>
-          <input type="file" accept=".pdf,image/jpeg,image/png,image/webp"
-            onChange={(event) => setCv(event.target.files?.[0] ?? null)} />
-          <small className="application-hint">
-            <Paperclip /> {cv ? `${cv.name} — ${(cv.size / 1024 / 1024).toFixed(1)} م.ب` : "بحد أقصى 5 ميغابايت. اختياري لكنه يرفع فرصتك."}
-          </small></label>
+        <div className="wide">
+          <FileField
+            label="السيرة الذاتية (PDF أو صورة)"
+            hint="بحد أقصى ٥ ميغابايت. اختيارية، لكنها ترفع فرصتك."
+            accept=".pdf,image/jpeg,image/png,image/webp"
+            selected={cv}
+            onSelect={(files) => setCv(files[0] ?? null)}
+            onClear={() => setCv(null)}
+          />
+        </div>
 
         <label className="wide"><span>نبذة قصيرة</span>
           <textarea rows={3} {...set("note")}

@@ -22,11 +22,35 @@ export async function uploadCredential(file: File): Promise<string> {
   const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
   if (!allowed.includes(file.type)) throw new Error("يُقبل PDF أو صورة فقط.");
 
-  const safe = file.name.replace(/[^\w.-]+/g, "_").slice(-60);
+  // Storage keys must be ASCII — Supabase answers "Invalid key" to anything
+  // else, so an Arabic filename cannot be carried through as-is. Stripping it
+  // left «شهادة البكالوريوس.pdf» as «_-_.pdf», which tells a reviewer nothing,
+  // so when nothing usable survives the extension becomes the name and the UI
+  // numbers the attachments instead of showing a row of underscores.
+  const dot = file.name.lastIndexOf(".");
+  const extension = (dot > 0 ? file.name.slice(dot + 1) : "").replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toLowerCase();
+  const stem = (dot > 0 ? file.name.slice(0, dot) : file.name)
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "")
+    .slice(-60);
+  const safe = `${stem || "credential"}${extension ? `.${extension}` : ""}`;
   const path = `${user.id}/${Date.now()}-${safe}`;
   const { error } = await supabase.storage.from("provider-credentials").upload(path, file, { upsert: false });
   if (error) throw new Error(error.message);
   return path;
+}
+
+/**
+ * A short-lived link to a credential file, for the administrator reviewing it.
+ *
+ * The bucket is private, so there is no URL to link to directly. Approving an
+ * application means looking at the evidence behind it, and until now the review
+ * screen only said how many files there were.
+ */
+export async function credentialUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from("provider-credentials").createSignedUrl(path, 300);
+  if (error || !data) throw new Error("تعذر فتح الملف.");
+  return data.signedUrl;
 }
 
 export async function removeCredential(path: string) {
