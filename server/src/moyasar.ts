@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { config } from "./config.js";
 
 /**
@@ -55,6 +56,11 @@ export function fromHalalas(amount: number): number {
 
 function authHeader(): string {
   // Moyasar uses HTTP Basic with the secret key as the username and no password.
+  //
+  // Imported rather than taken from the global scope: `Buffer` is a global in
+  // Node but not in Deno, so on the Supabase Edge Function this threw and every
+  // checkout came back as "خطأ غير متوقع" — the booking was made and the patient
+  // could not pay for it. `node:buffer` resolves on both.
   const encoded = Buffer.from(`${config.MOYASAR_SECRET_KEY}:`).toString("base64");
   return `Basic ${encoded}`;
 }
