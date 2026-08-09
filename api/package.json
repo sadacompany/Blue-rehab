@@ -1,0 +1,4 @@
+{
+  "type": "module",
+  "//": "The repository root has no `type`, so Node treats everything under it as CommonJS — including this function once Vercel compiles it. `server/` is ESM, so the compiled function tried to require() an ES module and crashed on every request with ERR_REQUIRE_ESM. Node resolves module type from the nearest package.json, so this one file makes the function ESM to match what it imports."
+}

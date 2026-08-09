@@ -1,0 +1,16 @@
+{
+  "//": "Settings for TypeScript compiled outside the workspaces — the Vercel function in api/, which pulls in server/src. The workspaces each keep their own tsconfig; this exists because Vercel's builder finds no config at the repository root and falls back to defaults with strict off, and `AuthOutcome` is a discriminated union that only narrows under strictNullChecks. Without it every authenticated route failed to compile.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"]
+  },
+  "include": ["api/**/*.ts", "server/src/**/*.ts"]
+}

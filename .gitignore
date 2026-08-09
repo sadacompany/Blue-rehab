@@ -22,3 +22,6 @@ dist
 # scripts/build-edge-function.mjs on the way to a deploy.
 supabase/functions/api/bundle.js
 supabase/functions/api/dotenv-stub.mjs
+
+.vercel
+.env*

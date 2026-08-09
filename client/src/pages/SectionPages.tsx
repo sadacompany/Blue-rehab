@@ -62,14 +62,14 @@ export function ConsultationsHub() {
       <div className="section-split">
         <article className="section-card">
           <span className="section-card-mark"><Stethoscope /></span>
-          <h2>استشير مختص</h2>
+          <h2>استشر مختص</h2>
           <p>اختر نوع الاستشارة التي تحتاجها، عن بُعد أو في المركز، مع تحديد الأخصائي والوقت المناسب لك.</p>
           <ul className="section-card-list">
             <li><Video /> استشارة عن بُعد</li>
             <li><MapPin /> استشارة في المركز</li>
             <li><CalendarDays /> اختيار الأخصائي والموعد</li>
           </ul>
-          <Link className="button" to="/services">استشير مختص <ArrowLeft /></Link>
+          <Link className="button" to="/services">استشر مختص <ArrowLeft /></Link>
         </article>
 
         <article className="section-card">

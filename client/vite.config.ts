@@ -8,9 +8,6 @@ import react from '@vitejs/plugin-react';
 // accounts differ from the deployed ones for the same phone number.
 // Production is unaffected: Netlify injects these as real environment variables.
 export default defineConfig({
-  // Root on a domain of our own; a subdirectory on GitHub Pages, which serves a
-  // project site from /<repo>/. Set by the Pages workflow, unset everywhere else.
-  base: process.env.VITE_BASE_PATH ?? '/',
   envDir: '..',
   plugins: [react()],
   server: { port: 5173, proxy: { '/api': 'http://localhost:4000' } },

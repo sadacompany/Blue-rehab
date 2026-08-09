@@ -21,7 +21,7 @@ const TITLES: Record<string, string> = {
   "/programs": "البرامج العلاجية",
   "/articles": "المقالات",
   "/research": "مراجعة الأبحاث",
-  "/services": "استشير مختص",
+  "/services": "استشر مختص",
   "/specialists": "الأخصائيون",
   "/courses": "الدورات التدريبية",
   "/training": "التدريب الصيفي الإكلينيكي",

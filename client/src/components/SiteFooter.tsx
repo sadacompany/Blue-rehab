@@ -12,7 +12,7 @@ export default function SiteFooter() {
         </div>
         <div>
           <strong>العلاج</strong>
-          <Link to="/services">استشير مختص</Link>
+          <Link to="/services">استشر مختص</Link>
           <Link to="/specialists">ملفات المختصين</Link>
         </div>
         <div>

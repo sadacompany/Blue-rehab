@@ -137,10 +137,16 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      setData(await loadAdminSnapshot());
-      // Separate from the snapshot: the register is only read on this screen, and
-      // a failure to load it should not take the whole dashboard down with it.
-      setTraining(await loadTrainingApplications().catch(() => []));
+      // Started together, not one after the other: the register is a separate
+      // request only because a failure to read it should not take the whole
+      // dashboard down, and awaiting it in sequence added a round trip to every
+      // load for no reason.
+      const [snapshot, applications] = await Promise.all([
+        loadAdminSnapshot(),
+        loadTrainingApplications().catch(() => []),
+      ]);
+      setData(snapshot);
+      setTraining(applications);
     } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         window.location.href = `/login?returnTo=${encodeURIComponent("/admin")}`;

@@ -27,7 +27,7 @@ const sections = [
     // the step they are about to take.
     label: "عيادة بلو", href: "/consultations",
     items: [
-      ["استشير مختص", "/services"],
+      ["استشر مختص", "/services"],
       ["البرامج العلاجية", "/programs"],
       ["الأخصائيون", "/specialists"],
     ],
@@ -79,7 +79,7 @@ export default function SiteHeader() {
       </div>
       <div className="nav-actions">
         <Link className="nav-portal" to={signedIn ? "/portal" : "/login"}>{signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}</Link>
-        <Link className="button button-small" to="/services">استشير مختص</Link>
+        <Link className="button button-small" to="/services">استشر مختص</Link>
         <button className="menu-button" type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}>{open ? <X /> : <Menu />}</button>
       </div>
     </nav></header>
