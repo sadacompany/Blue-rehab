@@ -16,14 +16,15 @@ const SITE = "بلو ريهاب";
 
 const TITLES: Record<string, string> = {
   "/": "علاج طبيعي وتأهيل",
-  "/consultations": "استشارة بلو",
+  "/consultations": "عيادة بلو",
   "/academy": "أكاديمية بلو",
   "/programs": "البرامج العلاجية",
   "/articles": "المقالات",
   "/research": "مراجعة الأبحاث",
-  "/services": "الخدمات",
+  "/services": "استشير مختص",
   "/specialists": "الأخصائيون",
   "/courses": "الدورات التدريبية",
+  "/training": "التدريب الصيفي الإكلينيكي",
   "/booking": "حجز موعد",
   "/portal": "لوحة حسابي",
   "/specialist": "لوحة الأخصائي",

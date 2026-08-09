@@ -31,6 +31,7 @@ const SpecialistDashboard = lazy(() => import("./components/SpecialistDashboard"
 const SpecialistsPage = lazy(() => import("./pages/SpecialistsPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const TrainerDashboard = lazy(() => import("./components/TrainerDashboard"));
+const TrainingPage = lazy(() => import("./pages/TrainingPage"));
 
 // The two sections and their content live in one module: they share layout and
 // data shapes, and splitting them further would trade a real gain in cohesion
@@ -67,7 +68,7 @@ function NotFoundPage() {
     <h1>الصفحة غير موجودة</h1>
     <p>قد يكون الرابط قديماً أو غير مكتمل. اختر وجهتك من هنا:</p>
     <div className="not-found-actions">
-      <Link className="button" to="/consultations">استشارة بلو — الحجز والبرامج</Link>
+      <Link className="button" to="/consultations">عيادة بلو — الحجز والبرامج</Link>
       <Link className="button button-secondary" to="/academy">أكاديمية بلو — الدورات والمقالات</Link>
     </div>
     <p><Link to="/">العودة للصفحة الرئيسية</Link> · <Link to="/contact">تواصل معنا</Link></p>
@@ -90,6 +91,7 @@ export default function App() {
       <Route path="/services" element={<ServicesPage />} />
       <Route path="/specialists" element={<SpecialistsPage />} />
       <Route path="/courses" element={<CoursesPage />} />
+      <Route path="/training" element={<TrainingPage />} />
       <Route path="/courses/:slug" element={<CoursePage />} />
       <Route path="/booking" element={<BookingPage />} />
       <Route path="/portal" element={<ConnectedPortal />} />

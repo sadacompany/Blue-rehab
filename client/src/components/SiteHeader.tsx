@@ -21,11 +21,14 @@ export function Brand() {
  */
 const sections = [
   {
-    label: "استشارة بلو", href: "/consultations",
+    // One door into the clinic. "حجز موعد" and "الخدمات" were two entries for
+    // the same journey — you pick a service either way — so the booking entry is
+    // gone and the surviving one is named for what the visitor wants, not for
+    // the step they are about to take.
+    label: "عيادة بلو", href: "/consultations",
     items: [
-      ["حجز موعد", "/booking"],
+      ["استشير مختص", "/services"],
       ["البرامج العلاجية", "/programs"],
-      ["الخدمات", "/services"],
       ["الأخصائيون", "/specialists"],
     ],
   },
@@ -35,6 +38,7 @@ const sections = [
       ["الدورات", "/courses"],
       ["المقالات", "/articles"],
       ["مراجعة الأبحاث", "/research"],
+      ["التدريب الصيفي الإكلينيكي", "/training"],
     ],
   },
 ];
@@ -75,7 +79,7 @@ export default function SiteHeader() {
       </div>
       <div className="nav-actions">
         <Link className="nav-portal" to={signedIn ? "/portal" : "/login"}>{signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}</Link>
-        <Link className="button button-small" to="/booking">ابدأ الحجز</Link>
+        <Link className="button button-small" to="/services">استشير مختص</Link>
         <button className="menu-button" type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}>{open ? <X /> : <Menu />}</button>
       </div>
     </nav></header>

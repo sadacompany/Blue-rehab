@@ -901,6 +901,8 @@
 
 .section-split { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-bottom: 46px; }
 .section-split.three { grid-template-columns: repeat(3, 1fr); }
+.section-split.four { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1100px) { .section-split.four { grid-template-columns: repeat(2, 1fr); } }
 .section-card { display: flex; flex-direction: column; padding: 28px; border: 1px solid var(--color-line); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow-sm); }
 .section-card-mark { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 16px; background: var(--color-brand-100); color: var(--color-brand-700); margin-bottom: 16px; }
 .section-card-mark svg { width: 26px; height: 26px; }
@@ -966,7 +968,7 @@
 .nav-menu a:hover { background: var(--color-brand-50); color: var(--color-brand-700); }
 
 @media (max-width: 900px) {
-  .section-split, .section-split.three { grid-template-columns: 1fr; }
+  .section-split, .section-split.three, .section-split.four { grid-template-columns: 1fr; }
 }
 @media (max-width: 820px) {
   /* No hover on touch: the menu is always open inside the drawer. */

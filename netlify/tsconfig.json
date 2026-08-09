@@ -11,6 +11,8 @@
   },
   "include": [
     "functions/**/*.ts",
+    "../api/**/*.ts",
+    "../server/src/fetch-handler.ts",
     "../server/src/runtime-api.ts",
     "../server/src/google-meet.ts",
     "../server/src/moyasar.ts",

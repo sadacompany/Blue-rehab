@@ -1,8 +1,9 @@
-import { AlertCircle, BadgeCheck, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, FileText, LifeBuoy, LoaderCircle, Plus, RefreshCcw, ShieldCheck, Users, Wallet, XCircle } from "lucide-react";
+import { AlertCircle, BadgeCheck, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, FileText, GraduationCap, LifeBuoy, LoaderCircle, Plus, RefreshCcw, ShieldCheck, Users, Wallet, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { countLabel, formatCurrency, formatDateTime } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
+import { cvDownloadUrl, loadTrainingApplications, setTrainingStatus, type TrainingApplication } from "../lib/training";
 import {
   assignCourseTrainer,
   loadAdminSnapshot,
@@ -42,11 +43,17 @@ const PAYMENT_STATUS: Record<string, string> = {
   failed: "فشل", cancelled: "ملغي", refunded: "مسترد", partially_refunded: "مسترد جزئياً",
 };
 
+/** The register of student trainees the clinics draw from. */
+const TRAINING_STATUS: Record<string, string> = {
+  new: "جديد", reviewing: "قيد المراجعة", shortlisted: "مرشح",
+  placed: "تم إلحاقه بعيادة", declined: "معتذر عنه", archived: "مؤرشف",
+};
+
 const SUPPORT_STATUS: Record<string, string> = {
   new: "جديد", in_progress: "قيد المعالجة", resolved: "تم الحل", closed: "مغلق",
 };
 
-type Tab = "overview" | "applications" | "users" | "catalogue" | "content" | "bookings" | "payments" | "support";
+type Tab = "overview" | "applications" | "users" | "catalogue" | "content" | "bookings" | "payments" | "support" | "training";
 
 const COURSE_REVIEW: Record<string, string> = {
   draft: "مسودة لدى المدرب", in_review: "بانتظار المراجعة",
@@ -124,12 +131,16 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("overview");
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState<Record<string, string>>({});
+  const [training, setTraining] = useState<TrainingApplication[]>([]);
 
   async function reload() {
     setLoading(true);
     setError("");
     try {
       setData(await loadAdminSnapshot());
+      // Separate from the snapshot: the register is only read on this screen, and
+      // a failure to load it should not take the whole dashboard down with it.
+      setTraining(await loadTrainingApplications().catch(() => []));
     } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         window.location.href = `/login?returnTo=${encodeURIComponent("/admin")}`;
@@ -193,6 +204,7 @@ export default function AdminDashboard() {
         ["bookings", `الحجوزات (${data.bookings.length})`],
         ["payments", `المدفوعات (${data.payments.length})`],
         ["support", `الدعم${overview.support.open ? ` (${overview.support.open})` : ""}`],
+        ["training", `التدريب الصيفي${training.filter((t) => t.status === "new").length ? ` (${training.filter((t) => t.status === "new").length})` : ""}`],
       ] as [Tab, string][]).map(([key, label]) => <button
         key={key} role="tab" aria-selected={tab === key}
         className={tab === key ? "is-active" : ""} onClick={() => setTab(key)}
@@ -408,6 +420,50 @@ export default function AdminDashboard() {
           </div>
         </article>)}
       </div> : <div className="portal-empty"><LifeBuoy /><p>لا توجد طلبات دعم.</p></div>}
+    </section>}
+
+    {tab === "training" && <section className="specialist-panel">
+      <p className="application-hint">
+        <GraduationCap /> قائمة الطلاب المسجلين للتدريب الإكلينيكي. تُحفظ حتى تحتاج إحدى العيادات متدربين، فتُراجع وتُرشّح منها.
+      </p>
+      {training.length ? <div className="admin-list">
+        {training.map((item) => <article key={item.id} className={`admin-row status-${item.status}`}>
+          <div className="admin-row-main">
+            <div>
+              <strong>{item.fullName}</strong>
+              <small>{item.specialty} · {item.university}{item.college ? ` — ${item.college}` : ""}</small>
+              <small dir="ltr">{item.phone}{item.email ? ` · ${item.email}` : ""}</small>
+              <small>
+                {item.academicLevel ?? "المستوى غير محدد"}
+                {item.studentNumber ? ` · الرقم الجامعي: ${item.studentNumber}` : ""}
+                {item.availableFrom ? ` · متاح من ${item.availableFrom}` : ""}
+                {item.availableTo ? ` إلى ${item.availableTo}` : ""}
+                {item.requiredHours ? ` · ${item.requiredHours}` : ""}
+              </small>
+              {item.note && <small className="admin-quote">{item.note}</small>}
+              <small>{formatDateTime(item.createdAt)}</small>
+            </div>
+            <em>{TRAINING_STATUS[item.status] ?? item.status}</em>
+          </div>
+          {item.reviewNote && <p className="application-note">ملاحظة: {item.reviewNote}</p>}
+          <div className="admin-row-actions">
+            {item.cvPath
+              ? <button className="button button-small button-secondary" type="button"
+                  onClick={() => void cvDownloadUrl(item.cvPath!).then((url) => window.open(url, "_blank", "noopener")).catch(() => setError("تعذر فتح السيرة الذاتية."))}>
+                  <FileText /> السيرة الذاتية
+                </button>
+              : <small className="application-hint">لم تُرفق سيرة ذاتية.</small>}
+          </div>
+          <input placeholder="ملاحظة داخلية (اختيارية)" value={note[item.id] ?? ""}
+            onChange={(e) => setNote({ ...note, [item.id]: e.target.value })} />
+          <div className="admin-row-actions role-picker">
+            {Object.entries(TRAINING_STATUS).map(([value, label]) => <button
+              key={value} type="button" className={item.status === value ? "chip selected" : "chip"} disabled={busy === item.id}
+              onClick={() => void run(item.id, () => setTrainingStatus(item.id, value, note[item.id] ?? ""))}
+            >{label}</button>)}
+          </div>
+        </article>)}
+      </div> : <div className="portal-empty"><GraduationCap /><p>لا توجد طلبات تدريب بعد.</p></div>}
     </section>}
   </div></section></PageShell>;
 }

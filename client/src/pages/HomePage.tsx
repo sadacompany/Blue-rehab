@@ -49,7 +49,7 @@ export default function HomePage() {
       <div className="section-split">
         <article className="section-card">
           <span className="section-card-mark"><Stethoscope /></span>
-          <h2>استشارة بلو</h2>
+          <h2>عيادة بلو</h2>
           <p>الاستشارات والبرامج العلاجية — احجز موعداً مع أخصائي أو ابدأ برنامجاً متدرجاً يناسب حالتك.</p>
           <ul className="section-card-list">
             <li><CalendarDays /> حجز موعد عن بُعد أو حضوري</li>

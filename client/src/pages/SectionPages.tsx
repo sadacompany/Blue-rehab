@@ -12,7 +12,7 @@ import {
 /**
  * The two halves of the platform, and the content inside them.
  *
- *   استشارة بلو   حجز موعد  +  برامج علمية للتأهيل
+ *   عيادة بلو   حجز موعد  +  برامج علمية للتأهيل
  *   أكاديمية بلو  دورات  +  مقالات  +  مراجعة الأبحاث
  *
  * The section hubs exist so a visitor decides *why* they came before being asked
@@ -46,14 +46,14 @@ function Empty({ icon, text }: { icon: React.ReactNode; text: string }) {
   return <div className="portal-empty">{icon}<p>{text}</p></div>;
 }
 
-/* ======================================================= استشارة بلو ===== */
+/* ======================================================= عيادة بلو ===== */
 
 export function ConsultationsHub() {
   const { data: programs, loading } = useAsync(loadPrograms);
 
   return <PageShell>
     <section className="section-hero consult-hero"><div className="container">
-      <span className="eyebrow"><Stethoscope /> استشارة بلو</span>
+      <span className="eyebrow"><Stethoscope /> عيادة بلو</span>
       <h1>الاستشارات والبرامج العلاجية</h1>
       <p>احجز موعداً مع أخصائي، أو ابدأ برنامجاً علمياً متدرجاً يناسب حالتك.</p>
     </div></section>
@@ -61,15 +61,15 @@ export function ConsultationsHub() {
     <section className="section"><div className="container">
       <div className="section-split">
         <article className="section-card">
-          <span className="section-card-mark"><CalendarDays /></span>
-          <h2>حجز موعد</h2>
-          <p>استشارة أولية أو جلسة متابعة، عن بُعد أو في المركز، مع اختيار الأخصائي والوقت المناسب.</p>
+          <span className="section-card-mark"><Stethoscope /></span>
+          <h2>استشير مختص</h2>
+          <p>اختر نوع الاستشارة التي تحتاجها، عن بُعد أو في المركز، مع تحديد الأخصائي والوقت المناسب لك.</p>
           <ul className="section-card-list">
-            <li><Video /> جلسة عن بُعد</li>
-            <li><MapPin /> جلسة في المركز</li>
-            <li><Stethoscope /> اختيار الأخصائي</li>
+            <li><Video /> استشارة عن بُعد</li>
+            <li><MapPin /> استشارة في المركز</li>
+            <li><CalendarDays /> اختيار الأخصائي والموعد</li>
           </ul>
-          <Link className="button" to="/booking">ابدأ الحجز <ArrowLeft /></Link>
+          <Link className="button" to="/services">استشير مختص <ArrowLeft /></Link>
         </article>
 
         <article className="section-card">
@@ -109,7 +109,7 @@ export function ProgramsPage() {
   const { data, loading } = useAsync(loadPrograms);
   return <PageShell>
     <section className="page-hero compact-hero"><div className="container">
-      <span className="eyebrow"><Target /> استشارة بلو</span>
+      <span className="eyebrow"><Target /> عيادة بلو</span>
       <h1>البرامج العلاجية</h1>
       <p>برامج متدرجة تُبنى على حالتك وتُتابع أسبوعياً حتى تعود لنشاطك.</p>
     </div></section>
@@ -180,11 +180,11 @@ export function AcademyHub() {
     <section className="section-hero academy-hero"><div className="container">
       <span className="eyebrow"><GraduationCap /> أكاديمية بلو</span>
       <h1>الأكاديمية والأبحاث العلمية</h1>
-      <p>دورات تدريبية، ومقالات مبنية على أدلة، ومراجعات لأحدث الأبحاث في التأهيل.</p>
+      <p>دورات تدريبية، ومقالات مبنية على أدلة، ومراجعات لأحدث الأبحاث، وتدريب إكلينيكي داخل العيادات.</p>
     </div></section>
 
     <section className="section"><div className="container">
-      <div className="section-split three">
+      <div className="section-split four">
         <article className="section-card">
           <span className="section-card-mark"><BookOpenCheck /></span>
           <h2>الدورات</h2>
@@ -202,6 +202,12 @@ export function AcademyHub() {
           <h2>مراجعة الأبحاث</h2>
           <p>قراءة نقدية لأبحاث منشورة، وما تعنيه عملياً في العيادة.</p>
           <Link className="button button-secondary" to="/research">استعراض المراجعات <ArrowLeft /></Link>
+        </article>
+        <article className="section-card">
+          <span className="section-card-mark"><Stethoscope /></span>
+          <h2>التدريب الصيفي الإكلينيكي</h2>
+          <p>للطلاب المتدربين داخل العيادات — سجّل بياناتك وسيرتك الذاتية في قائمة المتدربين.</p>
+          <Link className="button button-secondary" to="/training">سجّل في القائمة <ArrowLeft /></Link>
         </article>
       </div>
 

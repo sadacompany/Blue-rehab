@@ -12,13 +12,12 @@ export default function SiteFooter() {
         </div>
         <div>
           <strong>العلاج</strong>
-          <Link to="/services">الجلسات والخدمات</Link>
+          <Link to="/services">استشير مختص</Link>
           <Link to="/specialists">ملفات المختصين</Link>
-          <Link to="/booking">مسار الحجز</Link>
         </div>
         <div>
           <strong>التعلم</strong>
-          <Link to="/courses">الدورات التأهيلية</Link>
+          <Link to="/courses">الدورات التأهيلية</Link><Link to="/training">التدريب الصيفي الإكلينيكي</Link>
           <Link to="/portal?view=student">لوحة الطالب</Link>
           <Link to="/portal?view=trainer">لوحة المدرب</Link>
         </div>
