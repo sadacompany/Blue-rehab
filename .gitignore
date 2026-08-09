@@ -17,3 +17,8 @@ dist
 
 # Local Netlify folder
 .netlify
+
+# Built artefacts of the Supabase Edge Function; produced by
+# scripts/build-edge-function.mjs on the way to a deploy.
+supabase/functions/api/bundle.js
+supabase/functions/api/dotenv-stub.mjs

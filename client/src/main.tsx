@@ -8,6 +8,17 @@ import "./styles/primitives.css";
 import "./styles/shell.css";
 import "./styles/pages.css";
 
+/**
+ * The router shares Vite's base path.
+ *
+ * On its own domain that is "/" and nothing changes. On GitHub Pages the site
+ * lives under /Blue-rehab/, and without a basename every route would resolve
+ * against the domain root — every internal link a 404.
+ */
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>,
+  <StrictMode>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <App />
+    </BrowserRouter>
+  </StrictMode>,
 );

@@ -1,0 +1,70 @@
+name: Deploy to GitHub Pages
+
+# A hosting-account-free deployment: the static site is served by GitHub Pages
+# and the API by the Supabase Edge Function, which the project already pays for.
+# Netlify and Vercel remain configured and take precedence when either is live —
+# this exists so the site can always be shown to someone.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel a deploy midway; queue instead.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node 22, not 20: @supabase/supabase-js needs a native global
+          # WebSocket, which Node 20 does not have.
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        env:
+          # A project site is served from /<repo>/, and the router reads this
+          # through import.meta.env.BASE_URL.
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # Pages has no server, so the API is the Supabase Edge Function.
+          VITE_API_URL: https://jmgfabzsgrukrzpnuhux.supabase.co/functions/v1/api
+          VITE_SUPABASE_URL: https://jmgfabzsgrukrzpnuhux.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_eCJHRbegR3FVk1Hbu3Kbgw_aMoMwvNb
+        run: npm run build -w client
+
+      - name: Serve deep links
+        # Pages has no rewrite rules, so a reload on /booking would 404. Its 404
+        # page is the application, which then routes the path client-side.
+        run: cp client/dist/index.html client/dist/404.html
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: client/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
