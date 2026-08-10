@@ -70,17 +70,35 @@ export default function SiteHeader() {
     <div className="environment-bar"><div className="container"><span>نسخة تشغيلية تجريبية</span><p>بيانات مقدمي الخدمة والأسعار والمواعيد الحالية نماذج واضحة وليست عروضاً تجارية معتمدة.</p></div></div>
     <header className="site-header"><nav className="container nav" aria-label="التنقل الرئيسي">
       <Brand />
-      <div className={`nav-links ${open ? "is-open" : ""}`}>
+      <div className={`nav-links ${open ? "is-open" : ""}`} id="site-menu">
         {sections.map((section) => <div className="nav-section" key={section.href}>
           <Link className="nav-section-head" to={section.href} onClick={() => setOpen(false)}>{section.label}<ChevronDown /></Link>
           <div className="nav-menu">{section.items.map(([label, href]) => <Link to={href} key={href} onClick={() => setOpen(false)}>{label}</Link>)}</div>
         </div>)}
         {plainLinks.map(([label, href]) => <Link to={href} key={href} onClick={() => setOpen(false)}>{label}</Link>)}
+
+        {/* Signing in and the main call to action live in `.nav-actions`, which
+            keeps only the menu button once the drawer takes over — so on a phone
+            there was no way to reach either. They are repeated here for the
+            drawer; exactly one copy is displayed at any width. */}
+        <div className="nav-drawer-actions">
+          <Link className="button button-secondary" to={signedIn ? "/portal" : "/login"} onClick={() => setOpen(false)}>
+            {signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}
+          </Link>
+          <Link className="button" to="/services" onClick={() => setOpen(false)}>استشر مختص</Link>
+        </div>
       </div>
       <div className="nav-actions">
-        <Link className="nav-portal" to={signedIn ? "/portal" : "/login"}>{signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}</Link>
+        {/* Between 820 and 1050 the label is collapsed to the icon to fit, so the
+            name has to come from the attribute or the link says nothing. */}
+        <Link className="nav-portal" to={signedIn ? "/portal" : "/login"}
+          aria-label={signedIn ? "لوحة الحساب" : "تسجيل الدخول"}>
+          {signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}
+        </Link>
         <Link className="button button-small" to="/services">استشر مختص</Link>
-        <button className="menu-button" type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}>{open ? <X /> : <Menu />}</button>
+        <button className="menu-button" type="button" onClick={() => setOpen(!open)}
+          aria-expanded={open} aria-controls="site-menu"
+          aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}>{open ? <X /> : <Menu />}</button>
       </div>
     </nav></header>
   </>;
