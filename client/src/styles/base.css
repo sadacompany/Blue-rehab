@@ -14,9 +14,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 main h1:focus, main h1:focus-visible { outline: none; }
 
 /* The header is a long two-level menu; a keyboard visitor should be able to
-   step over it. Off-screen until focused, which is the only time it is useful. */
-.skip-link { position: absolute; inset-inline-start: -9999px; top: 0; z-index: 100; padding: 12px 20px; border-radius: 0 0 12px 12px; background: var(--color-brand-700); color: #fff; font-weight: 800; }
-.skip-link:focus { inset-inline-start: 12px; }
+   step over it. Hidden until focused, which is the only time it is useful.
+
+   Hidden by sliding up, not by a large negative inline offset: this document is
+   RTL, where `inset-inline-start: -9999px` means 9999px from the *right* — the
+   link landed ten thousand pixels off the right edge and took the page's
+   horizontal extent with it, so every page rendered shifted and clipped. */
+.skip-link {
+  position: absolute; inset-inline-start: 12px; top: 0; z-index: 100;
+  padding: 12px 20px; border-radius: 0 0 12px 12px;
+  background: var(--color-brand-700); color: #fff; font-weight: 800;
+  transform: translateY(-140%);
+  transition: transform .15s ease;
+}
+.skip-link:focus { transform: translateY(0); }
 
 .not-found-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-block: 22px; }
 .catalog-message a:not(.button) { color: var(--color-brand-700); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
