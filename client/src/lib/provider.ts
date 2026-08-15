@@ -194,25 +194,6 @@ export async function submitApplication(input: ApplicationInput): Promise<Provid
     p_photo_path: input.photoPath,
   });
 
-  /**
-   * The portrait parameter arrives with 20260815120000_provider_application_portrait.
-   * Until that migration is applied, PostgREST cannot find a function with this
-   * signature and answers PGRST202. Rather than fail the whole submission, the
-   * request is retried against the older shape with the portrait filed among the
-   * credential attachments — it is an image in a private bucket either way, so
-   * the reviewer still sees it and nothing the applicant uploaded is lost.
-   *
-   * Remove this fallback once the migration is applied everywhere.
-   */
-  if (error?.code === "PGRST202" && input.photoPath) {
-    const retry = await supabase.rpc("submit_provider_application", {
-      ...base,
-      p_credential_files: [input.photoPath, ...(input.credentialFiles ?? [])],
-    });
-    if (retry.error) throw new Error(translate(retry.error.message));
-    return toApplication(retry.data);
-  }
-
   if (error) throw new Error(translate(error.message));
   return toApplication(data);
 }

@@ -73,21 +73,10 @@ export default function HomePage() {
     </section>
     <hr className="section-rule section-rule-strong" />
 
-    <section className="section" aria-labelledby="courses-heading">
-      <div className="container">
-        <SectionHeading id="courses-heading">دوراتنا</SectionHeading>
-        <HomeCourses />
-      </div>
-    </section>
-    <hr className="section-rule" />
-
-    <section className="section" aria-labelledby="articles-heading">
-      <div className="container">
-        <SectionHeading id="articles-heading">مقالاتنا</SectionHeading>
-        <HomeArticles />
-      </div>
-    </section>
-    <hr className="section-rule" />
+    {/* Both sections render their own heading and closing rule, so each one
+        disappears completely while there is nothing published behind it. */}
+    <HomeCourses />
+    <HomeArticles />
 
     <section className="care-trust">
       <div className="container care-trust-grid">
