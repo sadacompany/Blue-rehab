@@ -20,8 +20,11 @@
 .care-hero-grid { display: grid; grid-template-columns: .95fr 1.05fr; gap: 72px; align-items: center; }
 .care-label { display: inline-block; color: var(--color-brand-700); font-size: 14px; font-weight: 700; margin-bottom: 14px; }
 .care-label.light { color: var(--color-brand-400); }
-.care-hero-copy h1 { font-size: 58px; line-height: 1.22; letter-spacing: -1.7px; color: var(--color-ink-950); margin: 0 0 20px; max-width: 620px; }
-.care-hero-copy > p { font-size: 19px; line-height: 1.9; color: var(--color-muted); max-width: 610px; margin: 0; }
+/* 44px Safaa-Medium on the design's 1440 artboard — 44/1440 = 3.06vw, held
+   at the design size and no larger, and never below readable on a phone. */
+.care-hero-copy h1 { font-size: clamp(28px, 3.06vw, 44px); font-weight: 500; line-height: 1.32; letter-spacing: -.5px; color: var(--color-ink-950); margin: 0 0 20px; max-width: 760px; }
+/* 33px Safaa-UltraLight in the design. */
+.care-hero-copy > p { font-size: clamp(16px, 2.29vw, 33px); font-weight: 300; line-height: 1.6; color: var(--color-muted); max-width: 760px; margin: 0; }
 .care-actions { display: flex; align-items: center; gap: 22px; margin-top: 30px; }
 .care-primary { height: 52px; padding-inline: 24px; }
 .care-link { display: inline-flex; align-items: center; gap: 8px; color: var(--color-brand-700); font-weight: 700; }
@@ -542,7 +545,7 @@
   .rehab-photo-hero { min-height: 500px; }
   .appointment-note { inset-inline-end: 20px; }
   .care-intro-grid { grid-template-columns: 1fr; gap: 20px; }
-  .care-hero-copy h1 { font-size: 48px; }
+  .care-hero-copy h1 { font-size: clamp(28px, 4.4vw, 44px); }
   .care-services-grid { gap: 44px; }
   .care-service-photo { min-height: 460px; }
   .filters { grid-template-columns: repeat(2, 1fr); }
@@ -569,7 +572,7 @@
   h1 { letter-spacing: -1.5px; }
   .care-hero { padding: 45px 0 60px; }
   .care-hero-grid { gap: 38px; }
-  .care-hero-copy h1 { font-size: 39px; }
+  .care-hero-copy h1 { font-size: clamp(26px, 7vw, 36px); }
   .care-hero-copy > p { font-size: 15px; }
   .care-actions { align-items: stretch; flex-direction: column; }
   .care-link { justify-content: center; }
@@ -810,13 +813,66 @@
    by a screen reader.
    ========================================================================= */
 
+/* ------------------------------------------------- landing type, from the file
+   Every size below is the design's own, expressed against its 1440 artboard so
+   it lands exactly there and scales down sensibly rather than being invented:
+   30/1440 = 2.08vw, 25 = 1.74vw, 23 = 1.60vw, 20 = 1.39vw, 18 = 1.25vw,
+   17 = 1.18vw. Weights follow the file too — the card body is UltraLight, the
+   titles Regular, the buttons and names Bold. */
+.section-card h2 { font-size: clamp(21px, 2.08vw, 30px); font-weight: 400; }
+.section-card > p { font-size: clamp(15px, 1.74vw, 25px); font-weight: 300; line-height: 1.65; }
+.section-card-list li { font-size: clamp(13px, 1.18vw, 17px); font-weight: 400; }
+.section-card .button { font-size: clamp(15px, 1.74vw, 25px); font-weight: 700; }
+
+.team-body h3 { font-size: clamp(16px, 1.39vw, 20px); font-weight: 700; }
+.team-body small { font-size: clamp(13px, 1.25vw, 18px); font-weight: 400; }
+.team-body em { font-size: clamp(13px, 1.25vw, 18px); }
+.team-body .button { font-size: clamp(14px, 1.6vw, 23px); font-weight: 700; }
+
+/* ---------------------------------------------------------------- posters ---
+   دوراتنا and مقالاتنا. The design carries no text in either section — the
+   artwork is the card — so these are sized by the artboard's own proportions:
+   the course banner is 801×451, the article cards are 4:5 with the middle one
+   larger (434×542 against 345×431). */
+.poster-row { display: grid; gap: clamp(14px, 1.6vw, 22px); }
+.poster {
+  display: block; overflow: hidden; border-radius: 18px;
+  border: 1px solid var(--color-line); background: var(--color-soft);
+  box-shadow: var(--shadow-sm); transition: transform .18s ease, box-shadow .18s ease;
+}
+.poster img { display: block; width: 100%; height: 100%; object-fit: cover; }
+a.poster:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+a.poster:focus-visible { outline: 3px solid rgba(79, 120, 131, .35); outline-offset: 3px; }
+
+.poster-row-courses { grid-template-columns: 1fr; }
+.poster-wide { aspect-ratio: 801 / 451; }
+.poster-pair { display: grid; grid-template-columns: repeat(2, 1fr); gap: clamp(14px, 1.6vw, 22px); }
+.poster-half { aspect-ratio: 498 / 317; display: grid; place-items: center; padding: 20px; }
+.poster-half.is-empty { background: linear-gradient(115deg, #b7cfdd, #cfeef0); border-style: dashed; }
+.poster-fallback { text-align: center; }
+.poster-fallback b { display: block; font-size: 17px; color: var(--color-ink-950); }
+.poster-fallback small { display: block; margin-top: 6px; color: var(--color-muted); font-size: 13px; }
+
+/* Three across, the middle one taller — the artboard's 345 · 434 · 345. */
+.poster-row-articles { grid-template-columns: 345fr 434fr 345fr; align-items: center; }
+.poster-row-articles .poster { aspect-ratio: 4 / 5; }
+@media (max-width: 860px) {
+  .poster-row-articles { grid-template-columns: 1fr 1fr; }
+  .poster-row-articles .poster:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .poster-row-articles, .poster-pair { grid-template-columns: 1fr; }
+  .poster-row-articles .poster:first-child { grid-column: auto; }
+}
+
 /* The mark that sits between the two headline lines in the design. */
 .care-hero-copy h1 > span { display: block; }
 .hero-star { display: inline-block; width: clamp(20px, 2.4vw, 30px); height: auto; margin-inline-start: 12px; vertical-align: -2px; }
 
 .home-section-head { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 30px); margin-bottom: 34px; }
 .home-section-head img { width: clamp(22px, 3.4vw, 34px); height: auto; flex: none; }
-.home-section-head h2 { margin: 0; font-size: clamp(27px, 4vw, 40px); letter-spacing: -.01em; white-space: nowrap; }
+/* 43px Safaa-Bold in the design — 43/1440 = 2.99vw. */
+.home-section-head h2 { margin: 0; font-size: clamp(26px, 2.99vw, 43px); font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
 
 /* ------------------------------------------------------------ team slider ---
    Scroll-snap, not a carousel: the browser already does momentum and touch, and
@@ -841,8 +897,8 @@
 .team-initials { font-size: 42px; font-weight: 900; color: var(--color-brand-400); }
 
 .team-body { display: flex; flex-direction: column; gap: 4px; padding: 16px 17px 18px; }
-.team-body h3 { margin: 0; font-size: 17px; }
-.team-body small { color: var(--color-muted); font-size: 12.5px; line-height: 1.6; }
+.team-body h3 { margin: 0; font-size: clamp(16px, 1.39vw, 20px); font-weight: 700; }
+.team-body small { color: var(--color-muted); font-size: clamp(13px, 1.25vw, 18px); line-height: 1.6; }
 .team-body small svg { width: 14px; vertical-align: -2px; margin-inline-end: 4px; }
 .team-body em { margin-top: 4px; font-style: normal; font-size: 12px; font-weight: 800; color: var(--color-brand-700); }
 .team-tags { list-style: none; display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 2px; padding: 0; }
@@ -1017,10 +1073,10 @@
 .section-card { display: flex; flex-direction: column; padding: 28px; border: 1px solid var(--color-line); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow-sm); }
 .section-card-mark { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 16px; background: var(--color-brand-100); color: var(--color-brand-700); margin-bottom: 16px; }
 .section-card-mark svg { width: 26px; height: 26px; }
-.section-card h2 { margin: 0 0 9px; font-size: 23px; color: var(--color-ink-950); }
+.section-card h2 { margin: 0 0 9px; font-size: clamp(21px, 2.08vw, 30px); font-weight: 400; color: var(--color-ink-950); }
 .section-card > p { margin: 0 0 16px; color: var(--color-muted); line-height: 1.8; }
 .section-card-list { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 9px; }
-.section-card-list li { display: flex; align-items: center; gap: 8px; color: var(--color-ink-900); font-size: 14px; }
+.section-card-list li { display: flex; align-items: center; gap: 8px; color: var(--color-ink-900); font-size: clamp(13px, 1.18vw, 17px); }
 .section-card-list svg { width: 16px; height: 16px; color: var(--color-brand-600); flex: none; }
 .section-card .button { margin-top: auto; align-self: flex-start; }
 .section-heading { margin: 0 0 20px; font-size: 24px; color: var(--color-ink-950); }

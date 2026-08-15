@@ -1,7 +1,7 @@
 import { ArrowLeft, BookOpenCheck, CalendarDays, CheckCircle2, Clock3, FlaskConical, GraduationCap, HeartHandshake, MapPin, MessageCircle, ShieldCheck, Stethoscope, Target, Video } from "lucide-react";
-import { HomeCatalog } from "../components/CatalogSections";
 import PageShell from "../components/PageShell";
 import HomeArticles from "../components/HomeArticles";
+import HomeCourses from "../components/HomeCourses";
 import TeamSlider from "../components/TeamSlider";
 import { Link } from "react-router-dom";
 import starMark from "../assets/brand/star-mark.png";
@@ -105,10 +105,11 @@ export default function HomePage() {
       <TeamSlider />
     </div></section>
 
-    <section className="care-learning"><div className="container">
+    {/* دوراتنا and مقالاتنا are picture sections in the design — heading, then
+        artwork, no body copy. */}
+    <section className="section"><div className="container">
       <SectionHead>دوراتنا</SectionHead>
-      <header className="care-learning-head"><div><span className="care-label">للطلبة والممارسين</span><h3>تعلم مهني مرتبط بالممارسة</h3><p>دورات توضّح النتائج والمتطلبات وطريقة الحضور قبل التسجيل.</p></div><Link className="care-link" to="/courses">عرض جميع الدورات <ArrowLeft /></Link></header>
-      <HomeCatalog />
+      <HomeCourses />
     </div></section>
 
     <section className="section"><div className="container">
