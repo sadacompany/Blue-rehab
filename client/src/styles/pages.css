@@ -878,18 +878,22 @@ a.poster-face:focus-visible { outline: 3px solid var(--color-accent); outline-of
    The card itself is the artboard's: 314×657, a 205px circular portrait in a
    hairline ring, on the mist surface inside the 3px periwinkle outline. */
 .team-slider { position: relative; }
+/* Flex with a fixed card width, not `grid-auto-columns: minmax(0, …)`.
+   A grid track whose minimum is 0 shrinks to fit rather than overflowing, so
+   the moment the team grew past three the row stopped scrolling and squeezed
+   six cards into the width of three. */
 .team-track {
   list-style: none; margin: 0; padding: 6px 2px 18px;
-  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(268px, 1fr);
-  gap: var(--grid-gap); overflow-x: auto; scroll-snap-type: x mandatory;
+  display: flex; gap: var(--grid-gap);
+  overflow-x: auto; scroll-snap-type: x mandatory;
   scrollbar-width: none; overscroll-behavior-x: contain;
 }
 .team-track::-webkit-scrollbar { display: none; }
-@media (min-width: 900px) { .team-track { grid-auto-columns: minmax(0, calc((100% - (var(--grid-gap) * 2)) / 3)); } }
 .team-track:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 4px; border-radius: var(--radius-md); }
 
 .team-card {
   scroll-snap-align: start;
+  flex: 0 0 auto; width: 268px;
   display: flex; flex-direction: column; align-items: center;
   padding: clamp(22px, 2.4vw, 34px) clamp(16px, 1.8vw, 26px);
   border: var(--stroke-card) solid var(--color-accent); border-radius: var(--radius-md);
@@ -897,6 +901,8 @@ a.poster-face:focus-visible { outline: 3px solid var(--color-accent); outline-of
   transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
 }
 .team-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+/* Three across at desktop, and everything past the third scrolls. */
+@media (min-width: 900px) { .team-card { width: calc((100% - (var(--grid-gap) * 2)) / 3); } }
 .team-photo {
   width: clamp(150px, 14.2vw, 205px); aspect-ratio: 1; flex: none;
   display: grid; place-items: center; overflow: hidden;
@@ -909,7 +915,18 @@ a.poster-face:focus-visible { outline: 3px solid var(--color-accent); outline-of
 .team-body { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; padding-top: clamp(16px, 1.8vw, 26px); }
 .team-body h3 { margin: 0; font-size: var(--fs-name); font-weight: var(--weight-bold); }
 .team-body small { color: var(--color-ink-900); font-size: var(--fs-meta); font-weight: var(--weight-regular); line-height: var(--leading-snug); }
-.team-body small svg { width: 1.1em; height: 1.1em; display: inline; vertical-align: -2px; margin-inline-end: 4px; }
+.team-role { color: var(--color-brand-700); }
+
+/* The bio is supporting detail, not the headline: a step smaller, quieter, and
+   held to three lines so six cards keep a common rhythm however long a
+   specialist's own sheet ran. The full text stays in the markup for search and
+   for screen readers. */
+.team-bio {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden;
+  color: var(--color-muted); font-size: var(--fs-small); font-weight: var(--weight-light);
+  line-height: 1.6;
+}
 .team-body em { margin-top: 2px; font-style: normal; font-size: var(--fs-meta); font-weight: var(--weight-regular); color: var(--color-ink-900); }
 .team-tags { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin: 6px 0 2px; padding: 0; }
 .team-tags li { padding: 3px 10px; border-radius: var(--radius-full); background: var(--color-sky); color: var(--color-brand-700); font-size: var(--fs-small); font-weight: var(--weight-bold); }

@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, CalendarDays, Languages } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { countLabel } from "../lib/format";
@@ -121,13 +121,14 @@ export default function TeamSlider() {
         </div>
         <div className="team-body">
           <h3>{member.name}</h3>
-          {member.title && <small>{member.title}</small>}
-          {member.bio && <small>{member.bio}</small>}
+          {member.title && <small className="team-role">{member.title}</small>}
+          {member.bio && <small className="team-bio">{member.bio}</small>}
           {member.specialties.length > 0 && <ul className="team-tags">
             {member.specialties.map((tag) => <li key={tag}>{tag}</li>)}
           </ul>}
-          {member.languages.length > 0 && <small><Languages /> {member.languages.join("، ")}</small>}
-          <em>سنين الخبرة: {countLabel(member.yearsExperience, ["سنة واحدة", "سنتان", "سنوات", "سنة"])}</em>
+          {/* Not everyone's sheet states a figure, and «سنين الخبرة: 0 سنة»
+              reads as a claim rather than a blank. */}
+          {member.yearsExperience > 0 && <em>سنين الخبرة: {countLabel(member.yearsExperience, ["سنة واحدة", "سنتان", "سنوات", "سنة"])}</em>}
           {/* Only the booking action. «عرض الملف» pointed at the specialists
               index rather than the person, so it promised a profile that does
               not exist yet; a card with no open time simply carries no action. */}
