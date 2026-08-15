@@ -7,16 +7,19 @@ import { Link } from "react-router-dom";
 import starMark from "../assets/brand/star-mark.png";
 
 /**
- * A section title, as text with the brand star beside it.
+ * A section title: a star, the heading, a star.
  *
- * The design sets these as artwork; they are headings, so they are rendered as
- * headings — selectable, translatable, and announced as structure. The star is
- * decoration and is hidden from assistive technology.
+ * Measured off the design rather than eyeballed — every heading there is centred
+ * on the artboard with a 70px mark on each side, roughly half its own height
+ * clear of the text. The heading itself stays real text: it is the page's
+ * structure, so it has to be selectable, translatable and announced as a
+ * heading. The stars are decoration and are hidden from assistive technology.
  */
 function SectionHead({ children }: { children: React.ReactNode }) {
   return <header className="home-section-head">
     <img src={starMark} alt="" aria-hidden="true" width={34} height={34} />
     <h2>{children}</h2>
+    <img src={starMark} alt="" aria-hidden="true" width={34} height={34} />
   </header>;
 }
 
@@ -32,7 +35,14 @@ export default function HomePage() {
       <div className="container care-hero-grid">
         <div className="care-hero-copy">
           <span className="care-label">علاج طبيعي وتأهيل رياضي</span>
-          <h1>لا ننتظر مستقبل العلاج الطبيعي، نحن من نصنعه.</h1>
+          {/* The design sets the headline over two lines with the mark between
+              them; the break is a hint, not a hard split, so a narrow screen
+              still wraps naturally. */}
+          <h1>
+            لا ننتظر مستقبل العلاج الطبيعي،
+            <img className="hero-star" src={starMark} alt="" aria-hidden="true" width={30} height={30} />
+            <span>نحن من نصنعه.</span>
+          </h1>
           <p>علمٌ يعلّم، ورعاية تحدث فرقاً — جلسات منظمة، وخطة منزلية واضحة، ومتابعة تُظهر لك ما الذي يتحسن.</p>
           <div className="care-actions">
             <Link className="button care-primary" to="/booking">احجز موعدًا <ArrowLeft /></Link>
