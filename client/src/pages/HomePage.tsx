@@ -1,124 +1,108 @@
-import { ArrowLeft, BookOpenCheck, CalendarDays, CheckCircle2, Clock3, FlaskConical, GraduationCap, HeartHandshake, MapPin, MessageCircle, ShieldCheck, Stethoscope, Target, Video } from "lucide-react";
+import { BookOpenCheck, CalendarDays, CheckCircle2, FlaskConical, Target } from "lucide-react";
+import { Link } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import HomeArticles from "../components/HomeArticles";
 import HomeCourses from "../components/HomeCourses";
 import TeamSlider from "../components/TeamSlider";
-import { Link } from "react-router-dom";
-import starMark from "../assets/brand/star-mark.png";
+import { BrandStar, SectionHeading } from "../components/BrandMarks";
+import heroClinic from "../assets/brand/hero-clinic.webp";
 
 /**
- * A section title: a star, the heading, a star.
+ * The landing page, following the «استشارة بلو» artboard band for band:
+ * hero, خدماتنا, فريقنا الطبي, دوراتنا, مقالاتنا, the privacy band, footer —
+ * each separated by the full-bleed rule the design draws between them.
  *
- * Measured off the design rather than eyeballed — every heading there is centred
- * on the artboard with a 70px mark on each side, roughly half its own height
- * clear of the text. The heading itself stays real text: it is the page's
- * structure, so it has to be selectable, translatable and announced as a
- * heading. The stars are decoration and are hidden from assistive technology.
+ * The artboard puts no call to action in the hero; the booking button lives in
+ * the sticky header, which is on screen the whole way down.
  */
-function SectionHead({ children }: { children: React.ReactNode }) {
-  return <header className="home-section-head">
-    <img src={starMark} alt="" aria-hidden="true" width={34} height={34} />
-    <h2>{children}</h2>
-    <img src={starMark} alt="" aria-hidden="true" width={34} height={34} />
-  </header>;
-}
-
-const careReasons = [
-  { icon: CalendarDays, title: "موعد يناسب يومك", text: "اختر الموعد وطريقة الجلسة دون اتصالات متكررة." },
-  { icon: HeartHandshake, title: "خطة مفهومة", text: "تعرف على هدف كل تمرين وما الذي تتابعه بين الجلسات." },
-  { icon: MessageCircle, title: "متابعة مستمرة", text: "سجل تقدمك وملاحظاتك ليتمكن الأخصائي من مراجعتها." },
-];
-
 export default function HomePage() {
   return <PageShell>
-    <section className="care-hero">
-      <div className="container care-hero-grid">
-        <div className="care-hero-copy">
-          <span className="care-label">علاج طبيعي وتأهيل رياضي</span>
-          {/* The design sets the headline over two lines with the mark between
-              them; the break is a hint, not a hard split, so a narrow screen
-              still wraps naturally. */}
-          <h1>
-            لا ننتظر مستقبل العلاج الطبيعي،
-            <img className="hero-star" src={starMark} alt="" aria-hidden="true" width={30} height={30} />
-            <span>نحن من نصنعه.</span>
-          </h1>
-          <p>علمٌ يعلّم، ورعاية تحدث فرقاً — جلسات منظمة، وخطة منزلية واضحة، ومتابعة تُظهر لك ما الذي يتحسن.</p>
-          <div className="care-actions">
-            <Link className="button care-primary" to="/booking">احجز موعدًا <ArrowLeft /></Link>
-            <Link className="care-link" to="/services">تعرف على الخدمات</Link>
-          </div>
-          <div className="care-meta">
-            <span><MapPin /> جلسات في المركز</span>
-            <span><Video /> متابعة عن بُعد</span>
-            <span><ShieldCheck /> بيانات محمية</span>
-          </div>
-        </div>
-        <div className="rehab-photo-hero" role="img" aria-label="صالة تدريب وتأهيل حديثة ومنظمة وخالية من الأشخاص">
-          <div className="rehab-photo-shade" aria-hidden="true" />
-          <div className="appointment-note"><Clock3 /><span><small>الحجز يستغرق دقائق</small><strong>اختر الخدمة والموعد المناسب</strong></span></div>
+    {/* The brand photograph runs full-bleed behind right-aligned white type.
+        Object position is set from the design's crop: the artboard places a
+        2833×4013 portrait at 1780×2521 and shows the band a third of the way
+        down it. */}
+    <section className="hero">
+      <img className="hero-photo" src={heroClinic} alt="" fetchPriority="high" decoding="async" />
+      <div className="hero-shade" aria-hidden="true" />
+      <div className="hero-inner">
+        <h1>
+          <span>لا ننتظر مستقبل العلاج الطبيعي،</span>
+          <span className="hero-line">نحن من نصنعه <BrandStar className="star hero-star" /></span>
+        </h1>
+        <p className="hero-sub">علمٌ يعلم، ورعاية تحدث فرق.</p>
+      </div>
+    </section>
+    <hr className="section-rule section-rule-strong" />
+
+    {/* The first real decision a visitor makes: care, or learning. */}
+    <section className="section" aria-labelledby="services-heading">
+      <div className="container">
+        <SectionHeading id="services-heading">خدماتنا</SectionHeading>
+        <div className="card-grid card-grid-2">
+          <article className="feature-card">
+            <div className="feature-card-head"><BrandStar className="star star-lg" /><h3>استشارة بلو</h3></div>
+            <p>الاستشارات والبرامج العلاجية — احجز موعداً مع أخصائي أو ابدأ برنامجاً متدرجاً يناسب حالتك.</p>
+            <ul className="bullet-list">
+              <li><CalendarDays /> حجز موعد عن بُعد أو حضوري</li>
+              <li><Target /> برامج علاجية ممتدة</li>
+            </ul>
+            <Link className="button" to="/consultations">أدخل القسم</Link>
+          </article>
+
+          <article className="feature-card">
+            <div className="feature-card-head"><BrandStar className="star star-lg" /><h3>أكاديمية بلو</h3></div>
+            <p>الأكاديمية والأبحاث العلمية — دورات تدريبية، مقالات مبنية على أدلة، ومراجعات لأحدث الأبحاث.</p>
+            <ul className="bullet-list">
+              <li><BookOpenCheck /> دورات حضورية ومسجلة</li>
+              <li><FlaskConical /> مقالات ومراجعات بحثية</li>
+            </ul>
+            <Link className="button" to="/academy">أدخل القسم</Link>
+          </article>
         </div>
       </div>
     </section>
-
-    <section className="care-intro"><div className="container care-intro-grid"><div><span className="care-label">رعاية تبدأ بالاستماع</span><h2>ليست كل حالة متشابهة</h2></div><div><p>نبدأ بفهم الأثر الذي يسببه الألم أو الإصابة على يومك، ثم تُبنى الخطة حول هدف واضح: المشي براحة، العودة للنشاط، أو استعادة القدرة على أداء مهامك اليومية.</p></div></div></section>
-
-    <section className="care-reasons"><div className="container care-reason-grid">{careReasons.map(({ icon: Icon, title, text }) => <article key={title}><Icon /><h3>{title}</h3><p>{text}</p></article>)}</div></section>
-
-    <section className="care-services"><div className="container care-services-grid"><div className="care-service-photo" role="img" aria-label="جلسة علاج طبيعي داخل عيادة" /><div className="care-services-copy"><span className="care-label">ماذا نقدم؟</span><h2>من التقييم الأول إلى متابعة التقدم</h2><p>اختر المسار المناسب، وسيظهر لك ما تحتاج معرفته قبل الجلسة وما الذي يحدث بعدها.</p><div className="care-service-list"><Link to="/booking"><Stethoscope /><span><strong>التقييم الأولي</strong><small>فهم الحالة، تحديد الهدف، واقتراح الخطوة التالية.</small></span><ArrowLeft /></Link><Link to="/booking"><HeartHandshake /><span><strong>جلسات العلاج والمتابعة</strong><small>تدخل علاجي وخطة منزلية قابلة للمراجعة.</small></span><ArrowLeft /></Link><Link to="/booking"><Video /><span><strong>متابعة عن بُعد</strong><small>للحالات المناسبة وبعد تقييم احتياجها.</small></span><ArrowLeft /></Link></div></div></div></section>
-
-    <section className="care-steps"><div className="container"><header className="care-section-head"><span className="care-label">كيف تبدأ؟</span><h2>ثلاث خطوات واضحة</h2></header><div className="care-step-grid"><article><b>1</b><h3>اختر الخدمة</h3><p>حدد نوع الجلسة وطريقة تقديمها.</p></article><article><b>2</b><h3>اختر الموعد</h3><p>راجع الأوقات المتاحة واختر الأنسب.</p></article><article><b>3</b><h3>أكمل بياناتك</h3><p>سجّل الدخول وأرسل ملخص الحالة بأمان.</p></article></div><div className="care-center-action"><Link className="button care-primary" to="/booking">ابدأ الحجز الآن</Link></div></div></section>
-
-    {/* The first real decision a visitor makes: care, or learning. Placing it
-        above everything else stops the page asking them to pick a service
-        before they have decided why they came. */}
-    <section className="section"><div className="container">
-      <SectionHead>خدماتنا</SectionHead>
-      <div className="section-split">
-        <article className="section-card">
-          <span className="section-card-mark"><Stethoscope /></span>
-          <h2>عيادة بلو</h2>
-          <p>الاستشارات والبرامج العلاجية — احجز موعداً مع أخصائي أو ابدأ برنامجاً متدرجاً يناسب حالتك.</p>
-          <ul className="section-card-list">
-            <li><CalendarDays /> حجز موعد عن بُعد أو حضوري</li>
-            <li><Target /> برامج علاجية ممتدة</li>
-          </ul>
-          <Link className="button" to="/consultations">ادخل القسم <ArrowLeft /></Link>
-        </article>
-        <article className="section-card">
-          <span className="section-card-mark"><GraduationCap /></span>
-          <h2>أكاديمية بلو</h2>
-          <p>الأكاديمية والأبحاث العلمية — دورات تدريبية، مقالات مبنية على أدلة، ومراجعات لأحدث الأبحاث.</p>
-          <ul className="section-card-list">
-            <li><BookOpenCheck /> دورات حضورية ومسجلة</li>
-            <li><FlaskConical /> مقالات ومراجعات بحثية</li>
-          </ul>
-          <Link className="button button-secondary" to="/academy">ادخل القسم <ArrowLeft /></Link>
-        </article>
-      </div>
-    </div></section>
+    <hr className="section-rule" />
 
     {/* فريقنا الطبي — read from the specialists administration publishes, so the
         clinic adds people without anyone touching this file. */}
-    <section className="section surface-section"><div className="container">
-      <SectionHead>فريقنا الطبي</SectionHead>
-      <TeamSlider />
-    </div></section>
+    <section className="section" aria-labelledby="team-heading">
+      <div className="container">
+        <SectionHeading id="team-heading">فريقنا الطبي</SectionHeading>
+        <TeamSlider />
+      </div>
+    </section>
+    <hr className="section-rule section-rule-strong" />
 
-    {/* دوراتنا and مقالاتنا are picture sections in the design — heading, then
-        artwork, no body copy. */}
-    <section className="section"><div className="container">
-      <SectionHead>دوراتنا</SectionHead>
-      <HomeCourses />
-    </div></section>
+    <section className="section" aria-labelledby="courses-heading">
+      <div className="container">
+        <SectionHeading id="courses-heading">دوراتنا</SectionHeading>
+        <HomeCourses />
+      </div>
+    </section>
+    <hr className="section-rule" />
 
-    <section className="section"><div className="container">
-      <SectionHead>مقالاتنا</SectionHead>
-      <HomeArticles />
-    </div></section>
+    <section className="section" aria-labelledby="articles-heading">
+      <div className="container">
+        <SectionHeading id="articles-heading">مقالاتنا</SectionHeading>
+        <HomeArticles />
+      </div>
+    </section>
+    <hr className="section-rule" />
 
-    <section className="care-trust"><div className="container care-trust-grid"><div><span className="care-label light">خصوصيتك جزء من الرعاية</span><h2>لا نطلب بيانات أكثر مما نحتاجه.</h2><p>تُفصل الملفات الصحية عن بيانات التدريب، وتخضع السجلات والصلاحيات لسياسات وصول واضحة.</p></div><div className="care-trust-points"><span><CheckCircle2 /> ملفك الصحي مفصول عن بيانات التدريب</span><span><CheckCircle2 /> صلاحيات حسب دور المستخدم</span><span><CheckCircle2 /> سجل للقرارات الإدارية</span><span><CheckCircle2 /> لا تُحفظ بيانات البطاقات</span></div></div></section>
-
-    <section className="care-final"><div className="container care-final-box"><div><BookOpenCheck /><span><h2>لست متأكدًا من الخدمة المناسبة؟</h2><p>ابدأ بالتقييم الأولي، ويمكن للأخصائي توجيهك إلى المسار الأنسب.</p></span></div><Link className="button care-primary" to="/booking">احجز تقييمًا أوليًا</Link></div></section>
+    <section className="care-trust">
+      <div className="container care-trust-grid">
+        <div>
+          <span className="care-label light">خصوصيتك جزء من الرعاية</span>
+          <h2>لا نطلب بيانات أكثر مما نحتاجه.</h2>
+          <p>تُفصل الملفات الصحية عن بيانات التدريب، وتخضع السجلات والصلاحيات لسياسات وصول واضحة.</p>
+        </div>
+        <div className="care-trust-points">
+          <span><CheckCircle2 /> ملفك الصحي مفصول عن بيانات التدريب</span>
+          <span><CheckCircle2 /> صلاحيات حسب دور المستخدم</span>
+          <span><CheckCircle2 /> سجل للقرارات الإدارية</span>
+          <span><CheckCircle2 /> لا تُحفظ بيانات البطاقات</span>
+        </div>
+      </div>
+    </section>
   </PageShell>;
 }

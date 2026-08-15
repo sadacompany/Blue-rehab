@@ -1,20 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { loadCatalog } from "../lib/platform";
 import type { Course } from "../lib/catalog-types";
+import PosterCarousel, { type Poster } from "./PosterCarousel";
 import shoulderCourse from "../assets/brand/course-shoulder.webp";
 
 /**
- * دوراتنا, as the design lays it out.
+ * دوراتنا, as the artboard lays it out: the course banner is the card, with the
+ * featured one at 801×452 in the centre and its neighbours peeking in at
+ * 498×317 either side.
  *
- * One wide card above — 801×451 on the artboard — and two half-width cards
- * below it. As with مقالاتنا the design carries no text here: the course banner
- * is the card.
- *
- * Only the first banner exists in the design file; the two beneath it are plain
- * blue gradients, i.e. slots waiting for artwork. They are rendered as labelled
- * placeholders rather than as gradients pretending to be courses, and they fill
- * themselves in the moment a banner is supplied.
+ * Only the first banner exists in the design file — the two beside it are plain
+ * gradient slots waiting for artwork. Rather than render gradients pretending to
+ * be courses, an empty slot carries the real course's title, and fills itself in
+ * the moment a banner is supplied.
  */
 export default function HomeCourses() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -27,30 +25,22 @@ export default function HomeCourses() {
     return () => { alive = false; };
   }, []);
 
-  const featured = courses[0];
-  const rest = courses.slice(1, 3);
+  // The design shows three slots. Until the catalogue answers, the one banner
+  // that does exist still stands on its own.
+  const shown = courses.slice(0, 3);
+  const items: Poster[] = shown.length
+    ? shown.map((course, index) => ({
+        key: course.id,
+        // The single banner in the kit belongs to the shoulder course; the rest
+        // are titled slots.
+        image: index === 0 ? shoulderCourse : undefined,
+        alt: index === 0 ? `دورة: ${course.title}` : course.title,
+        href: `/courses/${course.slug}`,
+        featured: index === 0,
+        title: course.title,
+        note: course.summary,
+      }))
+    : [{ key: "featured", image: shoulderCourse, alt: "دورة تدريبية: الكتف المؤلم", featured: true }];
 
-  return <div className="poster-row poster-row-courses">
-    {featured
-      ? <Link className="poster poster-wide" to={`/courses/${featured.slug}`}>
-          <img src={shoulderCourse} alt={`دورة: ${featured.title}`} decoding="async" />
-        </Link>
-      : <div className="poster poster-wide">
-          <img src={shoulderCourse} alt="دورة تدريبية" decoding="async" />
-        </div>}
-
-    <div className="poster-pair">
-      {[0, 1].map((slot) => {
-        const course = rest[slot];
-        return course
-          ? <Link className="poster poster-half" key={course.id} to={`/courses/${course.slug}`}>
-              <span className="poster-fallback">
-                <b>{course.title}</b>
-                <small>{course.summary}</small>
-              </span>
-            </Link>
-          : <div className="poster poster-half is-empty" key={slot} aria-hidden="true" />;
-      })}
-    </div>
-  </div>;
+  return <PosterCarousel items={items} label="دوراتنا" />;
 }

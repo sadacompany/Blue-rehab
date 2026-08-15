@@ -1,31 +1,25 @@
 "use client";
 
-import { ChevronDown, LayoutDashboard, LogIn, Menu, X } from "lucide-react";
+import { ChevronDown, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import mascotIcon from "../assets/brand/mascot-icon.png";
+import { Brand, BrandStar } from "./BrandMarks";
 
-export function Brand() {
-  return (
-    <Link className="brand" to="/" aria-label="تأهيل بلو — الرئيسية">
-      <span className="brand-mark" aria-hidden="true"><img src={mascotIcon} alt="" /></span>
-      <span className="brand-copy"><strong>تأهيل <b>بلو</b></strong><small>علاج طبيعي وتأهيل مهني</small></span>
-    </Link>
-  );
-}
+export { Brand } from "./BrandMarks";
 
 /**
  * Navigation follows the two halves of the platform rather than listing every
  * page flat. A visitor decides which side they are on — care, or learning —
  * before being asked to pick anything specific.
+ *
+ * The labels and the star separators are the artboard's. The submenus are not
+ * in it, but a landing comp does not draw hover states, and without them the
+ * programmes, specialists, articles and research pages have no route in from
+ * the header at all — so the two levels stay.
  */
 const sections = [
   {
-    // One door into the clinic. "حجز موعد" and "الخدمات" were two entries for
-    // the same journey — you pick a service either way — so the booking entry is
-    // gone and the surviving one is named for what the visitor wants, not for
-    // the step they are about to take.
-    label: "عيادة بلو", href: "/consultations",
+    label: "استشارة بلو", href: "/consultations",
     items: [
       ["استشر مختص", "/services"],
       ["البرامج العلاجية", "/programs"],
@@ -66,36 +60,42 @@ export default function SiteHeader() {
     return () => { active = false; unsubscribe?.(); };
   }, []);
 
+  const close = () => setOpen(false);
+
   return <>
     <div className="environment-bar"><div className="container"><span>نسخة تشغيلية تجريبية</span><p>بيانات مقدمي الخدمة والأسعار والمواعيد الحالية نماذج واضحة وليست عروضاً تجارية معتمدة.</p></div></div>
     <header className="site-header"><nav className="container nav" aria-label="التنقل الرئيسي">
       <Brand />
+
       <div className={`nav-links ${open ? "is-open" : ""}`} id="site-menu">
         {sections.map((section) => <div className="nav-section" key={section.href}>
-          <Link className="nav-section-head" to={section.href} onClick={() => setOpen(false)}>{section.label}<ChevronDown /></Link>
-          <div className="nav-menu">{section.items.map(([label, href]) => <Link to={href} key={href} onClick={() => setOpen(false)}>{label}</Link>)}</div>
-        </div>)}
-        {plainLinks.map(([label, href]) => <Link to={href} key={href} onClick={() => setOpen(false)}>{label}</Link>)}
-
-        {/* Signing in and the main call to action live in `.nav-actions`, which
-            keeps only the menu button once the drawer takes over — so on a phone
-            there was no way to reach either. They are repeated here for the
-            drawer; exactly one copy is displayed at any width. */}
-        <div className="nav-drawer-actions">
-          <Link className="button button-secondary" to={signedIn ? "/portal" : "/login"} onClick={() => setOpen(false)}>
-            {signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}
+          <Link className="nav-section-head" to={section.href} onClick={close}>
+            <BrandStar className="star nav-star" />{section.label}<ChevronDown className="nav-chevron" />
           </Link>
-          <Link className="button" to="/services" onClick={() => setOpen(false)}>استشر مختص</Link>
+          <div className="nav-menu">{section.items.map(([label, href]) => <Link to={href} key={href} onClick={close}>{label}</Link>)}</div>
+        </div>)}
+
+        {plainLinks.map(([label, href]) => <Link className="nav-plain" to={href} key={href} onClick={close}>
+          <BrandStar className="star nav-star" />{label}
+        </Link>)}
+
+        {/* The two actions live in `.nav-actions`, which collapses to the menu
+            button once the drawer takes over — so on a phone there would be no
+            way to reach either. They are repeated here for the drawer; exactly
+            one copy is displayed at any width. */}
+        <div className="nav-drawer-actions">
+          <Link className="button button-small button-secondary" to={signedIn ? "/portal" : "/login"} onClick={close}>
+            {signedIn ? "لوحة الحساب" : "تسجيل الدخول"}
+          </Link>
+          <Link className="button button-small" to="/booking" onClick={close}>ابدأ الحجز</Link>
         </div>
       </div>
+
       <div className="nav-actions">
-        {/* Between 820 and 1050 the label is collapsed to the icon to fit, so the
-            name has to come from the attribute or the link says nothing. */}
-        <Link className="nav-portal" to={signedIn ? "/portal" : "/login"}
-          aria-label={signedIn ? "لوحة الحساب" : "تسجيل الدخول"}>
-          {signedIn ? <LayoutDashboard /> : <LogIn />}{signedIn ? "لوحة الحساب" : "تسجيل الدخول"}
+        <Link className="button button-small button-secondary" to={signedIn ? "/portal" : "/login"}>
+          {signedIn ? "لوحة الحساب" : "تسجيل الدخول"}
         </Link>
-        <Link className="button button-small" to="/services">استشر مختص</Link>
+        <Link className="button button-small" to="/booking">ابدأ الحجز</Link>
         <button className="menu-button" type="button" onClick={() => setOpen(!open)}
           aria-expanded={open} aria-controls="site-menu"
           aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}>{open ? <X /> : <Menu />}</button>

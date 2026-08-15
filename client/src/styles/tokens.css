@@ -1,16 +1,71 @@
+/* ============================================================================
+   Blue Rehab — design system core
+   ----------------------------------------------------------------------------
+   Every value below is taken from one of two sources the client supplied:
+
+     • «ألوان منصة بلو.pdf» — the four official brand colours.
+     • «استشارة بلو.pdf»    — the 1440×4875 landing artboard. Sizes, radii,
+                              strokes and spacings were measured out of the
+                              vector geometry, not estimated from a screenshot.
+
+   Where the artboard and the palette disagree the palette wins, and the
+   deviation is noted at the token. Section 9 keeps the older token names alive
+   as aliases so the rest of the stylesheet moves with the system instead of
+   having to be rewritten line by line.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------- 1. fonts */
+
+@font-face { font-family: "TS Safaa"; src: url("../assets/fonts/TSSafaa-Light.otf") format("opentype"); font-weight: 200; font-style: normal; font-display: swap; }
 @font-face { font-family: "TS Safaa"; src: url("../assets/fonts/TSSafaa-Light.otf") format("opentype"); font-weight: 300; font-style: normal; font-display: swap; }
 @font-face { font-family: "TS Safaa"; src: url("../assets/fonts/TSSafaa-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "TS Safaa"; src: url("../assets/fonts/TSSafaa-Medium.otf") format("opentype"); font-weight: 500; font-style: normal; font-display: swap; }
 @font-face { font-family: "TS Safaa"; src: url("../assets/fonts/TSSafaa-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; font-display: swap; }
 
+/* The artboard sets the wordmark «تأهيلــــ . بلو» in GHAITHSANS-Bold and
+   nothing else — it is a logotype face, not a text face. Scoped to `.wordmark`
+   so it can never leak into running copy. */
+@font-face { font-family: "Ghaith Sans"; src: url("../assets/fonts/GhaithSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+
 :root {
-  /* Brand palette — from Blue Rehab visual identity guide */
+  --font-family-base: "TS Safaa", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-family-wordmark: "Ghaith Sans", var(--font-family-base);
+
+  /* The artboard uses Safaa-UltraLight for hero sublines and card body copy.
+     Only Light shipped with the brand kit, so 200 and 300 both resolve to it —
+     the weight is reserved in the scale for when the real cut arrives. */
+  --weight-ultralight: 200;
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  /* ------------------------------------------------------------ 2. colour */
+
+  /* The four official brand colours, verbatim. */
   --color-ink-900: #445056;
   --color-brand-600: #6495a2;
   --color-brand-400: #80d6e5;
   --color-brand-100: #b6dde7;
 
-  /* Derived neutrals and tints, built from the brand palette */
+  /* Surfaces lifted off the artboard. */
+  --color-sky: #ecfaff;        /* header bar, service cards */
+  --color-mist: #f7fafa;       /* team cards */
+  --color-page: #f2f7f9;       /* section ground under the gradient wash */
+  --color-white: #fff;
+  --color-hero-ink: #f8fbfa;   /* type over the hero photograph */
+
+  /* The artboard draws card borders in a vivid periwinkle that sits outside
+     the brand palette. It is load-bearing to the look — a 3px cool outline
+     against a near-white card — so it is kept as its own accent rather than
+     folded into the blues. */
+  --color-accent: #506fff;
+
+  /* The rules between sections and the hairline around buttons and avatars are
+     true black in the artboard, not a tinted neutral. */
+  --color-rule: #000;
+
+  /* Derived neutrals and tints, built from the brand palette. */
   --color-brand-700: #4f7883;
   --color-brand-800: #3a5860;
   --color-brand-50: #eaf6f9;
@@ -18,24 +73,97 @@
   --color-muted: #64767b;
   --color-line: #dbe6e9;
   --color-soft: #f4f8f9;
-  --color-white: #fff;
 
-  /* Semantic colors — no equivalents in the brand guide, derived to harmonize with the blue-gray palette.
-     Values chosen to clear WCAG AA (4.5:1) as text/icon color on white. */
+  /* Semantic colours — no equivalents in the brand guide, derived to harmonise
+     with the blue-grey palette. Values clear WCAG AA (4.5:1) on white. */
   --color-warning: #996a1d;
   --color-warning-soft: #fbf1de;
   --color-warning-ink: #6b4f1f;
   --color-danger: #b2483f;
   --color-danger-soft: #fbeae8;
   --color-danger-ink: #7c332c;
+  --color-success: #2f7d63;
+  --color-success-soft: #e6f4ee;
 
-  /* Typography */
-  --font-family-base: "TS Safaa", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  /* ------------------------------------------------- 3. type scale (fluid) */
 
-  /* Spacing / radii / shadow / breakpoints carried over unchanged — not covered by the brand guide */
-  --radius-sm: 12px;
-  --radius: 20px;
-  --radius-lg: 30px;
+  /* Each step is the artboard size at its 1440 reference width, interpolated
+     down to a hand-set mobile size at 375. The `calc()` mid-term makes the
+     curve continuous, so nothing snaps at a breakpoint. */
+  --fs-hero:        clamp(30px, calc(25.07px + 1.315vw), 44px);   /* 44 — h1 */
+  --fs-section:     clamp(29px, calc(24.07px + 1.315vw), 43px);   /* 43 — section headings */
+  --fs-hero-sub:    clamp(20px, calc(15.42px + 1.221vw), 33px);   /* 33 — hero subline */
+  --fs-card-title:  clamp(22px, calc(19.18px + 0.751vw), 30px);   /* 30 — card titles */
+  --fs-body-lg:     clamp(18px, calc(15.54px + 0.657vw), 25px);   /* 25 — card body, buttons */
+  --fs-nav:         clamp(17px, calc(15.24px + 0.469vw), 22px);   /* 22 — nav links */
+  --fs-name:        clamp(17px, calc(15.94px + 0.282vw), 20px);   /* 20 — person names */
+  --fs-meta:        clamp(15px, calc(13.94px + 0.282vw), 18px);   /* 18 — supporting meta */
+  --fs-fine:        clamp(14px, calc(12.94px + 0.282vw), 17px);   /* 17 — bullets, fine print */
+
+  /* Two steps below the artboard's floor, for the dense surfaces the landing
+     comp never had to show: dashboard tables, chips, status pills. The artboard
+     stops at 17px because it only draws marketing; these keep the same ratio
+     going down without dropping under 12px, which is the point where the Arabic
+     letterforms start to lose their dots. */
+  --fs-small:       clamp(13px, calc(12.29px + 0.188vw), 15px);
+  --fs-micro:       clamp(12px, calc(11.29px + 0.188vw), 14px);
+  --fs-wordmark:    clamp(22px, calc(18.13px + 1.033vw), 33px);   /* 33 — logotype */
+  --fs-wordmark-sub: clamp(11px, calc(8.54px + 0.657vw), 18px);   /* 18 — logotype tagline */
+
+  --leading-tight: 1.3;
+  --leading-snug: 1.5;
+  --leading-body: 1.75;
+
+  /* ------------------------------------------------- 4. layout and spacing */
+
+  --container: 1180px;         /* artboard content column measures ~1166 */
+  --gutter: 24px;
+  --header-height: 99px;       /* measured: the header bar is 0–99 */
+
+  --space-section: clamp(56px, 6.1vw, 88px);
+  --space-heading: clamp(36px, 4.4vw, 64px);
+  --space-card: clamp(22px, 2.2vw, 32px);
+  --grid-gap: clamp(18px, 2.4vw, 34px);
+
+  /* ------------------------------------------------ 5. radii, from vectors */
+
+  --radius-xs: 13px;           /* card buttons (220×68, 202×63) */
+  --radius-sm: 17px;           /* header buttons, media frames */
+  --radius-md: 30px;           /* team cards (314×657) */
+  --radius-lg: 50px;           /* service cards (555×522) */
+  --radius-full: 999px;
+
+  /* ------------------------------------------------------- 6. line weights */
+
+  --stroke-hairline: 1.5px;    /* buttons, avatar rings */
+  --stroke-card: 3px;          /* the periwinkle card outline */
+  --stroke-rule: 1px;          /* section rules; the hero rule is 2px */
+
+  /* ------------------------------------------------------------ 7. shadows */
+
   --shadow-sm: 0 10px 28px rgba(68, 80, 86, .1);
+  --shadow-md: 0 18px 44px rgba(68, 80, 86, .13);
   --shadow-lg: 0 25px 70px rgba(68, 80, 86, .16);
+  --shadow-feature: 0 26px 60px rgba(68, 80, 86, .2);
+  --focus-ring: 0 0 0 3px rgba(80, 111, 255, .32);
+
+  /* ------------------------------------------------------------- 8. motion */
+
+  --ease: cubic-bezier(.22, .61, .36, 1);
+  --duration-fast: .16s;
+  --duration: .22s;
+  --duration-slow: .4s;
+}
+
+/* ------------------------------------------------------ 9. legacy aliases */
+
+/* The pre-existing stylesheet refers to these names in hundreds of places.
+   Pointing them at the new system means the whole site moves together; nothing
+   below introduces a value the system does not already own. */
+:root {
+  --radius: var(--radius-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0s; --duration: 0s; --duration-slow: 0s; }
 }
