@@ -1,4 +1,4 @@
-import { AlertCircle, BadgeCheck, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, FileText, GraduationCap, LifeBuoy, LoaderCircle, Plus, RefreshCcw, ShieldCheck, Users, Wallet, XCircle } from "lucide-react";
+import { AlertCircle, BadgeCheck, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, FileText, GraduationCap, LifeBuoy, LoaderCircle, Plus, RefreshCcw, ShieldCheck, UserRound, Users, Wallet, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { countLabel, formatCurrency, formatDateTime } from "../lib/format";
@@ -23,6 +23,27 @@ import {
 } from "../lib/admin";
 import PageShell from "./PageShell";
 import { SkeletonLine, SkeletonMetrics } from "./Skeleton";
+
+/**
+ * The applicant's portrait, next to their application.
+ *
+ * The bucket is private, so this resolves a short-lived signed URL the same way
+ * the credential attachments do. A reviewer should see who they are approving —
+ * the picture goes on the front page the moment the role is granted.
+ */
+function ApplicantPortrait({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    credentialUrl(path).then((signed) => { if (alive) setUrl(signed); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [path]);
+
+  return <span className="applicant-portrait">
+    {url ? <img src={url} alt="" /> : <UserRound aria-hidden="true" />}
+  </span>;
+}
 
 const ALL_ROLES = ["patient", "student", "specialist", "trainer", "receptionist", "admin"] as const;
 
@@ -248,6 +269,7 @@ export default function AdminDashboard() {
       {data.applications.length ? <div className="admin-list">
         {data.applications.map((item) => <article key={item.id} className={`admin-row status-${item.status}`}>
           <div className="admin-row-main">
+            {item.photoPath && <ApplicantPortrait path={item.photoPath} />}
             <div>
               <strong>{item.displayName}</strong>
               <small>{item.kind === "specialist" ? "أخصائي" : "مدرب"} · {item.title}</small>

@@ -47,6 +47,31 @@ export async function uploadCredential(file: File): Promise<string> {
  * application means looking at the evidence behind it, and until now the review
  * screen only said how many files there were.
  */
+/**
+ * The applicant's portrait.
+ *
+ * Same private bucket and the same owner-keyed folder as the credentials, so no
+ * new storage policy is needed — but a fixed `portrait-` stem so the reviewer,
+ * and the approval step that promotes it to the specialist photo, can pick it
+ * out without guessing from the filename.
+ */
+export async function uploadApplicantPhoto(file: File): Promise<string> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData.session?.user;
+  if (!user) throw new AuthenticationRequiredError();
+
+  if (file.size > 5 * 1024 * 1024) throw new Error("حجم الصورة يتجاوز ٥ ميغابايت.");
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("تُقبل صور JPG أو PNG أو WebP فقط.");
+
+  const extension = file.type.split("/")[1].replace("jpeg", "jpg");
+  const path = `${user.id}/portrait-${Date.now()}.${extension}`;
+  const { error } = await supabase.storage
+    .from("provider-credentials")
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
 export async function credentialUrl(path: string): Promise<string> {
   const { data, error } = await supabase.storage.from("provider-credentials").createSignedUrl(path, 300);
   if (error || !data) throw new Error("تعذر فتح الملف.");
@@ -75,6 +100,7 @@ export type ProviderApplication = {
   reviewNote: string | null;
   reviewedAt: string | null;
   credentialFiles: string[];
+  photoPath: string | null;
   createdAt: string;
 };
 
@@ -84,6 +110,8 @@ const APPLICATION_ERRORS: Record<string, string> = {
   ALREADY_PROVIDER: "حسابك يملك هذه الصفة بالفعل.",
   APPLICATION_NOT_FOUND: "لم نجد الطلب.",
   AUTH_REQUIRED: "يلزم تسجيل الدخول.",
+  PHOTO_REQUIRED: "أرفق صورة شخصية واضحة.",
+  CREDENTIAL_PATH_INVALID: "تعذر التحقق من الملفات المرفقة. أعد رفعها ثم حاول مرة أخرى.",
 };
 
 function translate(message: string): string {
@@ -110,6 +138,7 @@ function toApplication(row: any): ProviderApplication {
     reviewNote: row.review_note,
     reviewedAt: row.reviewed_at,
     credentialFiles: row.credential_files ?? [],
+    photoPath: row.photo_path ?? null,
     createdAt: row.created_at,
   };
 }
@@ -141,6 +170,7 @@ export type ApplicationInput = {
   contactEmail: string;
   contactPhone: string;
   credentialFiles: string[];
+  photoPath: string | null;
 };
 
 export async function submitApplication(input: ApplicationInput): Promise<ProviderApplication> {
@@ -157,6 +187,7 @@ export async function submitApplication(input: ApplicationInput): Promise<Provid
     p_contact_email: input.contactEmail || null,
     p_contact_phone: input.contactPhone || null,
     p_credential_files: input.credentialFiles ?? [],
+    p_photo_path: input.photoPath,
   });
   if (error) throw new Error(translate(error.message));
   return toApplication(data);

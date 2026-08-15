@@ -170,6 +170,7 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       credentialsNote: row.credentials_note, contactEmail: row.contact_email,
       contactPhone: row.contact_phone, status: row.status, reviewNote: row.review_note,
       reviewedAt: row.reviewed_at, credentialFiles: row.credential_files ?? [],
+      photoPath: row.photo_path ?? null,
       createdAt: row.created_at,
     })),
     users: (users.data ?? []).map((row: any) => ({

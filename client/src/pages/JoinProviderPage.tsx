@@ -1,4 +1,4 @@
-import { AlertCircle, BadgeCheck, CheckCircle2, Clock3, GraduationCap, LoaderCircle, Send, Stethoscope, XCircle } from "lucide-react";
+import { AlertCircle, BadgeCheck, CheckCircle2, Clock3, GraduationCap, ImagePlus, LoaderCircle, Send, Stethoscope, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import FileField, { attachmentLabel } from "../components/FileField";
@@ -8,6 +8,7 @@ import { AuthenticationRequiredError } from "../lib/platform";
 import {
   loadMyApplications,
   removeCredential,
+  uploadApplicantPhoto,
   uploadCredential,
   loadMyRoles,
   submitApplication,
@@ -60,6 +61,41 @@ export default function JoinProviderPage() {
   const [files, setFiles] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
+  // The portrait is kept separately from the credential attachments: there is
+  // exactly one, it is required, and it is the only one the applicant gets to
+  // see, so it carries a preview.
+  const [photoPath, setPhotoPath] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+
+  // Object URLs are a live handle on the file; without this the browser holds
+  // every portrait the applicant tried until the page is closed.
+  useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
+
+  async function attachPhoto(list: File[]) {
+    const file = list[0];
+    if (!file) return;
+    setPhotoBusy(true);
+    setError("");
+    try {
+      const path = await uploadApplicantPhoto(file);
+      if (photoPath) await removeCredential(photoPath).catch(() => undefined);
+      setPhotoPath(path);
+      setPhotoPreview((current) => { if (current) URL.revokeObjectURL(current); return URL.createObjectURL(file); });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر رفع الصورة");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function clearPhoto() {
+    const path = photoPath;
+    setPhotoPath(null);
+    setPhotoPreview((current) => { if (current) URL.revokeObjectURL(current); return null; });
+    if (path) await removeCredential(path).catch(() => undefined);
+  }
+
   async function attach(list: File[]) {
     if (!list.length) return;
     setUploading(true);
@@ -111,6 +147,7 @@ export default function JoinProviderPage() {
   const missing = [
     form.displayName.trim().length < 3 && "الاسم المعروض",
     form.title.trim().length < 3 && "المسمى المهني",
+    !photoPath && "الصورة الشخصية",
   ].filter(Boolean) as string[];
 
   async function submit() {
@@ -130,10 +167,13 @@ export default function JoinProviderPage() {
         contactEmail: form.contactEmail,
         contactPhone: form.contactPhone,
         credentialFiles: files,
+        photoPath,
       });
       setDone(true);
       setForm(EMPTY);
       setFiles([]);
+      setPhotoPath(null);
+      setPhotoPreview((current) => { if (current) URL.revokeObjectURL(current); return null; });
       await reload();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر إرسال الطلب");
@@ -215,6 +255,26 @@ export default function JoinProviderPage() {
             <label><span>جوال للتواصل</span><input dir="ltr" placeholder="05xxxxxxxx" {...field("contactPhone")} /></label>
             <label className="wide"><span>نبذة تعريفية</span><textarea rows={3} placeholder="خبرتك ومجالات تركيزك." {...field("bio")} /></label>
             <label className="wide"><span>المؤهلات والشهادات</span><textarea rows={3} placeholder="اذكر شهاداتك وجهات الإصدار." {...field("credentialsNote")} /></label>
+            {/* An approved provider is introduced on the front page and on their
+                own card, so the portrait is asked for here rather than chased
+                afterwards by an administrator. */}
+            <div className="wide portrait-field">
+              <div className="portrait-preview" aria-hidden="true">
+                {photoPreview
+                  ? <img src={photoPreview} alt="" />
+                  : <span className="portrait-placeholder"><ImagePlus /></span>}
+              </div>
+              <FileField
+                label="الصورة الشخصية *"
+                hint="صورة واضحة للوجه بخلفية بسيطة. JPG أو PNG أو WebP، حتى ٥ ميغابايت. تظهر في ملفك بعد القبول."
+                accept="image/jpeg,image/png,image/webp"
+                busy={photoBusy}
+                onSelect={(picked) => void attachPhoto(picked)}
+                attached={photoPath ? [{ id: photoPath, name: "الصورة الشخصية" }] : []}
+                onRemove={() => void clearPhoto()}
+              />
+            </div>
+
             <div className="wide">
               <FileField
                 label="إرفاق ما يثبت المؤهلات"

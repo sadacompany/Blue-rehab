@@ -20,7 +20,15 @@ import { supabase } from "./supabase";
  * (VITE_AUTH_MODE=sms) before real patient data enters the platform.
  */
 
-export const AUTH_MODE = (import.meta.env.VITE_AUTH_MODE ?? "mock") as "mock" | "sms";
+/**
+ * Defaults to `sms`, not `mock`.
+ *
+ * netlify.toml does not set VITE_AUTH_MODE, so with a `mock` default a
+ * production build shipped mock authentication whenever the variable was
+ * missing from the host — anyone who knew a phone number could sign in as that
+ * person. A missing setting now fails closed: real OTP, or nothing.
+ */
+export const AUTH_MODE = (import.meta.env.VITE_AUTH_MODE ?? "sms") as "mock" | "sms";
 export const MOCK_OTP_CODE = (import.meta.env.VITE_MOCK_OTP_CODE ?? "123456").trim();
 export const isMockAuth = () => AUTH_MODE === "mock";
 

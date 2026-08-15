@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, CalendarDays, Languages, Stethoscope } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Languages } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { countLabel } from "../lib/format";
@@ -128,13 +128,12 @@ export default function TeamSlider() {
           </ul>}
           {member.languages.length > 0 && <small><Languages /> {member.languages.join("، ")}</small>}
           <em>سنين الخبرة: {countLabel(member.yearsExperience, ["سنة واحدة", "سنتان", "سنوات", "سنة"])}</em>
-          {member.bookable
-            ? <Link className="button button-small" to={`/booking?specialist=${member.id}`}>
-                <CalendarDays /> حجز موعد
-              </Link>
-            : <Link className="button button-small button-secondary" to="/specialists">
-                <Stethoscope /> عرض الملف
-              </Link>}
+          {/* Only the booking action. «عرض الملف» pointed at the specialists
+              index rather than the person, so it promised a profile that does
+              not exist yet; a card with no open time simply carries no action. */}
+          {member.bookable && <Link className="button button-small" to={`/booking?specialist=${member.id}`}>
+            <CalendarDays /> حجز موعد
+          </Link>}
         </div>
       </li>)}
     </ul>

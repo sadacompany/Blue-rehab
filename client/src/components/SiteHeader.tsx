@@ -63,7 +63,6 @@ export default function SiteHeader() {
   const close = () => setOpen(false);
 
   return <>
-    <div className="environment-bar"><div className="container"><span>نسخة تشغيلية تجريبية</span><p>بيانات مقدمي الخدمة والأسعار والمواعيد الحالية نماذج واضحة وليست عروضاً تجارية معتمدة.</p></div></div>
     <header className="site-header"><nav className="container nav" aria-label="التنقل الرئيسي">
       <Brand />
 

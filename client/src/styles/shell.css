@@ -2,13 +2,6 @@
    Shell — the header, the footer and the portal frame.
    ========================================================================= */
 
-/* ------------------------------------------------------------- demo notice */
-
-.environment-bar { display: flex; align-items: center; background: var(--color-ink-900); color: #fff; font-size: var(--fs-fine); }
-.environment-bar .container { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 40px; padding-block: 6px; }
-.environment-bar span { padding: 3px 11px; border-radius: var(--radius-full); background: var(--color-brand-400); color: var(--color-ink-950); font-weight: var(--weight-bold); white-space: nowrap; }
-.environment-bar p { margin: 0; }
-
 /* ------------------------------------------------------------- site header */
 
 /* The artboard's header is a 99px bar in the pale sky tint, flush to the page
@@ -143,8 +136,6 @@
 }
 
 @media (max-width: 600px) {
-  .environment-bar .container { align-items: flex-start; justify-content: flex-start; gap: 8px; }
-  .environment-bar p { line-height: 1.5; }
   .footer-bottom { display: block; }
   .footer-bottom a { margin-top: 8px; }
 }
