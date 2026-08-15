@@ -1,7 +1,24 @@
 import { ArrowLeft, BookOpenCheck, CalendarDays, CheckCircle2, Clock3, FlaskConical, GraduationCap, HeartHandshake, MapPin, MessageCircle, ShieldCheck, Stethoscope, Target, Video } from "lucide-react";
 import { HomeCatalog } from "../components/CatalogSections";
 import PageShell from "../components/PageShell";
+import HomeArticles from "../components/HomeArticles";
+import TeamSlider from "../components/TeamSlider";
 import { Link } from "react-router-dom";
+import starMark from "../assets/brand/star-mark.png";
+
+/**
+ * A section title, as text with the brand star beside it.
+ *
+ * The design sets these as artwork; they are headings, so they are rendered as
+ * headings — selectable, translatable, and announced as structure. The star is
+ * decoration and is hidden from assistive technology.
+ */
+function SectionHead({ children }: { children: React.ReactNode }) {
+  return <header className="home-section-head">
+    <img src={starMark} alt="" aria-hidden="true" width={34} height={34} />
+    <h2>{children}</h2>
+  </header>;
+}
 
 const careReasons = [
   { icon: CalendarDays, title: "موعد يناسب يومك", text: "اختر الموعد وطريقة الجلسة دون اتصالات متكررة." },
@@ -15,8 +32,8 @@ export default function HomePage() {
       <div className="container care-hero-grid">
         <div className="care-hero-copy">
           <span className="care-label">علاج طبيعي وتأهيل رياضي</span>
-          <h1>نساعدك على العودة إلى الحركة بثقة.</h1>
-          <p>جلسات علاج طبيعي منظمة، وخطة منزلية واضحة، ومتابعة تساعدك على معرفة ما الذي يتحسن وما الذي يحتاج إلى مراجعة.</p>
+          <h1>لا ننتظر مستقبل العلاج الطبيعي، نحن من نصنعه.</h1>
+          <p>علمٌ يعلّم، ورعاية تحدث فرقاً — جلسات منظمة، وخطة منزلية واضحة، ومتابعة تُظهر لك ما الذي يتحسن.</p>
           <div className="care-actions">
             <Link className="button care-primary" to="/booking">احجز موعدًا <ArrowLeft /></Link>
             <Link className="care-link" to="/services">تعرف على الخدمات</Link>
@@ -46,6 +63,7 @@ export default function HomePage() {
         above everything else stops the page asking them to pick a service
         before they have decided why they came. */}
     <section className="section"><div className="container">
+      <SectionHead>خدماتنا</SectionHead>
       <div className="section-split">
         <article className="section-card">
           <span className="section-card-mark"><Stethoscope /></span>
@@ -70,7 +88,23 @@ export default function HomePage() {
       </div>
     </div></section>
 
-    <section className="care-learning"><div className="container"><header className="care-learning-head"><div><span className="care-label">للطلبة والممارسين</span><h2>تعلم مهني مرتبط بالممارسة</h2><p>دورات توضّح النتائج والمتطلبات وطريقة الحضور قبل التسجيل.</p></div><Link className="care-link" to="/courses">عرض جميع الدورات <ArrowLeft /></Link></header><HomeCatalog /></div></section>
+    {/* فريقنا الطبي — read from the specialists administration publishes, so the
+        clinic adds people without anyone touching this file. */}
+    <section className="section surface-section"><div className="container">
+      <SectionHead>فريقنا الطبي</SectionHead>
+      <TeamSlider />
+    </div></section>
+
+    <section className="care-learning"><div className="container">
+      <SectionHead>دوراتنا</SectionHead>
+      <header className="care-learning-head"><div><span className="care-label">للطلبة والممارسين</span><h3>تعلم مهني مرتبط بالممارسة</h3><p>دورات توضّح النتائج والمتطلبات وطريقة الحضور قبل التسجيل.</p></div><Link className="care-link" to="/courses">عرض جميع الدورات <ArrowLeft /></Link></header>
+      <HomeCatalog />
+    </div></section>
+
+    <section className="section"><div className="container">
+      <SectionHead>مقالاتنا</SectionHead>
+      <HomeArticles />
+    </div></section>
 
     <section className="care-trust"><div className="container care-trust-grid"><div><span className="care-label light">خصوصيتك جزء من الرعاية</span><h2>لا نطلب بيانات أكثر مما نحتاجه.</h2><p>تُفصل الملفات الصحية عن بيانات التدريب، وتخضع السجلات والصلاحيات لسياسات وصول واضحة.</p></div><div className="care-trust-points"><span><CheckCircle2 /> ملفك الصحي مفصول عن بيانات التدريب</span><span><CheckCircle2 /> صلاحيات حسب دور المستخدم</span><span><CheckCircle2 /> سجل للقرارات الإدارية</span><span><CheckCircle2 /> لا تُحفظ بيانات البطاقات</span></div></div></section>
 

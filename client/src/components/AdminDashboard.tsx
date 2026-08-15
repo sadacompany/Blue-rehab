@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { countLabel, formatCurrency, formatDateTime } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
+import AdminTeam from "./AdminTeam";
 import { attachmentLabel } from "./FileField";
 import { credentialUrl } from "../lib/provider";
 import { cvDownloadUrl, loadTrainingApplications, setTrainingStatus, type TrainingApplication } from "../lib/training";
@@ -55,7 +56,7 @@ const SUPPORT_STATUS: Record<string, string> = {
   new: "جديد", in_progress: "قيد المعالجة", resolved: "تم الحل", closed: "مغلق",
 };
 
-type Tab = "overview" | "applications" | "users" | "catalogue" | "content" | "bookings" | "payments" | "support" | "training";
+type Tab = "overview" | "applications" | "users" | "catalogue" | "content" | "bookings" | "payments" | "support" | "training" | "team";
 
 const COURSE_REVIEW: Record<string, string> = {
   draft: "مسودة لدى المدرب", in_review: "بانتظار المراجعة",
@@ -213,6 +214,7 @@ export default function AdminDashboard() {
         ["payments", `المدفوعات (${data.payments.length})`],
         ["support", `الدعم${overview.support.open ? ` (${overview.support.open})` : ""}`],
         ["training", `التدريب الصيفي${training.filter((t) => t.status === "new").length ? ` (${training.filter((t) => t.status === "new").length})` : ""}`],
+        ["team", "الفريق الطبي"],
       ] as [Tab, string][]).map(([key, label]) => <button
         key={key} role="tab" aria-selected={tab === key}
         className={tab === key ? "is-active" : ""} onClick={() => setTab(key)}
@@ -485,5 +487,7 @@ export default function AdminDashboard() {
         </article>)}
       </div> : <div className="portal-empty"><GraduationCap /><p>لا توجد طلبات تدريب بعد.</p></div>}
     </section>}
+
+    {tab === "team" && <AdminTeam />}
   </div></section></PageShell>;
 }

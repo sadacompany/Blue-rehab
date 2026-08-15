@@ -800,6 +800,56 @@
   .file-drop { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
 
+/* ============================================================================
+   Landing sections — خدماتنا · فريقنا الطبي · دوراتنا · مقالاتنا
+   The heading is real text with the brand star beside it, never an image: it is
+   the page's structure, and it has to be selectable, translatable and readable
+   by a screen reader.
+   ========================================================================= */
+
+.home-section-head { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 34px; }
+.home-section-head img { width: 34px; height: 34px; flex: none; }
+.home-section-head h2 { margin: 0; font-size: clamp(27px, 4vw, 40px); letter-spacing: -.01em; }
+
+/* ------------------------------------------------------------ team slider ---
+   Scroll-snap, not a carousel: the browser already does momentum and touch, and
+   every card stays reachable by swipe, arrows, Tab and the scrollbar alike. */
+.team-slider { position: relative; }
+.team-track {
+  list-style: none; margin: 0; padding: 4px 2px 16px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(258px, 1fr);
+  gap: 18px; overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: thin; overscroll-behavior-x: contain;
+}
+@media (min-width: 900px) { .team-track { grid-auto-columns: minmax(0, calc((100% - 36px) / 3)); } }
+.team-track:focus-visible { outline: 3px solid rgba(79, 120, 131, .35); outline-offset: 4px; border-radius: 16px; }
+
+.team-card {
+  scroll-snap-align: start; display: flex; flex-direction: column;
+  border: 1px solid var(--color-line); border-radius: 18px; background: #fff;
+  overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.team-photo { aspect-ratio: 4 / 5; background: var(--color-brand-50); display: grid; place-items: center; overflow: hidden; }
+.team-photo img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.team-initials { font-size: 42px; font-weight: 900; color: var(--color-brand-400); }
+
+.team-body { display: flex; flex-direction: column; gap: 4px; padding: 16px 17px 18px; }
+.team-body h3 { margin: 0; font-size: 17px; }
+.team-body small { color: var(--color-muted); font-size: 12.5px; line-height: 1.6; }
+.team-body small svg { width: 14px; vertical-align: -2px; margin-inline-end: 4px; }
+.team-body em { margin-top: 4px; font-style: normal; font-size: 12px; font-weight: 800; color: var(--color-brand-700); }
+.team-tags { list-style: none; display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 2px; padding: 0; }
+.team-tags li { padding: 3px 9px; border-radius: 999px; background: var(--color-brand-50); color: var(--color-brand-700); font-size: 11px; font-weight: 700; }
+.team-body .button { margin-top: 12px; justify-content: center; }
+
+/* Administration: the same people, as a list to arrange rather than a display. */
+.team-admin-photo { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; overflow: hidden; background: var(--color-brand-50); color: var(--color-brand-700); font-weight: 900; }
+.team-admin-photo img { width: 100%; height: 100%; object-fit: cover; }
+.inline-badge { width: 15px; vertical-align: -3px; margin-inline-start: 5px; color: var(--color-brand-600); }
+
+.team-arrows { display: none; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+@media (min-width: 900px) { .team-arrows { display: flex; } }
+
 /* What the patient needs on the day, on the booking itself. */
 .portal-booking-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 
