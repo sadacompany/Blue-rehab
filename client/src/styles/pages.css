@@ -1223,11 +1223,6 @@ a.poster-face:focus-visible { outline: 3px solid var(--color-accent); outline-of
 .reading-meta > span { display: inline-flex; align-items: center; gap: 6px; }
 .reading-meta svg { width: 1.1em; height: 1.1em; }
 .reading-author { color: var(--color-brand-700); font-weight: var(--weight-bold); }
-.reading-avatar {
-  width: 24px; height: 24px; flex: none; display: grid; place-items: center;
-  border-radius: var(--radius-full); background: var(--color-brand-100); color: var(--color-brand-800);
-  font-size: var(--fs-micro); font-weight: var(--weight-bold);
-}
 
 @media (max-width: 560px) {
   .reading-cover { width: 68px; }

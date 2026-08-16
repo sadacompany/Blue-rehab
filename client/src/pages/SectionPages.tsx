@@ -259,17 +259,12 @@ function ReadingRow({ href, cover, kicker, title, excerpt, byline, meta }: {
       <strong className="reading-title">{title}</strong>
       {excerpt && <span className="reading-excerpt">{excerpt}</span>}
       <span className="reading-meta">
-        {byline && <span className="reading-author">
-          <span className="reading-avatar" aria-hidden="true">{initialsOf(byline)}</span>{byline}
-        </span>}
+        {byline && <span className="reading-author">{byline}</span>}
         {meta}
       </span>
     </span>
   </Link>;
 }
-
-const initialsOf = (name: string) =>
-  name.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join("");
 
 function ArticleCard({ article }: { article: Article }) {
   return <ReadingRow
