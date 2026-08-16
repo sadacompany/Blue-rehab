@@ -24,8 +24,18 @@
 
 /* The artboard sets the wordmark «تأهيلــــ . بلو» in GHAITHSANS-Bold and
    nothing else — it is a logotype face, not a text face. Scoped to `.wordmark`
-   so it can never leak into running copy. */
-@font-face { font-family: "Ghaith Sans"; src: url("../assets/fonts/GhaithSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+   so it can never leak into running copy.
+
+   Subset to the ten glyphs the lockup actually uses, which takes it from 225 KB
+   to 1.3 KB. The Arabic shaping tables are kept, so the letters still join;
+   culling glyphs without them is what breaks an Arabic subset. Regenerate from
+   GhaithSans-Bold.ttf, which stays in this directory as the source. */
+@font-face {
+  font-family: "Ghaith Sans";
+  src: url("../assets/fonts/GhaithSans-Wordmark.woff2") format("woff2"),
+       url("../assets/fonts/GhaithSans-Wordmark.ttf") format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
 
 :root {
   --font-family-base: "TS Safaa", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
