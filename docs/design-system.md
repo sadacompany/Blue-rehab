@@ -132,6 +132,24 @@ Layout: `--container` 1180px (the artboard's content column measures ~1166) ·
 | `.poster-carousel` | دوراتنا and مقالاتنا: centre slide at full size with its neighbours peeking, plus the artboard's curved arrows |
 | `.section-rule` | The full-bleed black hairline between bands. `.section-rule-strong` is the hero's 2px |
 | `.star` | The four-point identity star, inline SVG, inherits `color` |
+| `.reading-row` | المقالات and مراجعة الأبحاث, in the ثمانية arrangement: cover at the start of the row, title, two lines of the piece, then the byline |
+| `.offer-card` / `.enrollment-card` | What a course or programme costs and the one action — poster, price, former price struck through, full-width button |
+| `.cover-field` | The artwork control on each row in `/admin`. An item with no cover never reaches the landing page, which the empty state says outright |
+
+### Cover artwork
+
+دوراتنا, مقالاتنا and أبحاثنا are picture sections: the artwork *is* the card.
+`articles`, `research_reviews`, `courses` and `rehab_programs` each carry a
+`cover_url`, filled from the public `content-covers` bucket that only
+administration may write to. An item without one is left out, and a section with
+nothing covered behind it does not render — heading and rule included.
+
+### Prices
+
+`compare_at_price` holds the former price, struck through beside the current one.
+It is never derived from a discount percentage: a struck-through figure is a
+claim about price, so it is stored or it is not shown. A database constraint
+refuses a former price at or below the current one.
 
 ### The star
 
@@ -149,6 +167,16 @@ plain name in `aria-label`.
 
 The font was recovered from the design PDF, which embeds the complete face
 (1262 glyphs, full Arabic cmap) rather than a subset.
+
+It ships subset to the ten glyphs the lockup uses — 225 KB down to 4 KB, small
+enough that Vite inlines it into the stylesheet and it costs no request. Keep
+**all** layout features when regenerating: Arabic positional forms are separate
+glyphs reached through GSUB, and naming a subset of features drops the ones that
+join the letters, which renders «تأهيل» as five disconnected characters.
+
+```bash
+python -m fontTools.subset GhaithSans-Bold.ttf --text="تأهيلــــ . بلو" --layout-features=* --flavor=woff2 --output-file=GhaithSans-Wordmark.woff2
+```
 
 ---
 
