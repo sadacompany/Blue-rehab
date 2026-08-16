@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import HomeArticles from "../components/HomeArticles";
 import HomeCourses from "../components/HomeCourses";
+import HomeResearch from "../components/HomeResearch";
 import TeamSlider from "../components/TeamSlider";
 import { BrandStar, SectionHeading } from "../components/BrandMarks";
 import heroClinic from "../assets/brand/hero-clinic.webp";
@@ -73,10 +74,12 @@ export default function HomePage() {
     </section>
     <hr className="section-rule section-rule-strong" />
 
-    {/* Both sections render their own heading and closing rule, so each one
-        disappears completely while there is nothing published behind it. */}
+    {/* دوراتنا · مقالاتنا · أبحاثنا — the three picture sections. Each renders
+        its own heading and closing rule, so it disappears entirely while there
+        is nothing with cover artwork behind it. */}
     <HomeCourses />
     <HomeArticles />
+    <HomeResearch />
 
     <section className="care-trust">
       <div className="container care-trust-grid">

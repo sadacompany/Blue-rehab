@@ -22,6 +22,8 @@ export type RehabProgram = {
   sessionsPerWeek: number | null;
   level: string;
   price: number;
+  /** Cover artwork. The landing page shows only items that have one. */
+  coverUrl: string | null;
 };
 
 export type Article = {
@@ -35,6 +37,7 @@ export type Article = {
   readingMinutes: number | null;
   authorName: string | null;
   publishedAt: string | null;
+  coverUrl: string | null;
 };
 
 export type ResearchReview = {
@@ -54,6 +57,7 @@ export type ResearchReview = {
   tags: string[];
   reviewerName: string | null;
   publishedAt: string | null;
+  coverUrl: string | null;
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -62,7 +66,7 @@ const toProgram = (row: any): RehabProgram => ({
   summary: row.summary ?? "", description: row.description ?? "",
   goals: row.goals ?? [], suitableFor: row.suitable_for ?? [],
   durationWeeks: row.duration_weeks, sessionsPerWeek: row.sessions_per_week,
-  level: row.level, price: Number(row.price),
+  level: row.level, price: Number(row.price), coverUrl: row.cover_url ?? null,
 });
 
 const toArticle = (row: any): Article => ({
@@ -70,7 +74,7 @@ const toArticle = (row: any): Article => ({
   excerpt: row.excerpt ?? "", body: row.body ?? "",
   category: row.category, tags: row.tags ?? [],
   readingMinutes: row.reading_minutes, authorName: row.author_name,
-  publishedAt: row.published_at,
+  publishedAt: row.published_at, coverUrl: row.cover_url ?? null,
 });
 
 const toResearch = (row: any): ResearchReview => ({
@@ -81,6 +85,7 @@ const toResearch = (row: any): ResearchReview => ({
   keyFindings: row.key_findings ?? [], practicalTakeaway: row.practical_takeaway,
   evidenceLevel: row.evidence_level, tags: row.tags ?? [],
   reviewerName: row.reviewer_name, publishedAt: row.published_at,
+  coverUrl: row.cover_url ?? null,
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 

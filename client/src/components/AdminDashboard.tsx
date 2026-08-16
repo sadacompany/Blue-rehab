@@ -1,5 +1,5 @@
-import { AlertCircle, BadgeCheck, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, FileText, GraduationCap, LifeBuoy, LoaderCircle, Plus, RefreshCcw, ShieldCheck, UserRound, Users, Wallet, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertCircle, BadgeCheck, BookOpenCheck, CalendarDays, CheckCircle2, CreditCard, FileText, GraduationCap, ImagePlus, LifeBuoy, LoaderCircle, Plus, RefreshCcw, ShieldCheck, UserRound, Users, Wallet, XCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { countLabel, formatCurrency, formatDateTime } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
@@ -9,7 +9,9 @@ import { credentialUrl } from "../lib/provider";
 import { cvDownloadUrl, loadTrainingApplications, setTrainingStatus, type TrainingApplication } from "../lib/training";
 import {
   assignCourseTrainer,
+  clearContentCover,
   loadAdminSnapshot,
+  uploadContentCover,
   reviewCourse,
   unpublishCourse,
   NotAnAdminError,
@@ -43,6 +45,57 @@ function ApplicantPortrait({ path }: { path: string }) {
   return <span className="applicant-portrait">
     {url ? <img src={url} alt="" /> : <UserRound aria-hidden="true" />}
   </span>;
+}
+
+/**
+ * The cover artwork for one piece of content.
+ *
+ * دوراتنا, مقالاتنا and أبحاثنا are picture sections — the artwork *is* the
+ * card — so this control is what puts an item on the landing page at all. That
+ * is stated on the empty slot rather than left to be discovered.
+ */
+function CoverField({ table, id, coverUrl, onDone, onError }: {
+  table: "articles" | "research_reviews" | "rehab_programs" | "courses";
+  id: string;
+  coverUrl: string | null;
+  onDone: () => void;
+  onError: (message: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  async function take(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try { await uploadContentCover(table, id, file); onDone(); }
+    catch (reason) { onError(reason instanceof Error ? reason.message : "تعذر رفع الصورة"); }
+    finally { setBusy(false); }
+  }
+
+  async function clear() {
+    setBusy(true);
+    try { await clearContentCover(table, id); onDone(); }
+    catch (reason) { onError(reason instanceof Error ? reason.message : "تعذر حذف الصورة"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="cover-field">
+      <button type="button" className={`cover-thumb${coverUrl ? "" : " is-empty"}`} disabled={busy}
+        onClick={() => input.current?.click()}
+        aria-label={coverUrl ? "استبدال صورة الغلاف" : "إضافة صورة غلاف"}>
+        {busy ? <LoaderCircle className="spin" />
+          : coverUrl ? <img src={coverUrl} alt="" />
+            : <><ImagePlus /><small>غلاف</small></>}
+      </button>
+      {coverUrl
+        ? <button type="button" className="cover-clear" disabled={busy} onClick={() => void clear()}>إزالة</button>
+        : <small className="cover-hint">بدون غلاف لا يظهر في الرئيسية</small>}
+      <input ref={input} type="file" className="file-field-input" accept="image/jpeg,image/png,image/webp,image/avif"
+        tabIndex={-1} aria-hidden="true"
+        onChange={(event) => { void take(event.target.files?.[0]); event.target.value = ""; }} />
+    </div>
+  );
 }
 
 const ALL_ROLES = ["patient", "student", "specialist", "trainer", "receptionist", "admin"] as const;
@@ -357,10 +410,16 @@ export default function AdminDashboard() {
       <div className="admin-list">
         {data.courses.map((course) => <article key={course.id} className={`admin-row status-${course.reviewStatus}`}>
           <div className="admin-row-main">
+            <CoverField table="courses" id={course.id} coverUrl={course.coverUrl}
+              onDone={() => void reload()} onError={setError} />
             <div>
               <strong>{course.title}</strong>
               {course.summary && <small className="admin-quote">{course.summary}</small>}
-              <small>{formatCurrency(course.price)} · {countLabel(course.modules, ["وحدة واحدة","وحدتان","وحدات","وحدة"])}</small>
+              <small>
+                {formatCurrency(course.price)}
+                {course.compareAtPrice !== null && <s> {formatCurrency(course.compareAtPrice)}</s>}
+                {" · "}{countLabel(course.modules, ["وحدة واحدة","وحدتان","وحدات","وحدة"])}
+              </small>
             </div>
             <em>{COURSE_REVIEW[course.reviewStatus] ?? course.reviewStatus}</em>
           </div>
@@ -395,6 +454,8 @@ export default function AdminDashboard() {
       {data.content.length ? <div className="admin-list">
         {data.content.map((item) => <article key={`${item.table}-${item.id}`} className={`admin-row status-${item.status}`}>
           <div className="admin-row-main">
+            <CoverField table={item.table} id={item.id} coverUrl={item.coverUrl}
+              onDone={() => void reload()} onError={setError} />
             <div>
               <strong>{item.title}</strong>
               <small>{CONTENT_LABEL[item.table]}</small>

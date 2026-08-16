@@ -42,11 +42,19 @@
 .hero-star { display: inline-block; width: 1.66em; height: 1.66em; margin-inline-start: .12em; color: var(--color-hero-ink); vertical-align: -.5em; }
 .hero-sub { max-width: 20em; margin: clamp(14px, 1.6vw, 26px) 0 0; color: inherit; font-size: var(--fs-hero-sub); font-weight: var(--weight-ultralight); line-height: 1.5; }
 
+@media (max-width: 860px) {
+  /* On a narrow screen the crop tightens onto the specialist, and centred type
+     landed across his chest and hand — the part of the photograph worth seeing.
+     The copy drops to the lower third, where the frame is quiet. */
+  .hero { align-items: flex-end; padding-bottom: clamp(28px, 6vw, 56px); }
+  .hero h1 { max-width: none; }
+  /* The shade follows the type down so the contrast sits where the words are
+     rather than over the middle of the picture. */
+  .hero-shade { background: linear-gradient(180deg, rgba(38, 48, 54, .12) 30%, rgba(38, 48, 54, .72) 100%); }
+}
+
 @media (max-width: 700px) {
   .hero-inner { width: calc(100% - (var(--gutter) * 2)); }
-  /* A wide gradient reads as a smear on a narrow screen; darken evenly instead
-     so the white type keeps its contrast wherever the crop lands. */
-  .hero-shade { background: linear-gradient(180deg, rgba(38, 48, 54, .3), rgba(38, 48, 54, .62)); }
 }
 
 /* --------------------------------------------------- privacy band + footer ---
@@ -725,6 +733,26 @@
 .portrait-placeholder { display: grid; place-items: center; color: var(--color-brand-600); }
 .portrait-placeholder svg { width: 34px; height: 34px; }
 
+/* Cover artwork in the administration lists. Without one the item never
+   reaches the landing page, so the empty state says so rather than looking
+   like an optional extra. */
+.cover-field { display: grid; justify-items: center; gap: 6px; flex: none; width: 92px; }
+.cover-thumb {
+  width: 92px; aspect-ratio: 4 / 5; overflow: hidden;
+  display: grid; place-items: center; gap: 4px; padding: 0;
+  border: var(--stroke-hairline) solid var(--color-rule); border-radius: var(--radius-xs);
+  background: var(--color-sky); color: var(--color-brand-700); cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+}
+.cover-thumb:hover:not(:disabled) { border-color: var(--color-accent); background: var(--color-brand-100); }
+.cover-thumb:disabled { opacity: .55; cursor: default; }
+.cover-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cover-thumb svg { width: 22px; height: 22px; }
+.cover-thumb small { font-size: var(--fs-micro); font-weight: var(--weight-bold); }
+.cover-thumb.is-empty { border-style: dashed; }
+.cover-clear { border: 0; background: none; color: var(--color-muted); font-size: var(--fs-micro); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.cover-hint { color: var(--color-muted); font-size: var(--fs-micro); line-height: 1.4; text-align: center; }
+
 /* Same mark in the administration review list, at row scale. */
 .applicant-portrait {
   width: 62px; height: 62px; flex: none;
@@ -1137,13 +1165,55 @@ a.poster-face:focus-visible { outline: 3px solid var(--color-accent); outline-of
 .program-cta small { display: block; margin-top: 4px; color: var(--color-muted); line-height: 1.6; }
 
 /* Editorial — articles and research reviews */
-.editorial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; margin-bottom: 40px; }
-.editorial-card { display: block; padding: 26px; border: 1px solid var(--color-line); border-radius: var(--radius); background: #fff; color: inherit; transition: border-color .15s, transform .15s, box-shadow .15s; }
-.editorial-card:hover { border-color: var(--color-brand-400); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
-.editorial-card.research { background: linear-gradient(180deg, var(--color-soft), #fff 45%); }
-.editorial-kicker { display: inline-block; font-size: var(--fs-fine); font-weight: var(--weight-bold); letter-spacing: .02em; color: var(--color-brand-700); margin-bottom: 11px; }
-.editorial-card h3 { margin: 0 0 10px; font-size: var(--fs-nav); line-height: 1.45; color: var(--color-ink-950); }
-.editorial-card p { margin: 0 0 16px; color: var(--color-muted); line-height: 1.8; font-size: var(--fs-meta); }
+/* ------------------------------------------------------------ reading list ---
+   المقالات and مراجعة الأبحاث, laid out the way ثمانية lists its writing: the
+   cover at the start of the row, the title and a couple of lines carrying the
+   width, and the byline underneath. A list, not a grid of cards — these are
+   things to read, and the eye should be able to run straight down the titles. */
+.reading-list { display: grid; margin-bottom: 40px; border-top: 1px solid var(--color-line); }
+.reading-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(14px, 1.8vw, 22px); align-items: start;
+  padding: clamp(18px, 2.2vw, 26px) 0;
+  border-bottom: 1px solid var(--color-line);
+  color: inherit;
+  transition: background var(--duration-fast) var(--ease);
+}
+.reading-row:hover { background: var(--color-sky); }
+.reading-row:hover .reading-title { color: var(--color-brand-800); }
+
+.reading-cover {
+  width: clamp(76px, 9vw, 116px); aspect-ratio: 1; overflow: hidden; flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--radius-xs); background: var(--color-sky); color: var(--color-brand-600);
+}
+.reading-cover img { width: 100%; height: 100%; object-fit: cover; }
+.reading-cover svg { width: 26px; height: 26px; }
+
+.reading-body { display: grid; gap: 6px; min-width: 0; }
+.reading-kicker { color: var(--color-brand-700); font-size: var(--fs-fine); font-weight: var(--weight-bold); }
+.reading-title { font-size: var(--fs-name); font-weight: var(--weight-bold); line-height: 1.45; color: var(--color-ink-950); transition: color var(--duration-fast) var(--ease); }
+/* Two lines of the piece is enough to decide by; more turns the list into a page. */
+.reading-excerpt {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  color: var(--color-muted); font-size: var(--fs-meta); font-weight: var(--weight-light); line-height: 1.7;
+}
+.reading-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 4px; color: var(--color-muted); font-size: var(--fs-fine); }
+.reading-meta > span { display: inline-flex; align-items: center; gap: 6px; }
+.reading-meta svg { width: 1.1em; height: 1.1em; }
+.reading-author { color: var(--color-brand-700); font-weight: var(--weight-bold); }
+.reading-avatar {
+  width: 24px; height: 24px; flex: none; display: grid; place-items: center;
+  border-radius: var(--radius-full); background: var(--color-brand-100); color: var(--color-brand-800);
+  font-size: var(--fs-micro); font-weight: var(--weight-bold);
+}
+
+@media (max-width: 560px) {
+  .reading-cover { width: 68px; }
+  .reading-excerpt { -webkit-line-clamp: 3; }
+}
+
+/* Still used by the programme and article detail pages. */
 .editorial-meta { display: flex; flex-wrap: wrap; gap: 14px; font-size: var(--fs-fine); color: var(--color-muted); }
 .editorial-meta.center { justify-content: center; margin-top: 16px; }
 .editorial-meta span { display: inline-flex; align-items: center; gap: 6px; }

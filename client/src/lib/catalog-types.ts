@@ -37,6 +37,10 @@ export type Course = {
   language: string;
   certificateAvailable: boolean;
   isDemo: boolean;
+  /** Poster artwork. The landing page shows only courses that have one. */
+  coverUrl: string | null;
+  /** Optional list price, struck through beside `price` when it is higher. */
+  compareAtPrice: number | null;
 };
 
 export type Branch = {

@@ -94,7 +94,9 @@
 
 @media (max-width: 1180px) {
   .nav-links { gap: 12px; font-size: var(--fs-meta); }
-  .brand-copy small { display: none; }
+  /* «بناء . لب . وعي» stays at every width. It was dropped here to buy room for
+     the nav, but the nav collapses into the drawer below 940 anyway, and the
+     tagline is part of the lockup in the brand kit — not an optional extra. */
 }
 
 @media (max-width: 940px) {

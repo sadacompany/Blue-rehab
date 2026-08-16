@@ -213,39 +213,84 @@ export function AcademyHub() {
 
       <h2 className="section-heading">أحدث المقالات</h2>
       {articles.loading ? <Loading /> : (articles.data ?? []).length
-        ? <div className="editorial-grid">{articles.data!.slice(0, 3).map((item) => <ArticleCard key={item.id} article={item} />)}</div>
+        ? <div className="reading-list">{articles.data!.slice(0, 3).map((item) => <ArticleCard key={item.id} article={item} />)}</div>
         : <Empty icon={<FileText />} text="لا توجد مقالات منشورة بعد." />}
 
       <h2 className="section-heading">أحدث المراجعات</h2>
       {research.loading ? <Loading /> : (research.data ?? []).length
-        ? <div className="editorial-grid">{research.data!.slice(0, 3).map((item) => <ResearchCard key={item.id} review={item} />)}</div>
+        ? <div className="reading-list">{research.data!.slice(0, 3).map((item) => <ResearchCard key={item.id} review={item} />)}</div>
         : <Empty icon={<FlaskConical />} text="لا توجد مراجعات منشورة بعد." />}
     </div></section>
   </PageShell>;
 }
 
-function ArticleCard({ article }: { article: Article }) {
-  return <Link className="editorial-card" to={`/articles/${article.slug}`}>
-    <span className="editorial-kicker">{article.category ?? "مقال"}</span>
-    <h3>{article.title}</h3>
-    <p>{article.excerpt}</p>
-    <div className="editorial-meta">
-      {article.readingMinutes && <span><Clock3 /> {article.readingMinutes} دقائق قراءة</span>}
-      {article.publishedAt && <span>{formatDate(article.publishedAt)}</span>}
-    </div>
+/**
+ * One entry in a reading list.
+ *
+ * Laid out the way ثمانية lists its writing: the cover sits at the start of the
+ * row, the title and a couple of lines of the piece carry the width, and the
+ * byline runs underneath — who wrote it, where it belongs, when it went out.
+ * A list rather than a grid of cards, because these are things to read, and the
+ * eye should be able to run down the titles.
+ */
+function ReadingRow({ href, cover, kicker, title, excerpt, byline, meta }: {
+  href: string;
+  cover: string | null;
+  kicker: string;
+  title: string;
+  excerpt: string;
+  byline?: string | null;
+  meta: React.ReactNode;
+}) {
+  return <Link className="reading-row" to={href}>
+    <span className="reading-cover" aria-hidden="true">
+      {cover ? <img src={cover} alt="" loading="lazy" decoding="async" /> : <FileText />}
+    </span>
+    <span className="reading-body">
+      <span className="reading-kicker">{kicker}</span>
+      <strong className="reading-title">{title}</strong>
+      {excerpt && <span className="reading-excerpt">{excerpt}</span>}
+      <span className="reading-meta">
+        {byline && <span className="reading-author">
+          <span className="reading-avatar" aria-hidden="true">{initialsOf(byline)}</span>{byline}
+        </span>}
+        {meta}
+      </span>
+    </span>
   </Link>;
 }
 
+const initialsOf = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join("");
+
+function ArticleCard({ article }: { article: Article }) {
+  return <ReadingRow
+    href={`/articles/${article.slug}`}
+    cover={article.coverUrl}
+    kicker={article.category ?? "مقال"}
+    title={article.title}
+    excerpt={article.excerpt}
+    byline={article.authorName}
+    meta={<>
+      {article.readingMinutes && <span><Clock3 /> {article.readingMinutes} دقائق قراءة</span>}
+      {article.publishedAt && <span>{formatDate(article.publishedAt)}</span>}
+    </>}
+  />;
+}
+
 function ResearchCard({ review }: { review: ResearchReview }) {
-  return <Link className="editorial-card research" to={`/research/${review.slug}`}>
-    <span className="editorial-kicker">{review.evidenceLevel ?? "مراجعة"}</span>
-    <h3>{review.title}</h3>
-    <p>{review.excerpt}</p>
-    <div className="editorial-meta">
+  return <ReadingRow
+    href={`/research/${review.slug}`}
+    cover={review.coverUrl}
+    kicker={review.evidenceLevel ?? "مراجعة منهجية"}
+    title={review.title}
+    excerpt={review.excerpt}
+    byline={review.reviewerName}
+    meta={<>
       {review.sourceJournal && <span>{review.sourceJournal}</span>}
       {review.sourceYear && <span>{review.sourceYear}</span>}
-    </div>
-  </Link>;
+    </>}
+  />;
 }
 
 export function ArticlesPage() {
@@ -258,7 +303,7 @@ export function ArticlesPage() {
     </div></section>
     <section className="section"><div className="container">
       {loading ? <Loading /> : (data ?? []).length
-        ? <div className="editorial-grid">{data!.map((item) => <ArticleCard key={item.id} article={item} />)}</div>
+        ? <div className="reading-list">{data!.map((item) => <ArticleCard key={item.id} article={item} />)}</div>
         : <Empty icon={<FileText />} text="لا توجد مقالات منشورة بعد." />}
     </div></section>
   </PageShell>;
@@ -309,7 +354,7 @@ export function ResearchPage() {
     </div></section>
     <section className="section"><div className="container">
       {loading ? <Loading /> : (data ?? []).length
-        ? <div className="editorial-grid">{data!.map((item) => <ResearchCard key={item.id} review={item} />)}</div>
+        ? <div className="reading-list">{data!.map((item) => <ResearchCard key={item.id} review={item} />)}</div>
         : <Empty icon={<FlaskConical />} text="لا توجد مراجعات منشورة بعد." />}
     </div></section>
   </PageShell>;

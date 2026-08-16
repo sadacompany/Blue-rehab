@@ -90,13 +90,14 @@ export type AdminContentItem = {
   title: string;
   slug: string;
   status: string;
+  coverUrl: string | null;
 };
 
 export type AdminSnapshot = {
   services: AdminService[];
   content: AdminContentItem[];
   trainers: Array<{ id: string; fullName: string }>;
-  courses: Array<{ id: string; title: string; trainerId: string | null; isPublished: boolean; reviewStatus: string; summary: string; price: number; modules: number }>;
+  courses: Array<{ id: string; title: string; slug: string; trainerId: string | null; isPublished: boolean; reviewStatus: string; summary: string; price: number; compareAtPrice: number | null; coverUrl: string | null; modules: number }>;
   overview: AdminOverview;
   applications: ProviderApplication[];
   users: AdminUser[];
@@ -131,17 +132,17 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       .order("created_at", { ascending: false }).limit(100),
     supabase.from("support_requests").select("*").order("created_at", { ascending: false }).limit(100),
     supabase.from("services").select("id,name,price,duration_minutes,allowed_modes,is_active").order("name"),
-    supabase.from("articles").select("id,title,slug,status").order("created_at", { ascending: false }).limit(50),
-    supabase.from("research_reviews").select("id,title,slug,status").order("created_at", { ascending: false }).limit(50),
-    supabase.from("rehab_programs").select("id,title,slug,status").order("position").limit(50),
-    supabase.from("courses").select("id,title,summary,price,trainer_id,is_published,review_status,submitted_at,course_modules(count)").order("submitted_at", { ascending: false, nullsFirst: false }),
+    supabase.from("articles").select("id,title,slug,status,cover_url").order("created_at", { ascending: false }).limit(50),
+    supabase.from("research_reviews").select("id,title,slug,status,cover_url").order("created_at", { ascending: false }).limit(50),
+    supabase.from("rehab_programs").select("id,title,slug,status,cover_url").order("position").limit(50),
+    supabase.from("courses").select("id,title,slug,summary,price,compare_at_price,cover_url,trainer_id,is_published,review_status,submitted_at,course_modules(count)").order("submitted_at", { ascending: false, nullsFirst: false }),
   ]);
 
   const failed = [applications, users, bookings, payments, support, services, articles, research, programs, courses].find((r) => r.error);
   if (failed?.error) throw new Error(failed.error.message);
 
   const asContent = (rows: any[], table: AdminContentItem["table"]): AdminContentItem[] =>
-    (rows ?? []).map((row) => ({ id: row.id, table, title: row.title, slug: row.slug, status: row.status }));
+    (rows ?? []).map((row) => ({ id: row.id, table, title: row.title, slug: row.slug, status: row.status, coverUrl: row.cover_url ?? null }));
 
   return {
     overview: overviewResult.data as AdminOverview,
@@ -158,9 +159,11 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
     trainers: (users.data ?? []).filter((row: any) => (row.roles ?? []).includes("trainer"))
       .map((row: any) => ({ id: row.id, fullName: row.full_name })),
     courses: (courses.data ?? []).map((row: any) => ({
-      id: row.id, title: row.title, trainerId: row.trainer_id,
+      id: row.id, title: row.title, slug: row.slug ?? "", trainerId: row.trainer_id,
       isPublished: Boolean(row.is_published), reviewStatus: row.review_status ?? "draft",
       summary: row.summary ?? "", price: Number(row.price ?? 0),
+      compareAtPrice: row.compare_at_price === null || row.compare_at_price === undefined ? null : Number(row.compare_at_price),
+      coverUrl: row.cover_url ?? null,
       modules: row.course_modules?.[0]?.count ?? 0,
     })),
     applications: (applications.data ?? []).map((row: any) => ({
@@ -242,6 +245,50 @@ export async function saveService(input: {
   const { error } = input.id
     ? await supabase.from("services").update(row).eq("id", input.id)
     : await supabase.from("services").insert(row);
+  if (error) throw new Error(translate(error.message));
+}
+
+const MAX_COVER_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Attach cover artwork to a piece of content.
+ *
+ * The landing page presents دوراتنا, مقالاتنا and أبحاثنا as pictures, so this
+ * is what puts an item on the front page at all. Stored under the table and row
+ * id and upserted, so a piece of content has exactly one cover and replacing it
+ * leaves nothing behind. The bucket is public — these are published covers.
+ */
+export async function uploadContentCover(
+  table: "articles" | "research_reviews" | "rehab_programs" | "courses",
+  id: string,
+  file: File,
+): Promise<string> {
+  if (file.size > MAX_COVER_BYTES) throw new Error("حجم الصورة يتجاوز ٥ ميغابايت.");
+  if (!/^image\/(jpeg|png|webp|avif)$/.test(file.type)) throw new Error("تُقبل صور JPG أو PNG أو WebP أو AVIF فقط.");
+
+  const extension = file.type.split("/")[1].replace("jpeg", "jpg");
+  const path = `${table}/${id}/cover.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("content-covers")
+    .upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" });
+  if (uploadError) throw new Error("تعذر رفع الصورة.");
+
+  const { data } = supabase.storage.from("content-covers").getPublicUrl(path);
+  // Cache-bust so a replaced cover is not served from the old copy.
+  const url = `${data.publicUrl}?v=${Date.now()}`;
+
+  const { error } = await supabase.from(table).update({ cover_url: url }).eq("id", id);
+  if (error) throw new Error(translate(error.message));
+  return url;
+}
+
+/** Remove the cover, which also takes the item off the landing page. */
+export async function clearContentCover(
+  table: "articles" | "research_reviews" | "rehab_programs" | "courses",
+  id: string,
+): Promise<void> {
+  const { error } = await supabase.from(table).update({ cover_url: null }).eq("id", id);
   if (error) throw new Error(translate(error.message));
 }
 

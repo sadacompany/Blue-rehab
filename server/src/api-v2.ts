@@ -45,7 +45,7 @@ export async function getCatalog(): Promise<ApiResult> {
       .order("created_at"),
     catalog
       .from("courses")
-      .select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo")
+      .select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo,cover_url,compare_at_price")
       .eq("is_published", true)
       .order("starts_at"),
     catalog
@@ -106,6 +106,8 @@ export async function getCatalog(): Promise<ApiResult> {
         prerequisites: row.prerequisites,
         language: row.language,
         certificateAvailable: row.certificate_available,
+        coverUrl: row.cover_url ?? null,
+        compareAtPrice: row.compare_at_price === null || row.compare_at_price === undefined ? null : Number(row.compare_at_price),
         isDemo: row.is_demo,
       })),
       branches: (branchesResult.data ?? []).map((row) => ({
@@ -132,7 +134,7 @@ export async function getCourseDetail(rawSlug: string): Promise<ApiResult> {
 
   const courseResult = await catalog
     .from("courses")
-    .select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo")
+    .select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo,cover_url,compare_at_price")
     .eq("slug", slug)
     .eq("is_published", true)
     .maybeSingle();
@@ -183,6 +185,8 @@ export async function getCourseDetail(rawSlug: string): Promise<ApiResult> {
         prerequisites: row.prerequisites,
         language: row.language,
         certificateAvailable: row.certificate_available,
+        coverUrl: row.cover_url ?? null,
+        compareAtPrice: row.compare_at_price === null || row.compare_at_price === undefined ? null : Number(row.compare_at_price),
         isDemo: row.is_demo,
       },
       modules: (modulesResult.data ?? []).map((module) => ({
