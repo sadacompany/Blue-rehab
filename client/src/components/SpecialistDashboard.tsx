@@ -22,6 +22,7 @@ import {
   type TreatmentPlan,
 } from "../lib/specialist";
 import { supabase } from "../lib/supabase";
+import ContentSubmission from "./ContentSubmission";
 import PageShell from "./PageShell";
 import { SkeletonLine, SkeletonMetrics, SkeletonRows } from "./Skeleton";
 
@@ -400,7 +401,7 @@ export default function SpecialistDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [denied, setDenied] = useState(false);
-  const [tab, setTab] = useState<"appointments" | "plans" | "availability">("appointments");
+  const [tab, setTab] = useState<"appointments" | "plans" | "availability" | "content">("appointments");
 
   async function reload() {
     setLoading(true);
@@ -475,6 +476,7 @@ export default function SpecialistDashboard() {
         <button role="tab" aria-selected={tab === "appointments"} className={tab === "appointments" ? "is-active" : ""} onClick={() => setTab("appointments")}>المواعيد ({data.appointments.length})</button>
         <button role="tab" aria-selected={tab === "plans"} className={tab === "plans" ? "is-active" : ""} onClick={() => setTab("plans")}>الخطط العلاجية ({data.plans.length})</button>
         <button role="tab" aria-selected={tab === "availability"} className={tab === "availability" ? "is-active" : ""} onClick={() => setTab("availability")}>مواعيدي المتاحة</button>
+        <button role="tab" aria-selected={tab === "content"} className={tab === "content" ? "is-active" : ""} onClick={() => setTab("content")}>طلب نشر</button>
       </div>
 
       {tab === "appointments" && <section className="specialist-panel">
@@ -498,6 +500,8 @@ export default function SpecialistDashboard() {
       {tab === "availability" && <section className="specialist-panel">
         <AvailabilityPanel specialistId={data.specialist.id} />
       </section>}
+
+      {tab === "content" && <ContentSubmission />}
     </>}
   </div></section></PageShell>;
 }

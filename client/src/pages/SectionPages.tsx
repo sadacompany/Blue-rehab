@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams  } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { SkeletonGrid, SkeletonLine } from "../components/Skeleton";
-import { formatDate } from "../lib/format";
+import { formatCurrency, formatDate } from "../lib/format";
 import {
   loadArticle, loadArticles, loadProgram, loadPrograms, loadResearch, loadResearchReview,
   type Article, type RehabProgram, type ResearchReview,
@@ -159,12 +159,20 @@ export function ProgramDetailPage() {
         <ul>{program.suitableFor.map((item) => <li key={item}>{item}</li>)}</ul>
       </>}
 
-      <div className="program-cta">
-        <div>
-          <strong>ابدأ بجلسة تقييم</strong>
-          <small>يحدد الأخصائي نقطة البداية المناسبة لك قبل الدخول في البرنامج.</small>
+      {/* The same offer block the online courses use: what it costs, what it
+          used to cost, and the one action — asked for by the client for
+          البرامج العلاجية as well. */}
+      <div className="offer-card">
+        {program.coverUrl && <span className="offer-poster"><img src={program.coverUrl} alt="" /></span>}
+        <div className="offer-body">
+          <small>رسوم البرنامج</small>
+          <strong className="price-line">
+            {formatCurrency(program.price)}
+            {program.compareAtPrice !== null && <s>{formatCurrency(program.compareAtPrice)}</s>}
+          </strong>
+          <p>ابدأ بجلسة تقييم — يحدد الأخصائي نقطة البداية المناسبة لك قبل الدخول في البرنامج.</p>
+          <Link className="button button-block" to="/booking">حجز جلسة تقييم <ArrowLeft /></Link>
         </div>
-        <Link className="button" to="/booking">حجز جلسة تقييم <ArrowLeft /></Link>
       </div>
     </div></section>
   </PageShell>;

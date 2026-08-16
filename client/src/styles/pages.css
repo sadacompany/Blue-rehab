@@ -1165,6 +1165,27 @@ a.poster-face:focus-visible { outline: 3px solid var(--color-accent); outline-of
 .program-cta small { display: block; margin-top: 4px; color: var(--color-muted); line-height: 1.6; }
 
 /* Editorial — articles and research reviews */
+/* ------------------------------------------------------------- the offer ---
+   What an online course or a programme costs, and the one action. The poster
+   leads, the price sits under it with the former price struck through beside
+   it, and the button runs the full width — the arrangement the client pointed
+   at for both دوراتنا and البرامج العلاجية. */
+.enrollment-poster, .offer-poster { display: block; overflow: hidden; margin-bottom: clamp(14px, 1.6vw, 20px); border: var(--stroke-card) solid var(--color-rule); border-radius: var(--radius-sm); }
+.enrollment-poster img, .offer-poster img { width: 100%; height: auto; }
+
+/* The current price leads; the former one is quieter and struck through. It is
+   never derived — a struck-through figure is a claim about price, so it comes
+   from a stored value or is not shown. */
+.price-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; font-size: var(--fs-section); font-weight: var(--weight-bold); color: var(--color-ink-950); line-height: 1.2; }
+.price-line s { color: var(--color-muted); font-size: var(--fs-nav); font-weight: var(--weight-regular); text-decoration-thickness: 2px; }
+
+.offer-card { margin-top: clamp(28px, 3.4vw, 44px); padding: clamp(22px, 2.6vw, 34px); border: var(--stroke-card) solid var(--color-accent); border-radius: var(--radius-md); background: var(--color-sky); }
+.offer-body { display: grid; gap: 10px; }
+.offer-body > small { color: var(--color-brand-700); font-size: var(--fs-fine); font-weight: var(--weight-bold); }
+.offer-body > p { margin: 0; color: var(--color-ink-900); font-size: var(--fs-meta); font-weight: var(--weight-light); line-height: var(--leading-snug); }
+.offer-body .button { margin-top: 6px; }
+.enrollment-card .button { width: 100%; }
+
 /* ------------------------------------------------------------ reading list ---
    المقالات and مراجعة الأبحاث, laid out the way ثمانية lists its writing: the
    cover at the start of the row, the title and a couple of lines carrying the

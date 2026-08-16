@@ -24,6 +24,8 @@ export type RehabProgram = {
   price: number;
   /** Cover artwork. The landing page shows only items that have one. */
   coverUrl: string | null;
+  /** Former price, struck through beside `price`. Null shows no comparison. */
+  compareAtPrice: number | null;
 };
 
 export type Article = {
@@ -67,6 +69,8 @@ const toProgram = (row: any): RehabProgram => ({
   goals: row.goals ?? [], suitableFor: row.suitable_for ?? [],
   durationWeeks: row.duration_weeks, sessionsPerWeek: row.sessions_per_week,
   level: row.level, price: Number(row.price), coverUrl: row.cover_url ?? null,
+  compareAtPrice: row.compare_at_price === null || row.compare_at_price === undefined
+    ? null : Number(row.compare_at_price),
 });
 
 const toArticle = (row: any): Article => ({
@@ -123,6 +127,90 @@ export async function loadResearch(): Promise<ResearchReview[]> {
     .from("research_reviews").select("*").eq("status", "published").order("published_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map(toResearch);
+}
+
+/* ------------------------------------------------------- putting work forward */
+
+export type ContentKind = "article" | "research";
+
+export type ContentSubmission = {
+  kind: ContentKind;
+  title: string;
+  excerpt: string;
+  body: string;
+  category?: string;
+  tags: string[];
+  sourceTitle?: string;
+  sourceAuthors?: string;
+  sourceJournal?: string;
+  sourceYear?: number | null;
+  sourceUrl?: string;
+  practicalTakeaway?: string;
+};
+
+const SUBMIT_ERRORS: Record<string, string> = {
+  AUTH_REQUIRED: "يلزم تسجيل الدخول.",
+  KIND_INVALID: "نوع المحتوى غير معروف.",
+  TITLE_INVALID: "العنوان يجب أن يكون بين ٦ و٢٠٠ حرفًا.",
+  BODY_TOO_SHORT: "أضف نصاً كافياً قبل الإرسال للمراجعة.",
+  NOT_A_PROVIDER: "الطلب متاح للأخصائيين والمدربين المعتمدين فقط.",
+};
+
+/**
+ * Put an article or a research review forward for review.
+ *
+ * Nothing here publishes: the function writes `in_review`, and the decision —
+ * accuracy of the information, fit with the platform's scientific methodology —
+ * belongs to administration, exactly as it already does for a course.
+ */
+export async function submitContentForReview(input: ContentSubmission) {
+  const { data, error } = await supabase.rpc("submit_content_for_review", {
+    p_kind: input.kind,
+    p_title: input.title,
+    p_excerpt: input.excerpt || null,
+    p_body: input.body,
+    p_category: input.category || null,
+    p_tags: input.tags,
+    p_source_title: input.sourceTitle || null,
+    p_source_authors: input.sourceAuthors || null,
+    p_source_journal: input.sourceJournal || null,
+    p_source_year: input.sourceYear ?? null,
+    p_source_url: input.sourceUrl || null,
+    p_practical_takeaway: input.practicalTakeaway || null,
+  });
+  if (error) {
+    const code = Object.keys(SUBMIT_ERRORS).find((key) => error.message.includes(key));
+    throw new Error(code ? SUBMIT_ERRORS[code] : error.message);
+  }
+  return data as { id: string; kind: ContentKind; slug: string; status: string };
+}
+
+export type MySubmission = {
+  id: string;
+  kind: ContentKind;
+  title: string;
+  status: string;
+  createdAt: string;
+};
+
+/** Everything the signed-in provider has put forward, whatever state it is in. */
+export async function loadMySubmissions(): Promise<MySubmission[]> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData.session?.user;
+  if (!user) return [];
+
+  const [articles, research] = await Promise.all([
+    supabase.from("articles").select("id,title,status,created_at").eq("author_id", user.id),
+    supabase.from("research_reviews").select("id,title,status,created_at").eq("reviewer_id", user.id),
+  ]);
+
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const rows: MySubmission[] = [
+    ...(articles.data ?? []).map((r: any) => ({ id: r.id, kind: "article" as const, title: r.title, status: r.status, createdAt: r.created_at })),
+    ...(research.data ?? []).map((r: any) => ({ id: r.id, kind: "research" as const, title: r.title, status: r.status, createdAt: r.created_at })),
+  ];
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function loadResearchReview(slug: string): Promise<ResearchReview | null> {
