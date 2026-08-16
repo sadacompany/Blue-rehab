@@ -12,7 +12,7 @@ export default function ServicesPage() {
       </section>
 
       <section className="section" id="service-list">
-        <div className="container"><header className="section-heading"><span className="kicker">الخدمات المتاحة في قاعدة البيانات</span><h2>اختر بحسب المرحلة السريرية، لا بحسب اسم تسويقي</h2><p>القيم الحالية توضيحية إلى أن تعتمد الإدارة قائمة مقدمي الخدمة والأسعار.</p></header><ServicesCatalog /></div>
+        <div className="container"><header className="section-heading"><span className="kicker">الخدمات المتاحة في قاعدة البيانات</span><h2>اختر بحسب المرحلة السريرية، لا بحسب اسم تسويقي</h2><p>تظهر المدة والسعر وطريقة التقديم لكل خدمة قبل تأكيد الحجز.</p></header><ServicesCatalog /></div>
       </section>
 
       <section className="section surface-section">

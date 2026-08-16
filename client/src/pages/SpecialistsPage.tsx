@@ -6,7 +6,7 @@ import PageShell from "../components/PageShell";
 export default function SpecialistsPage() {
   return (
     <PageShell>
-      <section className="page-hero compact-hero"><div className="container narrow"><span className="eyebrow">دليل مقدمي الخدمة</span><h1>معلومات مهنية قابلة للتحقق قبل أن تصبح قابلة للحجز</h1><p>تعرض النسخة الحالية ملفات توضيحية فقط. يُنشر الاسم الحقيقي والمؤهل والترخيص والتخصص بعد مراجعتها إدارياً.</p></div></section>
+      <section className="page-hero compact-hero"><div className="container narrow"><span className="eyebrow">دليل مقدمي الخدمة</span><h1>معلومات مهنية قابلة للتحقق قبل أن تصبح قابلة للحجز</h1><p>يُنشر الاسم والمؤهل والترخيص والتخصص بعد مراجعتها إدارياً، ولا يظهر وسم «ملف موثق» قبل اعتماد المؤهلات.</p></div></section>
       <section className="section"><div className="container"><SpecialistsCatalog /></div></section>
       <section className="section surface-section"><div className="container"><header className="section-heading centered"><span className="kicker">ضوابط النشر</span><h2>ما الذي يعنيه «ملف موثق» في بلو ريهاب؟</h2></header><div className="principles-grid">
         <article><BadgeCheck /><h3>الهوية والمؤهل</h3><p>مطابقة بيانات الهوية بالمؤهلات والتراخيص المهنية السارية وفق المتطلبات المطبقة.</p></article>

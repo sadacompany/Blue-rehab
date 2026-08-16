@@ -36,8 +36,11 @@ function CatalogError({ retry }: { retry: () => void }) {
 }
 
 export function SpecialistCard({ specialist }: { specialist: Specialist }) {
-  const initials = specialist.name.replace("ملف تجريبي — ", "").split(" ").map((part) => part[0]).join("").slice(0, 2);
-  return <article className="profile-card"><div className="profile-head"><span className="profile-avatar" aria-hidden="true">{initials}</span>{specialist.isDemo ? <DemoBadge compact /> : <span className="verified-badge"><ShieldCheck /> ملف موثق</span>}</div><div className="profile-body"><p className="overline">{specialist.title}</p><h3>{specialist.name}</h3><p>{specialist.bio}</p><div className="chip-row">{specialist.specialties.map((item) => <span key={item}>{item}</span>)}</div><div className="profile-meta"><Languages /> {specialist.languages.join("، ")}</div><Link className="card-link" to={`/booking?specialist=${specialist.id}`}>عرض المواعيد <ArrowLeft /></Link></div></article>;
+  // Initials are the fallback, not the default: the portraits exist, and three
+  // of the team are «عبد ...», so initials drew the same two letters on three
+  // different cards.
+  const initials = specialist.name.split(" ").map((part) => part[0]).join("").slice(0, 2);
+  return <article className="profile-card"><div className="profile-head"><span className="profile-avatar" aria-hidden="true">{specialist.photoUrl ? <img src={specialist.photoUrl} alt="" loading="lazy" decoding="async" /> : initials}</span>{specialist.isDemo ? <DemoBadge compact /> : <span className="verified-badge"><ShieldCheck /> ملف موثق</span>}</div><div className="profile-body"><p className="overline">{specialist.title}</p><h3>{specialist.name}</h3><p>{specialist.bio}</p><div className="chip-row">{specialist.specialties.map((item) => <span key={item}>{item}</span>)}</div><div className="profile-meta"><Languages /> {specialist.languages.join("، ")}</div><Link className="card-link" to={`/booking?specialist=${specialist.id}`}>عرض المواعيد <ArrowLeft /></Link></div></article>;
 }
 
 export function CourseCard({ course }: { course: Course }) {
@@ -48,7 +51,7 @@ export function HomeCatalog() {
   const { data, error, loading, reload } = useCatalog();
   if (error) return <CatalogError retry={reload} />;
   if (loading || !data) return <LoadingCards />;
-  return <><div className="card-grid">{data.courses.slice(0, 3).map((course) => <CourseCard course={course} key={course.id} />)}</div><div className="data-source-note"><ShieldCheck /> العناصر التجريبية موسومة بوضوح.</div></>;
+  return <><div className="card-grid">{data.courses.slice(0, 3).map((course) => <CourseCard course={course} key={course.id} />)}</div></>;
 }
 
 export function SpecialistsCatalog() {

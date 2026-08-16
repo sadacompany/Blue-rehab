@@ -41,7 +41,7 @@ export async function getCatalog(): Promise<ApiResult> {
       .order("price"),
     catalog
       .from("specialists")
-      .select("id,display_name,title,bio,specialties,languages,is_verified,is_demo")
+      .select("id,display_name,title,bio,specialties,photo_url,languages,is_verified,is_demo")
       .order("created_at"),
     catalog
       .from("courses")
@@ -89,6 +89,7 @@ export async function getCatalog(): Promise<ApiResult> {
         specialties: row.specialties,
         languages: row.languages,
         isVerified: row.is_verified,
+        photoUrl: row.photo_url ?? null,
         isDemo: row.is_demo,
       })),
       courses: (coursesResult.data ?? []).map((row) => ({

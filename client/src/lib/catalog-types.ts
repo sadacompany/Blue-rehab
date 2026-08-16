@@ -19,6 +19,8 @@ export type Specialist = {
   languages: string[];
   isVerified: boolean;
   isDemo: boolean;
+  /** Portrait, shown wherever the specialist is introduced. */
+  photoUrl: string | null;
 };
 
 export type Course = {
