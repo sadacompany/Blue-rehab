@@ -127,6 +127,16 @@
 .selection-grid h3 { margin: 0 0 4px; font-size: var(--fs-meta); }
 .selection-grid p { margin: 0; color: var(--color-muted); font-size: var(--fs-small); }
 .selection-grid small { display: block; margin-top: 7px; color: var(--color-brand-700); font-size: var(--fs-micro); font-weight: var(--weight-bold); }
+
+/* The price is the thing a visitor is actually deciding on, so it is not
+   folded into a caption line with the duration — its own bold, brand-coloured
+   figure, the duration stays small beside it. */
+.service-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-top: 10px; }
+.service-meta > span { color: var(--color-muted); font-size: var(--fs-micro); }
+/* Not `.service-price` — the /services catalogue already owns that name for a
+   differently-shaped element (a label above a figure); reusing it here would
+   have quietly changed that one too. */
+.booking-service-price { color: var(--color-brand-700); font-size: var(--fs-card-title); font-weight: var(--weight-bold); }
 .selection-check { width: 22px; height: 22px; position: absolute; inset-inline-start: 10px; top: 10px; display: none; place-items: center; border-radius: 50%; background: var(--color-brand-700); color: #fff; }
 .selection-check svg { width: 13px; }
 .selection-grid > button.selected .selection-check { display: grid; }
@@ -174,6 +184,10 @@
 .summary-card span { color: var(--color-muted); font-size: var(--fs-micro); }
 .summary-card strong { margin: 3px 0; font-size: var(--fs-fine); }
 .summary-card small { color: var(--color-muted); font-size: var(--fs-micro); }
+/* What this booking actually costs, on the screen just before payment — bold
+   and sized to be read at a glance, not folded into a caption line. */
+.summary-price-cell { display: flex; flex-direction: column; justify-content: center; }
+.summary-price { margin-top: 4px; color: var(--color-brand-700); font-size: var(--fs-name); font-weight: var(--weight-bold); }
 .policy-check { display: flex; align-items: flex-start; gap: 9px; margin-top: 17px; color: var(--color-muted); font-size: var(--fs-small); }
 .policy-check input { margin-top: 5px; accent-color: var(--color-brand-700); }
 .policy-check a { color: var(--color-brand-700); text-decoration: underline; }
@@ -425,7 +439,7 @@
 .service-price { margin-top: 12px; }
 .service-price small, .service-price strong { display: block; }
 .service-price small { color: var(--color-muted); font-size: var(--fs-micro); }
-.service-price strong { color: var(--color-brand-700); font-size: var(--fs-name); }
+.service-price strong { color: var(--color-brand-700); font-size: var(--fs-card-title); font-weight: var(--weight-bold); }
 .service-catalog .card-link { margin-top: 17px; font-size: var(--fs-small); }
 .compare-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .compare-grid article { padding: 35px; border: 1px solid var(--color-line); border-radius: var(--radius); background: #fff; }
@@ -1253,17 +1267,48 @@ a.poster-face:focus-visible { outline: 3px solid var(--color-accent); outline-of
   .reading-excerpt { -webkit-line-clamp: 3; }
 }
 
-/* Still used by the programme and article detail pages. */
-.editorial-meta { display: flex; flex-wrap: wrap; gap: 14px; font-size: var(--fs-fine); color: var(--color-muted); }
-.editorial-meta.center { justify-content: center; margin-top: 16px; }
-.editorial-meta span { display: inline-flex; align-items: center; gap: 6px; }
-.editorial-meta svg { width: 14px; height: 14px; }
+/* --------------------------------------------------------- article template ---
+   The head of an article or research page — see ArticleHead in
+   SectionPages.tsx for why this replaced the centred marketing hero every
+   other page uses. Start-aligned, sized like a document title rather than a
+   landing headline, with the cover photograph as the hinge between the head
+   and the body. */
+.article-head { padding-block: clamp(40px, 5vw, 64px) clamp(20px, 2.6vw, 32px); text-align: start; }
+.article-head h1 { margin: 16px 0 14px; font-size: clamp(30px, 3.6vw, 46px); line-height: 1.3; }
+.article-lead { margin: 0 0 18px; max-width: 720px; color: var(--color-muted); font-size: var(--fs-body-lg); font-weight: var(--weight-light); line-height: var(--leading-snug); }
+.article-byline { display: flex; flex-wrap: wrap; align-items: center; row-gap: 6px; color: var(--color-muted); font-size: var(--fs-fine); }
+.article-byline span { display: inline-flex; align-items: center; gap: 6px; }
+.article-byline svg { width: 14px; height: 14px; }
+.byline-name { color: var(--color-brand-700); font-weight: var(--weight-bold); }
+/* A dot between byline items, skipped before the first one. Spacing lives
+   entirely on the dot's own margin rather than on a flex `gap`, so the two
+   do not stack. */
+.article-byline span:not(:first-child)::before { content: "·"; margin-inline: 10px; color: var(--color-line); }
 
-/* Long-form reading: narrower measure, larger type, generous leading */
+.article-cover { overflow: hidden; margin-bottom: clamp(28px, 3.4vw, 44px); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+.article-cover img { width: 100%; max-height: 480px; object-fit: cover; }
+
+/* Long-form reading: narrower measure, larger type, generous leading. Headings
+   inside the body carry the brand star so a reader scanning the page can spot
+   a section break at a glance, the way the star marks a break everywhere else
+   in the identity. */
 .article-body { font-size: var(--fs-name); line-height: 2; color: var(--color-ink-900); }
 .article-body p { margin: 0 0 20px; }
-.article-body h2 { margin: 34px 0 14px; font-size: var(--fs-body-lg); color: var(--color-ink-950); }
-.article-body ul { margin: 0 0 20px; padding-inline-start: 22px; display: grid; gap: 9px; }
+.article-body h2 {
+  margin: 44px 0 16px; font-size: var(--fs-card-title); font-weight: var(--weight-bold); color: var(--color-ink-950);
+}
+/* An inline marker ahead of the first character, not a flex item — a flex
+   row reorders its pseudo-element oddly across RTL/bidi text, putting the
+   mark at the wrong end of a heading that mixes Arabic and Latin script. */
+.article-body h2::before {
+  content: ""; display: inline-block; width: 9px; height: 9px;
+  margin-inline-end: 10px; vertical-align: 1px;
+  background: var(--color-brand-600);
+  clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
+}
+.article-body ul { margin: 0 0 20px; padding: 0; list-style: none; display: grid; gap: 11px; }
+.article-body li { position: relative; padding-inline-start: 22px; }
+.article-body li::before { content: ""; position: absolute; inset-inline-start: 2px; top: .75em; width: 6px; height: 6px; border-radius: 50%; background: var(--color-brand-400); }
 .source-box { padding: 20px 22px; border: 1px solid var(--color-line); border-inline-start: 4px solid var(--color-brand-600); border-radius: var(--radius-sm); background: var(--color-soft); margin-bottom: 28px; font-size: var(--fs-meta); }
 .source-box strong { display: block; color: var(--color-ink-950); margin-bottom: 8px; }
 .source-title { margin: 0 0 6px !important; font-weight: var(--weight-medium); }

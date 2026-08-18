@@ -88,6 +88,40 @@ function renderBody(text: string): React.ReactNode[] {
   return nodes;
 }
 
+/**
+ * The head of an article or research page — shared so both read as one
+ * template rather than two that have drifted apart.
+ *
+ * This replaces the centred marketing hero (`.page-hero`) that every other
+ * page on the site opens with. That pattern fits a page selling something;
+ * a piece of writing is not that, and butting a centred title straight into
+ * a start-aligned reading column — with no cover image between them at
+ * all — was the "messy" part: nothing marked where the page you land on
+ * ends and the thing you came to read begins.
+ *
+ * ثمانية's own article page is the reference: eyebrow, a start-aligned
+ * title sized like a headline rather than a hero, a plain byline line (name,
+ * date, reading time — no avatar, matching the reading-list rows), then the
+ * cover photograph before a word of body copy.
+ */
+function ArticleHead({ kicker, title, lead, byline, cover }: {
+  kicker: React.ReactNode;
+  title: string;
+  lead?: string;
+  byline: React.ReactNode;
+  cover: string | null;
+}) {
+  return <>
+    <header className="article-head"><div className="container narrow">
+      <span className="eyebrow">{kicker}</span>
+      <h1>{title}</h1>
+      {lead && <p className="article-lead">{lead}</p>}
+      <div className="article-byline">{byline}</div>
+    </div></header>
+    {cover && <div className="container narrow"><div className="article-cover"><img src={cover} alt="" /></div></div>}
+  </>;
+}
+
 /* ======================================================= عيادة بلو ===== */
 
 export function ConsultationsHub() {
@@ -368,17 +402,18 @@ export function ArticleDetailPage() {
   </div></section></PageShell>;
 
   return <PageShell>
-    <section className="page-hero compact-hero"><div className="container narrow">
-      <span className="eyebrow"><FileText /> {article.category ?? "مقال"}</span>
-      <h1>{article.title}</h1>
-      <p>{article.excerpt}</p>
-      <div className="editorial-meta center">
-        {article.authorName && <span>{article.authorName}</span>}
-        {article.readingMinutes && <span><Clock3 /> {article.readingMinutes} دقائق قراءة</span>}
+    <ArticleHead
+      kicker={<><FileText /> {article.category ?? "مقال"}</>}
+      title={article.title}
+      lead={article.excerpt}
+      cover={article.coverUrl}
+      byline={<>
+        {article.authorName && <span className="byline-name">{article.authorName}</span>}
         {article.publishedAt && <span>{formatDate(article.publishedAt)}</span>}
-      </div>
-    </div></section>
-    <section className="section"><div className="container narrow article-body">
+        {article.readingMinutes && <span><Clock3 /> {article.readingMinutes} دقائق قراءة</span>}
+      </>}
+    />
+    <section className="section compact-section"><div className="container narrow article-body">
       {renderBody(article.body)}
       {article.tags.length > 0 && <div className="tag-row">{article.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
       <div className="program-cta">
@@ -419,17 +454,18 @@ export function ResearchDetailPage() {
   </div></section></PageShell>;
 
   return <PageShell>
-    <section className="page-hero compact-hero"><div className="container narrow">
-      <span className="eyebrow"><FlaskConical /> {review.evidenceLevel ?? "مراجعة بحثية"}</span>
-      <h1>{review.title}</h1>
-      <p>{review.excerpt}</p>
-      <div className="editorial-meta center">
-        {review.reviewerName && <span>{review.reviewerName}</span>}
+    <ArticleHead
+      kicker={<><FlaskConical /> {review.evidenceLevel ?? "مراجعة بحثية"}</>}
+      title={review.title}
+      lead={review.excerpt}
+      cover={review.coverUrl}
+      byline={<>
+        {review.reviewerName && <span className="byline-name">{review.reviewerName}</span>}
         {review.publishedAt && <span>{formatDate(review.publishedAt)}</span>}
-      </div>
-    </div></section>
+      </>}
+    />
 
-    <section className="section"><div className="container narrow article-body">
+    <section className="section compact-section"><div className="container narrow article-body">
       {(review.sourceTitle || review.sourceJournal) && <div className="source-box">
         <strong>الدراسة المراجَعة</strong>
         {review.sourceTitle && <p dir="ltr" className="source-title">{review.sourceTitle}</p>}

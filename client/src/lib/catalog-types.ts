@@ -43,6 +43,12 @@ export type Course = {
   coverUrl: string | null;
   /** Optional list price, struck through beside `price` when it is higher. */
   compareAtPrice: number | null;
+  /**
+   * Free-text credit for who presents the course. `trainer_id` needs a real
+   * account with the trainer role, which the presenter may not have yet —
+   * this is the interim, honest way to say whose course it is until then.
+   */
+  presenterName: string | null;
 };
 
 export type Branch = {

@@ -1,7 +1,7 @@
 import { ArrowLeft, BookOpen, Clock3, Languages, MapPin, Monitor, RefreshCcw, ShieldCheck, UserRoundCheck, Video } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CatalogResponse, Course, Specialist } from "../lib/catalog-types";
-import { courseModeLabel, formatCurrency, formatDate } from "../lib/format";
+import { courseModeLabel, formatDate, formatPrice } from "../lib/format";
 import { loadCatalog } from "../lib/catalog";
 import DemoBadge from "./DemoBadge";
 import { Link } from "react-router-dom";
@@ -44,7 +44,25 @@ export function SpecialistCard({ specialist }: { specialist: Specialist }) {
 }
 
 export function CourseCard({ course }: { course: Course }) {
-  return <article className="course-card"><div className={`course-cover course-${course.mode}`}><span><BookOpen /></span><small>{courseModeLabel(course.mode)}</small></div><div className="course-body"><div className="course-labels"><span>{course.level}</span>{course.isDemo && <DemoBadge compact />}</div><h3>{course.title}</h3><p>{course.summary}</p><div className="course-facts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span></div><div className="course-date">{course.startsAt ? `${course.isDemo ? "موعد توضيحي: " : "تاريخ البدء: "}${formatDate(course.startsAt)}` : "يعلن الموعد عند اعتماد الجدول"}</div><div className="course-footer"><div><small>{course.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatCurrency(course.price)}</strong></div><Link to={`/courses/${course.slug}`}>التفاصيل <ArrowLeft /></Link></div></div></article>;
+  return <article className="course-card">
+    <div className={`course-cover course-${course.mode}`}>
+      {/* The poster is the card whenever one exists — the same rule دوراتنا
+          follows on the landing page. The gradient-and-icon placeholder is
+          the true fallback, for a course that has no artwork yet. */}
+      {course.coverUrl
+        ? <img src={course.coverUrl} alt="" loading="lazy" decoding="async" />
+        : <><span><BookOpen /></span><small>{courseModeLabel(course.mode)}</small></>}
+    </div>
+    <div className="course-body">
+      <div className="course-labels"><span>{course.level}</span>{course.isDemo && <DemoBadge compact />}</div>
+      <h3>{course.title}</h3>
+      {course.presenterName && <p className="course-presenter"><UserRoundCheck /> {course.presenterName}</p>}
+      <p>{course.summary}</p>
+      <div className="course-facts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span></div>
+      <div className="course-date">{course.startsAt ? `${course.isDemo ? "موعد توضيحي: " : "تاريخ البدء: "}${formatDate(course.startsAt)}` : "يعلن الموعد عند اعتماد الجدول"}</div>
+      <div className="course-footer"><div><small>{course.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatPrice(course.price)}</strong></div><Link to={`/courses/${course.slug}`}>التفاصيل <ArrowLeft /></Link></div>
+    </div>
+  </article>;
 }
 
 export function HomeCatalog() {
@@ -85,5 +103,5 @@ export function ServicesCatalog() {
   const { data, error, loading, reload } = useCatalog();
   if (error) return <CatalogError retry={reload} />;
   if (loading || !data) return <LoadingCards />;
-  return <div className="service-catalog">{data.services.map((service) => <article key={service.id}><div className="service-title"><span><Monitor /></span><div><h3>{service.name}</h3>{service.isDemo && <DemoBadge compact />}</div></div><p>{service.description}</p><div className="service-details"><span><Clock3 /> {service.durationMinutes} دقيقة</span><span>{service.modes.map((mode) => mode === "remote" ? "عن بُعد" : "في المركز").join(" أو ")}</span></div><div className="service-price"><small>{service.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatCurrency(service.price)}</strong></div><Link className="card-link" to={`/booking?service=${service.id}`}>اختيار الخدمة <ArrowLeft /></Link></article>)}</div>;
+  return <div className="service-catalog">{data.services.map((service) => <article key={service.id}><div className="service-title"><span><Monitor /></span><div><h3>{service.name}</h3>{service.isDemo && <DemoBadge compact />}</div></div><p>{service.description}</p><div className="service-details"><span><Clock3 /> {service.durationMinutes} دقيقة</span><span>{service.modes.map((mode) => mode === "remote" ? "عن بُعد" : "في المركز").join(" أو ")}</span></div><div className="service-price"><small>{service.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatPrice(service.price)}</strong></div><Link className="card-link" to={`/booking?service=${service.id}`}>اختيار الخدمة <ArrowLeft /></Link></article>)}</div>;
 }

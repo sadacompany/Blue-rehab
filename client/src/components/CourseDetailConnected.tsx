@@ -1,7 +1,7 @@
-import { Award, BookOpen, CalendarDays, CheckCircle2, ChevronDown, Clock3, CreditCard, Languages, LoaderCircle, LockKeyhole, MonitorPlay, PlayCircle, RefreshCcw, ShieldCheck, UsersRound } from "lucide-react";
+import { Award, BookOpen, CalendarDays, CheckCircle2, ChevronDown, Clock3, CreditCard, Languages, LoaderCircle, LockKeyhole, MonitorPlay, PlayCircle, RefreshCcw, ShieldCheck, UserRoundCheck, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CourseDetailResponse, CourseModule } from "../lib/catalog-types";
-import { countLabel, courseModeLabel, formatCurrency, formatDate } from "../lib/format";
+import { countLabel, courseModeLabel, formatDate, formatPrice } from "../lib/format";
 import { loadCourseDetail } from "../lib/catalog";
 import { loadLessonAccess, type LessonAccess } from "../lib/learning";
 import { AuthenticationRequiredError, enrollInCourse, startCheckout } from "../lib/platform";
@@ -41,7 +41,7 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
-  const [enrollment, setEnrollment] = useState<{ status: string; amountDue: number; orderNumber: string } | null>(null);
+  const [enrollment, setEnrollment] = useState<{ status: string; amountDue: number; orderNumber: string | null } | null>(null);
   const [enrollError, setEnrollError] = useState("");
   const [payBusy, setPayBusy] = useState(false);
   const [access, setAccess] = useState<LessonAccess>({ status: null, unlocked: false, content: {} });
@@ -72,10 +72,22 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
     setEnrolling(true);
     setEnrollError("");
     try {
-      // Registering only reserves the price. Nothing is recorded against the
-      // student until the payment clears, so send them straight to the gateway
-      // rather than showing "you are registered" over an unpaid seat.
       const result = await enrollInCourse(data.course);
+
+      // A free course enrols immediately — create_enrollment_intent() skips
+      // the payments row entirely and activates the seat outright, so there
+      // is no order number and nothing to send the visitor to Moyasar for.
+      // Re-reading access is what flips the UI to "أنت مسجل"; the enrolment
+      // itself already happened on the server.
+      if (!result.orderNumber) {
+        const refreshed = await loadLessonAccess(data.course.id).catch(() => null);
+        if (refreshed) setAccess(refreshed);
+        return;
+      }
+
+      // A paid course only reserves the price. Nothing is recorded against
+      // the student until payment clears, so send them straight to the
+      // gateway rather than showing "you are registered" over an unpaid seat.
       setEnrollment(result);
       const { paymentUrl } = await startCheckout(result.orderNumber);
       window.location.href = paymentUrl;
@@ -110,9 +122,9 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
 
   const { course, modules } = data;
   return <>
-    <section className="course-detail-hero"><div className="container course-detail-grid"><div><div className="course-labels"><span>{courseModeLabel(course.mode)}</span><span>{course.level}</span>{course.isDemo && <DemoBadge compact />}</div><h1>{course.title}</h1><p>{course.description || course.summary}</p><div className="course-keyfacts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span><span><CalendarDays /> {course.startsAt ? formatDate(course.startsAt) : "يحدد لاحقًا"}</span></div></div><aside className="enrollment-card">{course.coverUrl && <span className="enrollment-poster"><img src={course.coverUrl} alt="" /></span>}<small>{course.isDemo ? "قيمة توضيحية" : "رسوم التسجيل"}</small><strong className="price-line">{formatCurrency(course.price)}{course.compareAtPrice !== null && <s>{formatCurrency(course.compareAtPrice)}</s>}</strong><p>يُنشأ التسجيل والفاتورة بعد تسجيل الدخول.</p>{access.unlocked ? <div className="enrollment-success"><CheckCircle2 /><span><b>أنت مسجل في هذه الدورة</b><small>المحتوى مفتوح لك أدناه.</small><Link className="button" to="/portal">متابعة من حسابي</Link></span></div>
-      : enrollment ? <div className="enrollment-success"><CreditCard /><span><b>الخطوة الأخيرة: إتمام الدفع</b><small>لا يُفعَّل التسجيل قبل اكتمال الدفع.</small><small>رقم الطلب: <span dir="ltr">{enrollment.orderNumber}</span></small><button className="button" disabled={payBusy} onClick={() => void payCourse()}>{payBusy ? <LoaderCircle className="spin" /> : <CreditCard />} ادفع {formatCurrency(enrollment.amountDue)}</button></span></div>
-      : <button className="button" disabled={enrolling} onClick={() => void enroll()}>{enrolling ? <LoaderCircle className="spin" /> : <CheckCircle2 />} التسجيل في الدورة</button>}{enrollError && <div className="form-error" role="alert">{enrollError}</div>}<span><ShieldCheck /> لا تُخزن بيانات البطاقة في المنصة.</span></aside></div></section>
+    <section className="course-detail-hero"><div className="container course-detail-grid"><div><div className="course-labels"><span>{courseModeLabel(course.mode)}</span><span>{course.level}</span>{course.isDemo && <DemoBadge compact />}</div><h1>{course.title}</h1>{course.presenterName && <p className="course-presenter detail"><UserRoundCheck /> {course.presenterName}</p>}<p>{course.description || course.summary}</p><div className="course-keyfacts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span><span><CalendarDays /> {course.startsAt ? formatDate(course.startsAt) : "يحدد لاحقًا"}</span></div></div><aside className="enrollment-card">{course.coverUrl && <span className="enrollment-poster"><img src={course.coverUrl} alt="" /></span>}<small>{course.isDemo ? "قيمة توضيحية" : course.price <= 0 ? "الدورة" : "رسوم التسجيل"}</small><strong className="price-line">{formatPrice(course.price)}{course.compareAtPrice !== null && <s>{formatPrice(course.compareAtPrice)}</s>}</strong><p>{course.price <= 0 ? "التسجيل فوري بعد تسجيل الدخول — لا توجد رسوم." : "يُنشأ التسجيل والفاتورة بعد تسجيل الدخول."}</p>{access.unlocked ? <div className="enrollment-success"><CheckCircle2 /><span><b>أنت مسجل في هذه الدورة</b><small>المحتوى مفتوح لك أدناه.</small><Link className="button" to="/portal">متابعة من حسابي</Link></span></div>
+      : enrollment ? <div className="enrollment-success"><CreditCard /><span><b>الخطوة الأخيرة: إتمام الدفع</b><small>لا يُفعَّل التسجيل قبل اكتمال الدفع.</small><small>رقم الطلب: <span dir="ltr">{enrollment.orderNumber}</span></small><button className="button" disabled={payBusy} onClick={() => void payCourse()}>{payBusy ? <LoaderCircle className="spin" /> : <CreditCard />} ادفع {formatPrice(enrollment.amountDue)}</button></span></div>
+      : <button className="button" disabled={enrolling} onClick={() => void enroll()}>{enrolling ? <LoaderCircle className="spin" /> : <CheckCircle2 />} {course.price <= 0 ? "سجّل الآن مجاناً" : "التسجيل في الدورة"}</button>}{enrollError && <div className="form-error" role="alert">{enrollError}</div>}<span><ShieldCheck /> لا تُخزن بيانات البطاقة في المنصة.</span></aside></div></section>
     <section className="section"><div className="container detail-content-grid"><div><section className="detail-block"><h2>نتائج التعلم</h2><ul className="check-list">{course.learningOutcomes.map((item) => <li key={item}><CheckCircle2 /> {item}</li>)}</ul></section><section className="detail-block"><h2>المحتوى</h2><div className="module-list">{modules.length ? modules.map((module, index) => <details key={module.id} open={index === 0}><summary><span><i>{index + 1}</i><b>{module.title}</b></span><ChevronDown /></summary><div><p>{module.summary || "تظهر تفاصيل الوحدة عند نشر المحتوى."}</p>{module.lessons.length ? <ul>{module.lessons.map((lesson) => <LessonRow key={lesson.id} lesson={lesson} access={access} />)}</ul> : <span className="locked-note"><LockKeyhole /> تظهر الدروس للمسجلين حسب سياسة إتاحة المحتوى.</span>}</div></details>) : <div className="catalog-message"><strong>لم تنشر الوحدات بعد.</strong><p>تضاف الوحدات والدروس من لوحة المدرب.</p></div>}</div></section></div><aside className="detail-sidebar"><section><h3>المتطلبات السابقة</h3><ul>{course.prerequisites.map((item) => <li key={item}><UsersRound /> {item}</li>)}</ul></section><section><h3>شروط الشهادة</h3>{course.certificateAvailable ? <p><Award /> تصدر بعد استيفاء الحضور والمحتوى والتقييمات المحددة.</p> : <p>لا تتضمن هذه الدورة شهادة.</p>}</section><section><h3>إتاحة المحتوى</h3><p><BookOpen /> ينشر المحتوى وفق الجدول، وقد يشترط إكمال درس سابق.</p></section></aside></div></section>
   </>;
 }

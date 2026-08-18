@@ -116,7 +116,7 @@ export async function getCatalog(): Promise<ApiResult> {
   const [servicesResult, specialistsResult, coursesResult, branchesResult, slotsResult] = await Promise.all([
     catalog.from("services").select("id,name,description,duration_minutes,price,allowed_modes,is_demo").eq("is_active", true).order("price"),
     catalog.from("specialists").select("id,display_name,title,bio,specialties,photo_url,languages,is_verified,is_demo").order("created_at"),
-    catalog.from("courses").select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo,cover_url,compare_at_price").eq("is_published", true).order("starts_at"),
+    catalog.from("courses").select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo,cover_url,compare_at_price,presenter_name").eq("is_published", true).order("starts_at"),
     catalog.from("branches").select("id,name,city,address,is_demo").eq("is_active", true).order("name"),
     catalog.from("availability_slots").select("id,specialist_id,branch_id,starts_at,ends_at,mode").eq("is_available", true).gt("starts_at", now).order("starts_at").limit(40),
   ]);
@@ -129,7 +129,7 @@ export async function getCatalog(): Promise<ApiResult> {
       source: "supabase",
       services: (servicesResult.data ?? []).map((row) => ({ id: row.id, name: row.name, description: row.description ?? "", durationMinutes: Number(row.duration_minutes), price: Number(row.price), modes: row.allowed_modes, isDemo: row.is_demo })),
       specialists: (specialistsResult.data ?? []).map((row) => ({ id: row.id, name: row.display_name, title: row.title, bio: row.bio ?? "", specialties: row.specialties, languages: row.languages, isVerified: row.is_verified, isDemo: row.is_demo, photoUrl: row.photo_url ?? null })),
-      courses: (coursesResult.data ?? []).map((row) => ({ id: row.id, slug: row.slug, title: row.title, summary: row.summary ?? "", description: row.description ?? "", durationHours: Number(row.duration_hours), price: Number(row.price), mode: row.mode, level: row.level, startsAt: row.starts_at, learningOutcomes: row.learning_outcomes, prerequisites: row.prerequisites, language: row.language, certificateAvailable: row.certificate_available, isDemo: row.is_demo, coverUrl: row.cover_url ?? null, compareAtPrice: row.compare_at_price === null || row.compare_at_price === undefined ? null : Number(row.compare_at_price) })),
+      courses: (coursesResult.data ?? []).map((row) => ({ id: row.id, slug: row.slug, title: row.title, summary: row.summary ?? "", description: row.description ?? "", durationHours: Number(row.duration_hours), price: Number(row.price), mode: row.mode, level: row.level, startsAt: row.starts_at, learningOutcomes: row.learning_outcomes, prerequisites: row.prerequisites, language: row.language, certificateAvailable: row.certificate_available, isDemo: row.is_demo, coverUrl: row.cover_url ?? null, compareAtPrice: row.compare_at_price === null || row.compare_at_price === undefined ? null : Number(row.compare_at_price), presenterName: row.presenter_name ?? null })),
       branches: (branchesResult.data ?? []).map((row) => ({ id: row.id, name: row.name, city: row.city, address: row.address, isDemo: row.is_demo })),
       availability: (slotsResult.data ?? []).map((row) => ({ id: row.id, specialistId: row.specialist_id, branchId: row.branch_id, startsAt: row.starts_at, endsAt: row.ends_at, mode: row.mode })),
     },
@@ -138,7 +138,7 @@ export async function getCatalog(): Promise<ApiResult> {
 
 export async function getCourseDetail(slugValue: string): Promise<ApiResult> {
   const slug = z.string().min(2).max(160).parse(slugValue);
-  const courseResult = await catalog.from("courses").select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo,cover_url,compare_at_price").eq("slug", slug).eq("is_published", true).maybeSingle();
+  const courseResult = await catalog.from("courses").select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo,cover_url,compare_at_price,presenter_name").eq("slug", slug).eq("is_published", true).maybeSingle();
   if (courseResult.error) throw courseResult.error;
   if (!courseResult.data) return { status: 404, body: { error: "Course not found" }, cacheControl: noStore };
   const modulesResult = await catalog.from("course_modules").select("id,title,summary,position").eq("course_id", courseResult.data.id).order("position");
@@ -159,7 +159,7 @@ export async function getCourseDetail(slugValue: string): Promise<ApiResult> {
     cacheControl: publicCache,
     body: {
       source: "supabase",
-      course: { id: row.id, slug: row.slug, title: row.title, summary: row.summary ?? "", description: row.description ?? "", durationHours: Number(row.duration_hours), price: Number(row.price), mode: row.mode, level: row.level, startsAt: row.starts_at, learningOutcomes: row.learning_outcomes, prerequisites: row.prerequisites, language: row.language, certificateAvailable: row.certificate_available, isDemo: row.is_demo, coverUrl: row.cover_url ?? null, compareAtPrice: row.compare_at_price === null || row.compare_at_price === undefined ? null : Number(row.compare_at_price) },
+      course: { id: row.id, slug: row.slug, title: row.title, summary: row.summary ?? "", description: row.description ?? "", durationHours: Number(row.duration_hours), price: Number(row.price), mode: row.mode, level: row.level, startsAt: row.starts_at, learningOutcomes: row.learning_outcomes, prerequisites: row.prerequisites, language: row.language, certificateAvailable: row.certificate_available, isDemo: row.is_demo, coverUrl: row.cover_url ?? null, compareAtPrice: row.compare_at_price === null || row.compare_at_price === undefined ? null : Number(row.compare_at_price), presenterName: row.presenter_name ?? null },
       modules: (modulesResult.data ?? []).map((module) => ({ id: module.id, title: module.title, summary: module.summary ?? "", position: module.position, lessons: (lessonsResult.data ?? []).filter((lesson) => lesson.module_id === module.id).map((lesson) => ({ id: lesson.id, title: lesson.title, contentType: lesson.content_type, durationMinutes: lesson.duration_minutes, isPreview: lesson.is_preview })) })),
     },
   };

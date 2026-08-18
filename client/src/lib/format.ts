@@ -3,6 +3,13 @@ import type { Course, DeliveryMode } from "./catalog-types";
 export const formatCurrency = (value: number) =>
   `${new Intl.NumberFormat("ar-SA", { maximumFractionDigits: 0 }).format(value)} ر.س`;
 
+/**
+ * A price a visitor decides by — a course, a programme — rather than a figure
+ * on a receipt or an admin table. "٠ ر.س" reads as a broken field; a course
+ * that is genuinely free should say so.
+ */
+export const formatPrice = (value: number) => (value <= 0 ? "مجاني" : formatCurrency(value));
+
 export const formatDate = (value: string | null) => {
   if (!value) return "يحدد عند اعتماد الجدول";
   return new Intl.DateTimeFormat("ar-SA", {

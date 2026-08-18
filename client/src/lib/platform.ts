@@ -156,7 +156,10 @@ export async function enrollViaApi(courseId: string) {
     method: "POST",
     body: JSON.stringify({ courseId }),
   });
-  return payload.data as { status: string; amountDue: number; orderNumber: string; currency: string; courseTitle: string };
+  // orderNumber is null for a free course: create_enrollment_intent() skips
+  // the payments row and activates the seat outright, so there is nothing to
+  // check out.
+  return payload.data as { status: string; amountDue: number; orderNumber: string | null; currency: string; courseTitle: string };
 }
 
 export type MeetingLinkResult = { meetingUrl: string | null; configured?: boolean; reused?: boolean };
