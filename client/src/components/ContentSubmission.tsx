@@ -127,7 +127,7 @@ export default function ContentSubmission() {
           <textarea rows={2} placeholder="سطران يوضحان لماذا يهم هذا الموضوع." {...field("excerpt")} /></label>
 
         <label className="wide"><span>النص <b className="req">*</b></span>
-          <textarea rows={10} placeholder="اكتب المحتوى كاملاً هنا." {...field("body")} /></label>
+          <textarea rows={10} placeholder="اكتب المحتوى كاملاً هنا. لعنوان فرعي ابدأ السطر بـ ## ، ولقائمة نقطية ابدأ كل سطر بـ - ، وافصل بين الفقرات بسطر فارغ." {...field("body")} /></label>
 
         {kind === "article" && <label><span>التصنيف</span>
           <input placeholder="فهم الألم، إرشادات…" {...field("category")} /></label>}

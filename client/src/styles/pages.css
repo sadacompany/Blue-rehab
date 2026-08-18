@@ -1165,6 +1165,30 @@ a.poster-face:focus-visible { outline: 3px solid var(--color-accent); outline-of
 .program-cta small { display: block; margin-top: 4px; color: var(--color-muted); line-height: 1.6; }
 
 /* Editorial — articles and research reviews */
+/* The opening question in the booking flow: come in, or meet online. Two large
+   targets rather than a pair of radio buttons under a list — it is the first
+   decision a person makes and the rest of the step depends on it. */
+.mode-choice { display: grid; grid-template-columns: repeat(2, 1fr); gap: clamp(12px, 1.6vw, 20px); margin-bottom: clamp(22px, 2.6vw, 34px); }
+.mode-choice button {
+  position: relative; display: flex; align-items: flex-start; gap: 14px; text-align: start;
+  padding: clamp(18px, 2.2vw, 26px);
+  border: var(--stroke-card) solid var(--color-line); border-radius: var(--radius-md);
+  background: #fff; color: inherit; cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+}
+.mode-choice button:hover { border-color: var(--color-brand-400); background: var(--color-sky); }
+.mode-choice button.selected { border-color: var(--color-accent); background: var(--color-sky); }
+.mode-choice button.selected .selection-check { display: grid; }
+.mode-choice > button > svg { width: 26px; height: 26px; flex: none; color: var(--color-brand-700); }
+.mode-choice strong { display: block; font-size: var(--fs-name); color: var(--color-ink-950); }
+.mode-choice small { display: block; margin-top: 4px; color: var(--color-muted); font-size: var(--fs-fine); line-height: var(--leading-snug); }
+
+.booking-subhead { margin: 0 0 14px; font-size: var(--fs-name); font-weight: var(--weight-bold); color: var(--color-ink-950); }
+
+@media (max-width: 600px) {
+  .mode-choice { grid-template-columns: 1fr; }
+}
+
 /* ------------------------------------------------------------- the offer ---
    What an online course or a programme costs, and the one action. The poster
    leads, the price sits under it with the former price struck through beside

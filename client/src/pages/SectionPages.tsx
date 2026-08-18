@@ -46,6 +46,48 @@ function Empty({ icon, text }: { icon: React.ReactNode; text: string }) {
   return <div className="portal-empty">{icon}<p>{text}</p></div>;
 }
 
+/**
+ * Article and research bodies as a light block markup, not raw paragraphs.
+ *
+ * The two short pieces this started with were plain prose, so splitting on a
+ * blank line and wrapping each half in a <p> was enough. The clinic's own
+ * educational writing is not — it comes with subheadings, bullet lists, and a
+ * numbered reference list, and a heading is often followed on the very next
+ * line by its paragraph with no blank line between them, which is not
+ * something a specialist filing a submission is going to remember to add.
+ *
+ * A single pass over the lines, not a split-then-classify on blank-separated
+ * blocks: a "## " line always starts a new heading and ends whatever came
+ * before it; a "- " line always joins the running list; anything else joins
+ * the running paragraph; a blank line ends whichever of those is open. That
+ * handles every order — heading then paragraph then list in one unbroken
+ * run, a list with no blank line before it, and so on — without requiring the
+ * source to format itself around the renderer's block boundaries.
+ *
+ * Existing bodies use none of this syntax, so they render exactly as
+ * before — this is additive, not a breaking change to the content model.
+ */
+function renderBody(text: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let para: string[] = [];
+  let list: string[] = [];
+  let key = 0;
+
+  const flushPara = () => { if (para.length) { nodes.push(<p key={key++}>{para.join(" ")}</p>); para = []; } };
+  const flushList = () => { if (list.length) { nodes.push(<ul key={key++}>{list.map((l, i) => <li key={i}>{l}</li>)}</ul>); list = []; } };
+
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) { flushPara(); flushList(); continue; }
+    if (line.startsWith("## ")) { flushPara(); flushList(); nodes.push(<h2 key={key++}>{line.slice(3)}</h2>); }
+    else if (line.startsWith("- ")) { flushPara(); list.push(line.slice(2)); }
+    else { flushList(); para.push(line); }
+  }
+  flushPara();
+  flushList();
+  return nodes;
+}
+
 /* ======================================================= عيادة بلو ===== */
 
 export function ConsultationsHub() {
@@ -337,7 +379,7 @@ export function ArticleDetailPage() {
       </div>
     </div></section>
     <section className="section"><div className="container narrow article-body">
-      {article.body.split("\n\n").map((para, index) => <p key={index}>{para}</p>)}
+      {renderBody(article.body)}
       {article.tags.length > 0 && <div className="tag-row">{article.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
       <div className="program-cta">
         <div><strong>لديك حالة تريد تقييمها؟</strong><small>احجز جلسة مع أخصائي لمناقشة وضعك تحديداً.</small></div>
@@ -395,7 +437,7 @@ export function ResearchDetailPage() {
         {review.sourceUrl && <a href={review.sourceUrl} target="_blank" rel="noreferrer">الاطلاع على المصدر</a>}
       </div>}
 
-      {review.body.split("\n\n").map((para, index) => <p key={index}>{para}</p>)}
+      {renderBody(review.body)}
 
       {review.keyFindings.length > 0 && <>
         <h2>أبرز النتائج</h2>
