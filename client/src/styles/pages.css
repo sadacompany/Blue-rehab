@@ -1019,6 +1019,13 @@ a.poster-face:focus-visible { outline: 3px solid var(--color-accent); outline-of
 /* What the patient needs on the day, on the booking itself. */
 .portal-booking-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 
+/* The retry button and its hint stack rather than sitting inline with the
+   other booking actions — a bare button reading "طلب رابط الجلسة" next to
+   "أضف إلى التقويم" gives no reason anyone would need to press it. */
+.meeting-link-retry { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.meeting-link-retry .application-hint { display: flex; align-items: center; gap: 4px; }
+.meeting-link-retry .application-hint svg { width: 14px; height: 14px; flex: none; color: var(--color-warning, #a15c00); }
+
 /* A lesson the reader has paid for reads as available rather than withheld. */
 .module-list li.lesson-open { background: var(--color-brand-100); }
 .module-list li.lesson-open .button { flex: none; margin-inline-start: auto; }

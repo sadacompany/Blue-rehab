@@ -42,6 +42,11 @@ const BOOKING_ERRORS: Record<string, { status: number; message: string }> = {
   ALREADY_ENROLLED: { status: 409, message: "أنت مسجل في هذه الدورة بالفعل. تجدها في «دوراتي»." },
   PAYMENT_NOT_FOUND: { status: 404, message: "لم نجد عملية الدفع. حدّث الصفحة أو تواصل معنا." },
   INTENT_KIND_UNKNOWN: { status: 409, message: "تعذّر تحديد نوع الطلب. ابدأ من جديد أو تواصل معنا." },
+  // Raised by create_booking_intent (20260820160000) when a remote slot is
+  // requested with no live consent_records row for the caller. The client
+  // records consent immediately before this call in the normal flow, so this
+  // should only ever surface for a caller that skipped that step.
+  TELEHEALTH_CONSENT_REQUIRED: { status: 412, message: "يلزم تسجيل الموافقة على الجلسة عن بُعد أولاً." },
 };
 
 /**
