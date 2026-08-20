@@ -77,16 +77,39 @@ export class MoyasarError extends Error {
   }
 }
 
+// Vercel gives the whole request 30s (vercel.json). Without a bound on this
+// one call, a slow or hanging Moyasar response ate the entire budget: the user
+// stared at a spinner for 30 seconds before seeing a generic timeout, with no
+// way to tell "the gateway is slow" from "our server is broken". 12s leaves
+// headroom for the rest of verifyPayment/createPaymentCheckout to still run
+// and return a real error instead of the platform's own 504.
+const MOYASAR_TIMEOUT_MS = 12_000;
+
 async function moyasarRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!isMoyasarConfigured()) throw new Error("moyasar_not_configured");
-  const response = await fetch(`${MOYASAR_API}${path}`, {
-    ...init,
-    headers: {
-      Authorization: authHeader(),
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${MOYASAR_API}${path}`, {
+      ...init,
+      headers: {
+        Authorization: authHeader(),
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      signal: AbortSignal.timeout(MOYASAR_TIMEOUT_MS),
+    });
+  } catch (error) {
+    // AbortSignal.timeout raises a DOMException named "TimeoutError". Mapped
+    // onto MoyasarError's existing shape so every caller's status-based
+    // handling (see runtime-api.ts) keeps working without a special case —
+    // a gateway that doesn't answer is treated the same as one that answers
+    // with a 5xx.
+    const timedOut = error instanceof Error && error.name === "TimeoutError";
+    throw new MoyasarError(
+      timedOut ? 504 : 502,
+      timedOut ? "moyasar_timeout" : `moyasar_network_error:${String(error).slice(0, 200)}`,
+    );
+  }
   const text = await response.text();
   if (!response.ok) {
     // Never echo the request body back — it can carry payment details.
@@ -114,7 +137,9 @@ export type CreateInvoiceInput = {
  * RTL audience onto an English payment page at the last and most trust-sensitive
  * step of the journey.
  */
-function arabicCheckoutUrl(url: string): string {
+// Exported (only) so the query-param rewrite, and its fallback for a URL that
+// fails to parse, can be unit-tested without minting a real Moyasar invoice.
+export function arabicCheckoutUrl(url: string): string {
   try {
     const parsed = new URL(url);
     parsed.searchParams.set("lang", "ar");

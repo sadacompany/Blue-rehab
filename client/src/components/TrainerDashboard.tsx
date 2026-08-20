@@ -1,7 +1,7 @@
-import { AlertCircle, BookOpenCheck, CheckCircle2, GraduationCap, LoaderCircle, Plus, RefreshCcw, Send, Trash2, Users } from "lucide-react";
-import { useEffect, useState } from "react";
-import { countLabel, formatCurrency, formatDate } from "../lib/format";
-import { AuthenticationRequiredError } from "../lib/platform";
+import { AlertCircle, Bell, BookOpenCheck, CheckCircle2, GraduationCap, LoaderCircle, Plus, RefreshCcw, Send, Trash2, Users } from "lucide-react";
+import { useCallback, useState } from "react";
+import { countLabel, formatCurrency, formatDate, formatDateTime } from "../lib/format";
+import { AuthenticationRequiredError, markNotificationsRead } from "../lib/platform";
 import {
   addLesson,
   addModule,
@@ -9,11 +9,14 @@ import {
   deleteLesson,
   LESSON_TYPES,
   loadTrainerCourses,
+  loadTrainerNotifications,
   setStudentProgress,
   submitCourseForReview,
   type TrainerCourse,
   type TrainerModule,
+  type TrainerNotification,
 } from "../lib/trainer";
+import { useAsync } from "../lib/use-async";
 import PageShell from "./PageShell";
 import { SkeletonGrid, SkeletonLine } from "./Skeleton";
 
@@ -168,33 +171,94 @@ function CourseComposer({ onCreated }: { onCreated: () => void }) {
   </div>;
 }
 
+/**
+ * What administration has done to this instructor's courses.
+ *
+ * An administrator can now edit a course the instructor owns — a price, a
+ * start date, the outcomes — and the only record of that was a notification row
+ * the instructor had no way of reading from here. Unread first as a count in
+ * the header, then the list, with the same «تم» / «تعليم الكل كمقروء» pair the
+ * account page uses: RLS lets the owner set `read_at` and nothing else.
+ *
+ * Marking read is applied to the local copy before the request goes out. It is
+ * a one-way flag on the reader's own row, so there is nothing to lose by a
+ * failure, and a spinner on «تم» would be longer than the act it describes.
+ */
+function NotificationsPanel({ items, onChanged }: { items: TrainerNotification[]; onChanged: (next: TrainerNotification[]) => void }) {
+  const unread = items.filter((item) => !item.readAt).length;
+
+  async function markRead(ids?: string[]) {
+    const at = new Date().toISOString();
+    onChanged(items.map((item) => (
+      (!ids || ids.includes(item.id)) && !item.readAt ? { ...item, readAt: at } : item
+    )));
+    await markNotificationsRead(ids).catch(() => undefined);
+  }
+
+  return <section className="portal-live-panel trainer-notifications">
+    <header>
+      <Bell />
+      <div>
+        <small>التحديثات</small>
+        <h2>الإشعارات{unread > 0 ? ` (${unread})` : ""}</h2>
+      </div>
+      {unread > 0 && <button className="link-button" type="button" onClick={() => void markRead()}>تعليم الكل كمقروء</button>}
+    </header>
+    {items.length ? <div className="portal-record-list">
+      {items.map((item) => <article key={item.id} className={!item.readAt ? "unread" : ""}>
+        <span className="record-icon">{item.readAt ? <CheckCircle2 /> : <Bell />}</span>
+        <div>
+          <strong>{item.title}</strong>
+          <small>{item.body}</small>
+          <small>{formatDateTime(item.createdAt)}</small>
+        </div>
+        {!item.readAt && <button className="link-button" type="button"
+          aria-label={`تعليم «${item.title}» كمقروء`}
+          onClick={() => void markRead([item.id])}>تم</button>}
+      </article>)}
+    </div> : <div className="portal-empty"><Bell /><p>لا توجد إشعارات.</p></div>}
+  </section>;
+}
+
 export default function TrainerDashboard() {
-  const [courses, setCourses] = useState<TrainerCourse[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // Notifications stay their own `useState` rather than folding into the
+  // hook's `data`: `NotificationsPanel` below writes to them directly for the
+  // optimistic "mark read" tick, which has nothing to do with a refetch.
+  const [notifications, setNotifications] = useState<TrainerNotification[]>([]);
   const [busy, setBusy] = useState("");
 
-  async function reload() {
-    setLoading(true);
-    setError("");
+  const fetchCourses = useCallback(async (): Promise<TrainerCourse[] | null> => {
     try {
-      setCourses(await loadTrainerCourses());
+      // Together, and the notices are allowed to fail on their own: a dashboard
+      // that will not render because the notification list would not load is
+      // worse than a dashboard with no notification list.
+      const [loaded, notices] = await Promise.all([
+        loadTrainerCourses(),
+        loadTrainerNotifications().catch(() => []),
+      ]);
+      setNotifications(notices);
+      return loaded;
     } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         window.location.href = `/login?returnTo=${encodeURIComponent("/trainer")}`;
-        return;
+        return null;
       }
-      setError(reason instanceof Error ? reason.message : "تعذر تحميل الدورات");
-    } finally { setLoading(false); }
-  }
+      throw reason;
+    }
+  }, []);
 
-  useEffect(() => { void reload(); }, []);
+  const { data: courses, loading, error: loadError, reload } = useAsync(fetchCourses, [fetchCourses]);
+  // `run()`'s own failures used to share the load error's state; kept apart
+  // for the same reason as AdminTeam's `actionError`, combined again below so
+  // the rendered message is unchanged.
+  const [actionError, setActionError] = useState("");
+  const error = actionError || loadError;
 
   async function run(key: string, action: () => Promise<void>) {
     setBusy(key);
-    setError("");
+    setActionError("");
     try { await action(); await reload(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "تعذر تنفيذ العملية"); }
+    catch (reason) { setActionError(reason instanceof Error ? reason.message : "تعذر تنفيذ العملية"); }
     finally { setBusy(""); }
   }
 
@@ -214,6 +278,8 @@ export default function TrainerDashboard() {
     </header>
 
     {error && <div className="form-error" role="alert">{error}</div>}
+
+    <NotificationsPanel items={notifications} onChanged={setNotifications} />
 
 {courses && courses.length === 0 && <div className="catalog-message">
       <BookOpenCheck />

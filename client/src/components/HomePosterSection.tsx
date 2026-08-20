@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import PosterCarousel, { type Poster } from "./PosterCarousel";
 import { SectionHeading } from "./BrandMarks";
 
@@ -6,6 +7,8 @@ export type PosterItem = {
   slug: string;
   title: string;
   coverUrl: string | null;
+  /** Optional pill over the corner of the artwork — see `Poster.badge`. */
+  badge?: ReactNode;
 };
 
 /**
@@ -40,6 +43,7 @@ export default function HomePosterSection({
     alt: item.title,
     href: `${hrefBase}/${item.slug}`,
     featured: index === middle,
+    badge: item.badge,
   }));
 
   return <>

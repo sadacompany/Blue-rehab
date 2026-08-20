@@ -1,7 +1,7 @@
 import { Activity, BadgeCheck, CalendarDays, ClipboardList, LoaderCircle, LogOut, NotebookPen, Plus, RefreshCcw, Stethoscope, Trash2, UserRound, Video } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { countLabel, deliveryLabel, formatCurrency, formatDateTime, formatDayLabel } from "../lib/format";
+import { bookingStatusLabel, countLabel, deliveryLabel, formatCurrency, formatDateTime, formatDayLabel } from "../lib/format";
 import { AuthenticationRequiredError } from "../lib/platform";
 import {
   addExercise,
@@ -17,27 +17,15 @@ import {
   updateTreatmentPlan,
   type SessionNoteInput,
   type SpecialistAppointment,
-  type OpenSlot,
   type SpecialistDashboard as DashboardData,
   type TreatmentPlan,
 } from "../lib/specialist";
 import { supabase } from "../lib/supabase";
+import { useAsync } from "../lib/use-async";
 import ContentSubmission from "./ContentSubmission";
 import PageShell from "./PageShell";
 import { SkeletonLine, SkeletonMetrics, SkeletonRows } from "./Skeleton";
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  pending_payment: "بانتظار الدفع",
-  confirmed: "مؤكد",
-  rescheduled: "أُعيد جدولته",
-  cancelled: "ملغي",
-  completed: "مكتمل",
-  no_show: "لم يحضر",
-  refunded: "مسترد",
-};
-
-const statusLabel = (status: string) => STATUS_LABELS[status] ?? status;
 
 const EMPTY_NOTE: SessionNoteInput = { assessment: "", interventions: "", response: "", recommendations: "" };
 
@@ -121,7 +109,7 @@ function AppointmentRow({ appointment, specialistId, onChanged }: {
         {appointment.total !== null && <small>{formatCurrency(appointment.total)}</small>}
         {appointment.notes && <small className="specialist-intake">ملاحظات المريض: {appointment.notes}</small>}
       </div>
-      <em>{statusLabel(appointment.status)}</em>
+      <em>{bookingStatusLabel(appointment.status)}</em>
     </div>
 
     <div className="specialist-appointment-actions">
@@ -295,20 +283,18 @@ function PlanComposer({ specialistId, patients, onCreated }: {
  * grid in one pass, which is how a clinic actually thinks about a week.
  */
 function AvailabilityPanel({ specialistId }: { specialistId: string }) {
-  const [slots, setSlots] = useState<OpenSlot[] | null>(null);
+  const { data: slots, error: loadError, reload } = useAsync(() => loadMySlots(specialistId), [specialistId]);
   const [mode, setMode] = useState<"remote" | "clinic">("remote");
   const [duration, setDuration] = useState(45);
   const [days, setDays] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>(["09:00", "11:00", "13:00"]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  // `publish()` and `remove()` used to share one `error` state with the load
+  // itself; kept apart here for the same reason as AdminTeam's `actionError`
+  // above, and combined again below so the rendered message is unchanged.
+  const [actionError, setActionError] = useState("");
+  const error = actionError || loadError;
   const [message, setMessage] = useState("");
-
-  const reload = async () => {
-    try { setSlots(await loadMySlots(specialistId)); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "تعذر تحميل المواعيد"); }
-  };
-  useEffect(() => { void reload(); }, [specialistId]);
 
   // The next fourteen days, which is as far ahead as a rehab schedule is useful.
   const upcomingDays = useMemo(() => Array.from({ length: 14 }, (_, index) => {
@@ -321,21 +307,21 @@ function AvailabilityPanel({ specialistId }: { specialistId: string }) {
     set(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
 
   async function publish() {
-    setBusy(true); setError(""); setMessage("");
+    setBusy(true); setActionError(""); setMessage("");
     try {
       const created = await openSlots(specialistId, { dates: days, times, mode, durationMinutes: duration });
       setMessage(created ? `تمت إضافة ${countLabel(created, ["موعد واحد","موعدين","مواعيد","موعداً"])}.` : "لم يُضف أي موعد — تحقق من الأيام والأوقات.");
       setDays([]);
       await reload();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "تعذر فتح المواعيد");
+      setActionError(reason instanceof Error ? reason.message : "تعذر فتح المواعيد");
     } finally { setBusy(false); }
   }
 
   async function remove(slotId: string) {
-    setBusy(true); setError("");
+    setBusy(true); setActionError("");
     try { await closeSlot(slotId); await reload(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "تعذر إغلاق الموعد"); }
+    catch (reason) { setActionError(reason instanceof Error ? reason.message : "تعذر إغلاق الموعد"); }
     finally { setBusy(false); }
   }
 
@@ -397,30 +383,28 @@ function AvailabilityPanel({ specialistId }: { specialistId: string }) {
 }
 
 export default function SpecialistDashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [denied, setDenied] = useState(false);
   const [tab, setTab] = useState<"appointments" | "plans" | "availability" | "content">("appointments");
 
-  async function reload() {
-    setLoading(true);
-    setError("");
+  // Authentication and role-membership failures are handled here rather than
+  // surfaced as `error`: a redirect needs no rendered state at all, and "not a
+  // specialist" is its own screen (`denied`), not an error message beside a
+  // retry button. Anything else is a genuine load failure and is rethrown so
+  // `useAsync` reports it the normal way.
+  const fetchDashboard = useCallback(async (): Promise<DashboardData | null> => {
     try {
-      setData(await loadSpecialistDashboard());
+      return await loadSpecialistDashboard();
     } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         window.location.href = `/login?returnTo=${encodeURIComponent("/specialist")}`;
-        return;
+        return null;
       }
-      if (reason instanceof NotASpecialistError) { setDenied(true); return; }
-      setError(reason instanceof Error ? reason.message : "تعذر تحميل اللوحة");
-    } finally {
-      setLoading(false);
+      if (reason instanceof NotASpecialistError) { setDenied(true); return null; }
+      throw reason;
     }
-  }
+  }, []);
 
-  useEffect(() => { void reload(); }, []);
+  const { data, loading, error, reload } = useAsync(fetchDashboard, [fetchDashboard]);
 
   async function signOut() {
     await supabase.auth.signOut();

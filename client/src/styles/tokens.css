@@ -94,6 +94,11 @@
   --color-danger-ink: #7c332c;
   --color-success: #2f7d63;
   --color-success-soft: #e6f4ee;
+  /* The trio was incomplete: warning and danger each had a darkened `-ink` for
+     type set on their own soft tint, and success did not, so green-on-green had
+     no compliant pairing. `--color-success` on `--color-success-soft` measures
+     4.39:1, which misses AA; this reads 7.1:1 on the tint and 8.0:1 on white. */
+  --color-success-ink: #1f5a46;
 
   /* ------------------------------------------------- 3. type scale (fluid) */
 

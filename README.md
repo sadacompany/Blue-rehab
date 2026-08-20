@@ -48,7 +48,7 @@ npm run dev
 - Build command: `npm run build`
 - Publish directory: `client/dist`
 - Functions directory: `netlify/functions`
-- Node.js: الإصدار 20
+- Node.js: الإصدار 22 (مثبّت في `netlify.toml` عبر `NODE_VERSION` — الإصدار 20 يتسبب في تعطّل كل مسارات `/api` عند الإقلاع لعدم توفر `WebSocket` الأصلي فيه)
 
 تُوجّه `/api/*` إلى Netlify Function قبل SPA fallback إلى `index.html`.
 

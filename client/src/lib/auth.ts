@@ -30,7 +30,30 @@ import { supabase } from "./supabase";
  */
 export const AUTH_MODE = (import.meta.env.VITE_AUTH_MODE ?? "sms") as "mock" | "sms";
 export const MOCK_OTP_CODE = (import.meta.env.VITE_MOCK_OTP_CODE ?? "123456").trim();
-export const isMockAuth = () => AUTH_MODE === "mock";
+
+/**
+ * Failing closed on the default is not enough on its own.
+ *
+ * A default only protects against the variable being *absent*. It does nothing
+ * about the variable being *present and wrong* — one `VITE_AUTH_MODE=mock` set
+ * against the production project, by anyone with dashboard access or by a
+ * copied .env, and every patient account is reachable by whoever knows the
+ * phone number. Under PDPL Art. 23 those accounts hold health data, so that is
+ * not a degraded login, it is a disclosure.
+ *
+ * `import.meta.env.PROD` is fixed by Vite at build time, so this is a build-time
+ * assertion wearing a runtime shape: a production bundle that would have run the
+ * mock refuses to start instead. Loud beats subtle — a blank page gets fixed in
+ * minutes, a silent auth bypass survives to launch.
+ */
+if (import.meta.env.PROD && AUTH_MODE === "mock") {
+  throw new Error(
+    "refusing to boot: VITE_AUTH_MODE=mock in a production build. " +
+      "Mock OTP accepts a fixed code for any phone number and is not an authentication boundary.",
+  );
+}
+
+export const isMockAuth = () => !import.meta.env.PROD && AUTH_MODE === "mock";
 
 /** Domain for the synthetic addresses that back mock phone accounts. */
 const MOCK_EMAIL_DOMAIN = "otp.blue-rehab.local";

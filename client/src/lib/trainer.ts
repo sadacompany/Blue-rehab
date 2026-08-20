@@ -1,5 +1,6 @@
 import { AuthenticationRequiredError } from "./platform";
-import { supabase } from "./supabase";
+import { typedSupabase as supabase } from "./supabase";
+import type { Database } from "./database.types";
 
 /**
  * Course instructor data layer.
@@ -71,7 +72,15 @@ export type TrainerCourse = {
   modules: TrainerModule[];
 };
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/** The shape one enrolment row carries back, including the joined student name. */
+type TrainerEnrollmentRow = Pick<
+  Database["public"]["Tables"]["enrollments"]["Row"],
+  "id" | "course_id" | "student_id" | "status" | "progress" | "amount_due" | "completed_at" | "created_at"
+> & { student: Pick<Database["public"]["Tables"]["profiles"]["Row"], "full_name"> | null };
+
+type TrainerModuleRow = Database["public"]["Tables"]["course_modules"]["Row"];
+type TrainerLessonRow = Database["public"]["Tables"]["course_lessons"]["Row"];
+
 export async function loadTrainerCourses(): Promise<TrainerCourse[]> {
   const { data: sessionData } = await supabase.auth.getSession();
   const user = sessionData.session?.user;
@@ -105,7 +114,16 @@ export async function loadTrainerCourses(): Promise<TrainerCourse[]> {
     : { data: [], error: null };
   if (lessonResult.error) throw new Error(lessonResult.error.message);
 
-  const one = (value: any) => (Array.isArray(value) ? value[0] : value);
+  // Supabase embeds a to-one relationship (enrollments.student_id -> profiles)
+  // as a single object, never an array, but the query builder's inferred type
+  // still has to account for the to-many shape other embeds can take — so this
+  // stays defensive rather than assuming the object form.
+  const one = <T,>(value: T | T[] | null): T | null =>
+    (Array.isArray(value) ? value[0] ?? null : value);
+
+  const enrollments = (enrolResult.data ?? []) as TrainerEnrollmentRow[];
+  const modules = (moduleResult.data ?? []) as TrainerModuleRow[];
+  const lessons = (lessonResult.data ?? []) as TrainerLessonRow[];
 
   return courses.map((course) => ({
     id: course.id,
@@ -118,9 +136,9 @@ export async function loadTrainerCourses(): Promise<TrainerCourse[]> {
     reviewStatus: course.review_status ?? "draft",
     reviewNote: course.review_note,
     startsAt: course.starts_at,
-    students: (enrolResult.data ?? [])
-      .filter((row: any) => row.course_id === course.id)
-      .map((row: any) => ({
+    students: enrollments
+      .filter((row) => row.course_id === course.id)
+      .map((row) => ({
         enrollmentId: row.id,
         studentId: row.student_id,
         studentName: one(row.student)?.full_name ?? "متدرب",
@@ -130,16 +148,16 @@ export async function loadTrainerCourses(): Promise<TrainerCourse[]> {
         completedAt: row.completed_at,
         createdAt: row.created_at,
       })),
-    modules: (moduleResult.data ?? [])
-      .filter((row: any) => row.course_id === course.id)
-      .map((row: any) => ({
+    modules: modules
+      .filter((row) => row.course_id === course.id)
+      .map((row) => ({
         id: row.id,
         title: row.title,
         summary: row.summary ?? "",
         position: row.position,
-        lessons: (lessonResult.data ?? [])
-          .filter((lesson: any) => lesson.module_id === row.id)
-          .map((lesson: any) => ({
+        lessons: lessons
+          .filter((lesson) => lesson.module_id === row.id)
+          .map((lesson) => ({
             id: lesson.id,
             title: lesson.title,
             contentType: lesson.content_type,
@@ -151,7 +169,53 @@ export async function loadTrainerCourses(): Promise<TrainerCourse[]> {
       })),
   }));
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
+
+export type TrainerNotification = {
+  id: string;
+  eventType: string;
+  title: string;
+  body: string;
+  /** The changed field names, the course id — whatever the writer attached. */
+  data: Record<string, unknown>;
+  readAt: string | null;
+  createdAt: string;
+};
+
+/**
+ * What the platform has told this instructor.
+ *
+ * Administration can now edit a course it does not own — correct a price, move
+ * a start date — and `admin_update_course` writes a notice naming the fields it
+ * changed. The instructor had nowhere to read it: the notifications panel lived
+ * on the personal account page, which is not where an instructor works. So the
+ * same rows are read here.
+ *
+ * No filter by event type. `notifications_own_read` already scopes this to the
+ * caller's own rows, and an instructor who is also a patient would rather see
+ * one list than wonder which of their two dashboards a notice landed on.
+ */
+export async function loadTrainerNotifications(): Promise<TrainerNotification[]> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) throw new AuthenticationRequiredError();
+
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id,event_type,title,body,data,read_at,created_at")
+    .eq("channel", "in_app")
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    eventType: row.event_type,
+    title: row.title,
+    body: row.body,
+    data: (row.data ?? {}) as Record<string, unknown>,
+    readAt: row.read_at,
+    createdAt: row.created_at,
+  }));
+}
 
 /** Record how far a student has got. Only a paid enrolment should be advanced. */
 export async function setStudentProgress(enrollmentId: string, progress: number) {
@@ -230,7 +294,11 @@ export async function createCourse(input: {
     summary: input.summary.trim() || null,
     price: input.price,
     duration_hours: input.durationHours,
-    mode: input.mode,
+    // `mode` stays `string` on this function's own input — the composer form
+    // already only ever sends one of the database's `course_mode` values, so
+    // narrowing is a cast at the boundary rather than a second literal-union
+    // type this file would have to keep in step with the schema.
+    mode: input.mode as Database["public"]["Enums"]["course_mode"],
     level: input.level,
     trainer_id: user.id,
     is_published: false,
@@ -268,7 +336,9 @@ export async function markAttendance(enrollmentId: string, sessionTitle: string,
     enrollment_id: enrollmentId,
     session_title: sessionTitle.trim(),
     starts_at: new Date().toISOString(),
-    status,
+    // Same boundary as `createCourse` above — `status` is a plain string on
+    // this function's own signature, `attendance_status` is the database enum.
+    status: status as Database["public"]["Enums"]["attendance_status"],
     checked_in_at: status === "present" ? new Date().toISOString() : null,
   });
   if (error) throw new Error(error.message);

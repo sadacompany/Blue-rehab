@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { typedSupabase as supabase } from "./supabase";
 
 /**
  * فريقنا الطبي — the clinical team shown on the landing page.
@@ -25,7 +25,6 @@ export type TeamMember = {
   bookable: boolean;
 };
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export async function loadTeam(): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from("specialists")
@@ -34,7 +33,7 @@ export async function loadTeam(): Promise<TeamMember[]> {
     .order("team_order");
   if (error) throw new Error(error.message);
 
-  const members = (data ?? []) as any[];
+  const members = data ?? [];
   if (!members.length) return [];
 
   // One query for everyone: which of them actually have time to book. A card
@@ -46,7 +45,7 @@ export async function loadTeam(): Promise<TeamMember[]> {
     .in("specialist_id", members.map((m) => m.id))
     .gte("starts_at", new Date().toISOString());
 
-  const withTime = new Set((slots ?? []).map((s: any) => s.specialist_id));
+  const withTime = new Set((slots ?? []).map((s) => s.specialist_id));
 
   return members.map((row) => ({
     id: row.id,
@@ -60,14 +59,12 @@ export async function loadTeam(): Promise<TeamMember[]> {
     bookable: withTime.has(row.id),
   }));
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* ------------------------------------------------------------ administration */
 
 export type TeamAdminRow = TeamMember & { teamOrder: number | null; isDemo: boolean; isVerified: boolean };
 
 /** Every specialist, on the landing page or not, for the administration screen. */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export async function loadAllSpecialists(): Promise<TeamAdminRow[]> {
   const { data, error } = await supabase
     .from("specialists")
@@ -76,7 +73,7 @@ export async function loadAllSpecialists(): Promise<TeamAdminRow[]> {
     .order("display_name");
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((row: any) => ({
+  return (data ?? []).map((row) => ({
     id: row.id, name: row.display_name, title: row.title ?? "", bio: row.bio ?? "",
     specialties: row.specialties ?? [], languages: row.languages ?? [],
     yearsExperience: Number(row.years_experience ?? 0), photoUrl: row.photo_url,
@@ -84,12 +81,19 @@ export async function loadAllSpecialists(): Promise<TeamAdminRow[]> {
     bookable: false,
   }));
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /** Position on the landing page; null takes them off it. Administration only. */
 export async function setTeamPosition(specialistId: string, position: number | null) {
   const { error } = await supabase.rpc("set_team_position", {
-    p_specialist_id: specialistId, p_position: position,
+    p_specialist_id: specialistId,
+    // Unlike the optional `p_note`-style arguments elsewhere in this codebase,
+    // `null` here is not "omit this" — `set_team_position` writes it straight
+    // into the nullable `team_order` column, and null is what takes a
+    // specialist off the landing page (20260810100000). `p_position` has no
+    // default, so it cannot be left out; it is the generated Args type that is
+    // wrong, not this call — `supabase gen types` does not carry nullability
+    // for RPC parameters, only for table columns.
+    p_position: position as number,
   });
   if (error) throw new Error(error.message.includes("FORBIDDEN") ? "هذه العملية تتطلب صلاحية إدارية." : error.message);
 }

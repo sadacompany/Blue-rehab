@@ -72,6 +72,40 @@ export function countLabel(value: number, forms: CountForms): string {
 export const deliveryLabel = (mode: DeliveryMode) =>
   mode === "remote" ? "عن بُعد" : "في المركز";
 
+/**
+ * Arabic label for a `bookings.status` value.
+ *
+ * Was three separate copies of the same object — AdminDashboard's
+ * `BOOKING_STATUS` and SpecialistDashboard's `STATUS_LABELS` were byte-for-byte
+ * identical, so a status-copy change meant remembering to edit both in lockstep.
+ * Merged here.
+ *
+ * ConnectedPortal's own `statusLabel` looked like a third copy but is not one:
+ * it mixes in enrollment/payment states (`active`, `paid`, `failed` with the
+ * Arabic "متعذر" rather than "فشل") that do not belong to `bookings.status` at
+ * all. Folding it into this one would either drop those cases or relabel a real
+ * booking status underneath it, so it stays separate on purpose.
+ */
+const BOOKING_STATUS_LABELS: Record<string, string> = {
+  draft: "مسودة", pending_payment: "بانتظار الدفع", confirmed: "مؤكد",
+  rescheduled: "أُعيد جدولته", cancelled: "ملغي", completed: "مكتمل",
+  no_show: "لم يحضر", refunded: "مسترد",
+};
+export const bookingStatusLabel = (status: string) => BOOKING_STATUS_LABELS[status] ?? status;
+
+/**
+ * Is this course on a special offer?
+ *
+ * There is no `is_on_offer` column, and that is on purpose — see the comment on
+ * `admin_set_course_offer` in 20260820120000. An offer *is* a former price
+ * standing above the current one, so the flag is read off the two figures the
+ * page is about to draw and cannot disagree with them. The `> price` half is
+ * belt and braces: the database CHECK already refuses anything else, but a
+ * preview payload does not go through the database.
+ */
+export const isOnOffer = (course: Pick<Course, "price" | "compareAtPrice">) =>
+  course.compareAtPrice !== null && course.compareAtPrice > course.price;
+
 export const courseModeLabel = (mode: Course["mode"]) =>
   ({
     onsite: "حضوري",

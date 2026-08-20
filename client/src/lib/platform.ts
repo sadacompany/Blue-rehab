@@ -84,6 +84,52 @@ export async function createBooking(input: BookingInput): Promise<BookingResult>
   return payload.data as BookingResult;
 }
 
+export type TelehealthConsentInput = {
+  /** Which revision of the wording was on screen. */
+  templateVersion: string;
+  /** The exact text shown, verbatim. See lib/telehealth-consent.ts. */
+  consentText: string;
+  /** Usually null: pay-first means no booking row exists yet when consent is taken. */
+  bookingId?: string | null;
+};
+
+export type TelehealthConsentRecord = { id: string; granted_at: string };
+
+/**
+ * Record the patient's informed consent to a remote session.
+ *
+ * Goes straight to the table rather than through the API: the row belongs to
+ * the caller, RLS already limits an insert to their own `user_id`, and the
+ * columns that must not be self-reported — `granted_at`, the IP and the user
+ * agent — are stamped by a database trigger from the request itself, not taken
+ * from this payload. Sending them from here would be theatre; the browser is
+ * the one party whose account of when it consented cannot be trusted.
+ *
+ * Failure is fatal to the booking on purpose. NHIC §3.1.17 requires the consent
+ * to be *recorded* before the telehealth activity, so a session that proceeds
+ * on an unrecorded consent is a session that should not have proceeded.
+ */
+export async function recordTelehealthConsent(input: TelehealthConsentInput): Promise<TelehealthConsentRecord> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData.session?.user;
+  if (!user) throw new AuthenticationRequiredError();
+
+  const { data, error } = await supabase
+    .from("consent_records")
+    .insert({
+      user_id: user.id,
+      booking_id: input.bookingId ?? null,
+      purpose: "telehealth_session",
+      template_version: input.templateVersion,
+      consent_text: input.consentText,
+    })
+    .select("id,granted_at")
+    .single();
+
+  if (error) throw new Error(`CONSENT_NOT_RECORDED: ${error.message}`);
+  return data as TelehealthConsentRecord;
+}
+
 export type PaymentConfig = {
   provider: string;
   configured: boolean;

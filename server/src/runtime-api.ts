@@ -88,7 +88,10 @@ async function issueMeetingLinkIfRemote(
   }
 }
 
-function mapDomainError(message: string | undefined) {
+// Exported (only) so it can be unit-tested directly against every code in
+// BOOKING_ERRORS without going through a live `create_booking_intent` /
+// `create_enrollment_intent` RPC call. Behavior is unchanged.
+export function mapDomainError(message: string | undefined) {
   const key = Object.keys(BOOKING_ERRORS).find((code) => message?.includes(code));
   return key ? BOOKING_ERRORS[key] : null;
 }
@@ -108,7 +111,11 @@ async function authenticate(authorization: string | null): Promise<AuthOutcome> 
 }
 
 export function getHealth(): ApiResult {
-  return { status: 200, body: { status: "ok", service: "blue-rehab-api", catalog: "supabase", protectedWrites: "authenticated-rls" }, cacheControl: noStore };
+  // `meeting` reports the *effective* provider, not the configured one: asking
+  // for google without credentials resolves to "none". A deploy that lost its
+  // GOOGLE_OAUTH_* values is then visible here, rather than only surfacing as
+  // remote bookings that quietly come out with no link.
+  return { status: 200, body: { status: "ok", service: "blue-rehab-api", catalog: "supabase", protectedWrites: "authenticated-rls", meeting: meetingProvider() }, cacheControl: noStore };
 }
 
 export async function getCatalog(): Promise<ApiResult> {
@@ -421,7 +428,10 @@ async function resolveRemotePayment(input: { paymentId?: string; invoiceId?: str
  * metadata alone therefore failed for every hosted-invoice payment, which is the
  * whole flow. Fall back to the invoice id we stored when the invoice was minted.
  */
-async function findLocalPayment(client: ReturnType<typeof authenticatedClient>, remote: MoyasarPayment) {
+// Exported so the matching order (order_number, then provider_invoice_id, then
+// "not found") can be unit-tested against a fake Supabase client instead of a
+// live database.
+export async function findLocalPayment(client: ReturnType<typeof authenticatedClient>, remote: MoyasarPayment) {
   const columns = "id,order_number,user_id,amount,status,booking_id,enrollment_id";
   const orderNumber = (remote as { metadata?: Record<string, string> | null }).metadata?.order_number;
 
@@ -438,6 +448,20 @@ async function findLocalPayment(client: ReturnType<typeof authenticatedClient>, 
   }
 
   return null;
+}
+
+/**
+ * Whether what Moyasar actually captured (halalas) matches what our own
+ * `payments` row expects to be charged (SAR).
+ *
+ * Extracted out of `verifyPayment` so the rounding rule that decides whether a
+ * payment is "close enough" to confirm — it isn't; it must match exactly — has
+ * a unit test that doesn't need a live payment row or a gateway response.
+ * Same rounding as `toHalalas` in moyasar.ts, kept separate because this side
+ * of the comparison is about matching a stored order, not converting a price.
+ */
+export function amountsMatch(expectedSar: number, capturedHalalas: number): boolean {
+  return Math.round(Number(expectedSar) * 100) === Number(capturedHalalas);
 }
 
 /**
@@ -475,7 +499,7 @@ export async function verifyPayment(authorization: string | null, payload: unkno
   if (payment.user_id !== auth.user.id) return { status: 403, body: { error: "Forbidden" }, cacheControl: noStore };
 
   const mappedStatus = mapPaymentStatus(remote.status);
-  const amountMatches = Math.round(Number(payment.amount) * 100) === Number(remote.amount);
+  const amountMatches = amountsMatch(Number(payment.amount), Number(remote.amount));
   if (mappedStatus === "succeeded" && !amountMatches) {
     // Paid amount differs from the order: never confirm, flag for review.
     await adminClient()?.from("payments")
@@ -571,6 +595,17 @@ export async function verifyPayment(authorization: string | null, payload: unkno
     // physiotherapy session and neither side had any way to meet. Doing it here
     // means the link is on the booking before the confirmation is sent, so it is
     // waiting in the account page and on the specialist's schedule.
+    //
+    // Deliberately still awaited, not detached: this is a plain Node function
+    // (api/index.ts), not an Edge Function or one wired up with a `waitUntil`
+    // primitive — background work started after the response is sent has no
+    // guarantee of finishing, and a link that silently never gets written is a
+    // worse bug than a slower response. What changed instead: `createMeeting`'s
+    // Google calls now carry an 8s timeout (google-meet.ts), so this step has a
+    // hard ceiling rather than being able to run out Vercel's 30s budget on its
+    // own — a hung Calendar API can no longer turn an already-successful
+    // payment into a client-visible timeout. `issueMeetingLinkIfRemote` already
+    // never throws past this point either way (see its own try/catch above).
     await issueMeetingLinkIfRemote(admin, payment.order_number);
 
     await admin.from("notifications").insert({

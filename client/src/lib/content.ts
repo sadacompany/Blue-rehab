@@ -1,4 +1,5 @@
-import { supabase } from "./supabase";
+import { typedSupabase as supabase } from "./supabase";
+import type { Database } from "./database.types";
 
 /**
  * Public content for the two sections of the platform.
@@ -62,8 +63,14 @@ export type ResearchReview = {
   coverUrl: string | null;
 };
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const toProgram = (row: any): RehabProgram => ({
+// `select("*")` against a typed client already infers the exact row shape from
+// `Database["public"]["Tables"][table]["Row"]`, so these take that inferred
+// type directly rather than a hand-maintained duplicate of the schema.
+type RehabProgramRow = Database["public"]["Tables"]["rehab_programs"]["Row"];
+type ArticleRow = Database["public"]["Tables"]["articles"]["Row"];
+type ResearchReviewRow = Database["public"]["Tables"]["research_reviews"]["Row"];
+
+const toProgram = (row: RehabProgramRow): RehabProgram => ({
   id: row.id, slug: row.slug, title: row.title,
   summary: row.summary ?? "", description: row.description ?? "",
   goals: row.goals ?? [], suitableFor: row.suitable_for ?? [],
@@ -73,7 +80,7 @@ const toProgram = (row: any): RehabProgram => ({
     ? null : Number(row.compare_at_price),
 });
 
-const toArticle = (row: any): Article => ({
+const toArticle = (row: ArticleRow): Article => ({
   id: row.id, slug: row.slug, title: row.title,
   excerpt: row.excerpt ?? "", body: row.body ?? "",
   category: row.category, tags: row.tags ?? [],
@@ -81,7 +88,7 @@ const toArticle = (row: any): Article => ({
   publishedAt: row.published_at, coverUrl: row.cover_url ?? null,
 });
 
-const toResearch = (row: any): ResearchReview => ({
+const toResearch = (row: ResearchReviewRow): ResearchReview => ({
   id: row.id, slug: row.slug, title: row.title,
   excerpt: row.excerpt ?? "", body: row.body ?? "",
   sourceTitle: row.source_title, sourceAuthors: row.source_authors,
@@ -91,7 +98,6 @@ const toResearch = (row: any): ResearchReview => ({
   reviewerName: row.reviewer_name, publishedAt: row.published_at,
   coverUrl: row.cover_url ?? null,
 });
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export async function loadPrograms(): Promise<RehabProgram[]> {
   const { data, error } = await supabase
@@ -164,19 +170,24 @@ const SUBMIT_ERRORS: Record<string, string> = {
  * belongs to administration, exactly as it already does for a course.
  */
 export async function submitContentForReview(input: ContentSubmission) {
+  // Every optional argument below is `default null` in the function
+  // (20260816120000), so omitting the key — `undefined` — reaches the
+  // function exactly the same as sending `null` did. The generated Args type
+  // just does not carry `| null` for RPC parameters the way it does for table
+  // columns, so `undefined` is the spelling that satisfies it.
   const { data, error } = await supabase.rpc("submit_content_for_review", {
     p_kind: input.kind,
     p_title: input.title,
-    p_excerpt: input.excerpt || null,
+    p_excerpt: input.excerpt || undefined,
     p_body: input.body,
-    p_category: input.category || null,
+    p_category: input.category || undefined,
     p_tags: input.tags,
-    p_source_title: input.sourceTitle || null,
-    p_source_authors: input.sourceAuthors || null,
-    p_source_journal: input.sourceJournal || null,
-    p_source_year: input.sourceYear ?? null,
-    p_source_url: input.sourceUrl || null,
-    p_practical_takeaway: input.practicalTakeaway || null,
+    p_source_title: input.sourceTitle || undefined,
+    p_source_authors: input.sourceAuthors || undefined,
+    p_source_journal: input.sourceJournal || undefined,
+    p_source_year: input.sourceYear ?? undefined,
+    p_source_url: input.sourceUrl || undefined,
+    p_practical_takeaway: input.practicalTakeaway || undefined,
   });
   if (error) {
     const code = Object.keys(SUBMIT_ERRORS).find((key) => error.message.includes(key));
@@ -204,12 +215,10 @@ export async function loadMySubmissions(): Promise<MySubmission[]> {
     supabase.from("research_reviews").select("id,title,status,created_at").eq("reviewer_id", user.id),
   ]);
 
-  /* eslint-disable @typescript-eslint/no-explicit-any */
   const rows: MySubmission[] = [
-    ...(articles.data ?? []).map((r: any) => ({ id: r.id, kind: "article" as const, title: r.title, status: r.status, createdAt: r.created_at })),
-    ...(research.data ?? []).map((r: any) => ({ id: r.id, kind: "research" as const, title: r.title, status: r.status, createdAt: r.created_at })),
+    ...(articles.data ?? []).map((r) => ({ id: r.id, kind: "article" as const, title: r.title, status: r.status, createdAt: r.created_at })),
+    ...(research.data ?? []).map((r) => ({ id: r.id, kind: "research" as const, title: r.title, status: r.status, createdAt: r.created_at })),
   ];
-  /* eslint-enable @typescript-eslint/no-explicit-any */
   return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 

@@ -1,8 +1,9 @@
 import { ArrowDown, ArrowUp, BadgeCheck, LoaderCircle, UserRound, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   initials, loadAllSpecialists, setTeamPosition, uploadSpecialistPhoto, type TeamAdminRow,
 } from "../lib/team";
+import { useAsync } from "../lib/use-async";
 
 /**
  * فريقنا الطبي, from the administration side.
@@ -16,22 +17,25 @@ import {
  * this screen does not invent people, it arranges the ones that exist.
  */
 export default function AdminTeam({ onChanged }: { onChanged?: () => void }) {
-  const [rows, setRows] = useState<TeamAdminRow[] | null>(null);
+  // `rows === null` is the loading gate below, exactly like the hand-rolled
+  // version this replaces — there is no separate "loading" flag to consult,
+  // so a reload triggered by `run()` refetches quietly behind the existing
+  // list rather than flashing a spinner over it.
+  const { data: rows, error: loadError, reload } = useAsync(loadAllSpecialists, []);
   const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
+  // Kept apart from `loadError`: an action failure (from `run()`) and a load
+  // failure are different things that used to share one `error` variable, and
+  // this keeps them from clobbering each other while still rendering in the
+  // same slot below, same as before.
+  const [actionError, setActionError] = useState("");
+  const error = actionError || loadError;
   const pickers = useRef<Record<string, HTMLInputElement | null>>({});
-
-  async function reload() {
-    try { setRows(await loadAllSpecialists()); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "تعذر تحميل الفريق"); }
-  }
-  useEffect(() => { void reload(); }, []);
 
   async function run(key: string, action: () => Promise<unknown>) {
     setBusy(key);
-    setError("");
+    setActionError("");
     try { await action(); await reload(); onChanged?.(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "تعذر تنفيذ العملية"); }
+    catch (reason) { setActionError(reason instanceof Error ? reason.message : "تعذر تنفيذ العملية"); }
     finally { setBusy(""); }
   }
 

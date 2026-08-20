@@ -1,8 +1,10 @@
 import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, Check, CreditCard, HeartPulse, LoaderCircle, MapPin, RefreshCcw, ShieldCheck, UserRound, Video } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { CatalogResponse, DeliveryMode } from "../lib/catalog-types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DeliveryMode } from "../lib/catalog-types";
 import { deliveryLabel, formatCurrency, formatDateTime, formatDayLabel, formatTime } from "../lib/format";
-import { AuthenticationRequiredError, createBooking, loadCatalog, loadPaymentConfig, startCheckout, type BookingResult, type PaymentConfig } from "../lib/platform";
+import { AuthenticationRequiredError, createBooking, loadCatalog, loadPaymentConfig, recordTelehealthConsent, startCheckout, type BookingResult, type PaymentConfig } from "../lib/platform";
+import { TELEHEALTH_CONSENT, TELEHEALTH_CONSENT_VERSION, telehealthConsentText } from "../lib/telehealth-consent";
+import { useAsync } from "../lib/use-async";
 import DemoBadge from "./DemoBadge";
 import { Link } from "react-router-dom";
 
@@ -80,9 +82,6 @@ function clearDraft() {
 }
 
 export default function BookingFlowConnected({ initialService, initialSpecialist }: { initialService?: string; initialSpecialist?: string }) {
-  const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
   const [step, setStep] = useState(0);
   const [serviceId, setServiceId] = useState(initialService ?? "");
   const [mode, setMode] = useState<DeliveryMode>("clinic");
@@ -90,6 +89,24 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   const [slotId, setSlotId] = useState("");
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
   const [accepted, setAccepted] = useState(false);
+  /**
+   * Informed consent to a *remote* session, kept separate from the terms
+   * checkbox above on purpose.
+   *
+   * NHIC §3.1.17 wants a consent to the telehealth activity itself, not a
+   * consent to the site's legal pages, and PDPL wants consent to health-data
+   * processing to be explicit and freely given. Folding it into `accepted`
+   * would mean a patient booking a clinic visit ticks a telehealth consent they
+   * were never offered, and a patient booking remotely gives one tick for two
+   * unrelated things.
+   *
+   * Deliberately NOT persisted in the sessionStorage draft. Everything else in
+   * the wizard is restored after the sign-in redirect so nobody retypes their
+   * complaint, but a restored tick is a tick nobody watched them make. The box
+   * starts empty on every load of the review step, which is the whole meaning
+   * of "no pre-ticked consent".
+   */
+  const [remoteConsent, setRemoteConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [booking, setBooking] = useState<BookingResult | null>(null);
@@ -99,12 +116,19 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   /** Draft as it stood when this page opened. Read once, before any save runs. */
   const pendingDraft = useRef<BookingDraft | null>(readDraft());
 
-  async function reload() {
-    setLoading(true);
-    setLoadError("");
+  /**
+   * Fetching the catalogue also drives a batch of state that is not "data" in
+   * the `useAsync` sense — the selected service, specialist, slot and the
+   * restored draft all depend on what just loaded. That work stays here,
+   * inside the fetcher, rather than in a `.then()` off the hook's `data`: it
+   * has to run exactly once per fetch, in the same pass that decides whether
+   * the fetch succeeded, and `restored.current` has to flip to `true` even on
+   * failure — see the comment on that ref below — which only a `finally`
+   * wrapped around the fetch itself can guarantee.
+   */
+  const reloadCatalog = useCallback(async () => {
     try {
       const data = await loadCatalog();
-      setCatalog(data);
       const selectedService = data.services.find((item) => item.id === initialService) ?? data.services[0];
       const selectedSpecialist = data.specialists.find((item) => item.id === initialSpecialist) ?? data.specialists[0];
       if (selectedService) { setServiceId(selectedService.id); setMode(selectedService.modes[0]); }
@@ -134,16 +158,15 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
         // Without a slot they must revisit step 2; otherwise resume where they left off.
         setStep(slotStillFree ? draft.step : 1);
       }
-    } catch (reason) {
-      setLoadError(reason instanceof Error ? reason.message : "تعذر تحميل الحجز");
+      return data;
     } finally {
       // Set even on failure, so a retry still persists what the patient types.
       restored.current = true;
-      setLoading(false);
     }
-  }
+  }, [initialService, initialSpecialist]);
 
-  useEffect(() => { void reload(); }, [initialService, initialSpecialist]);
+  const { data: catalog, error: loadError, loading, reload } = useAsync(reloadCatalog, [reloadCatalog]);
+
   useEffect(() => { loadPaymentConfig().then(setPayment).catch(() => setPayment(null)); }, []);
 
   const service = catalog?.services.find((item) => item.id === serviceId);
@@ -170,6 +193,13 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
     if (lastSelection.current && lastSelection.current !== key) setSlotId("");
     lastSelection.current = key;
   }, [specialistId, mode]);
+
+  // A consent given for a remote session says nothing about a clinic visit, and
+  // vice versa. Switching away from «عن بُعد» drops it, so coming back offers a
+  // fresh, empty box rather than a tick inherited from an earlier choice.
+  useEffect(() => {
+    if (mode !== "remote") setRemoteConsent(false);
+  }, [mode]);
 
   // Keep the draft current so a sign-in redirect loses nothing.
   //
@@ -208,8 +238,13 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
         !text(details.goal) && "هدفك من الجلسة",
       ].filter(Boolean) as string[];
     }
-    return accepted ? [] : ["الموافقة على الشروط وسياسة الإلغاء"];
-  }, [step, serviceId, mode, specialistId, slotId, details, accepted]);
+    // The telehealth consent blocks the confirm button for a remote session and
+    // only for a remote session — a clinic booking never sees it.
+    return [
+      !accepted && "الموافقة على الشروط وسياسة الإلغاء",
+      mode === "remote" && !remoteConsent && "الموافقة المستنيرة على الجلسة عن بُعد",
+    ].filter(Boolean) as string[];
+  }, [step, serviceId, mode, specialistId, slotId, details, accepted, remoteConsent]);
 
   /** Only the services that can actually be delivered the way they chose. */
   const modeServices = useMemo(
@@ -239,6 +274,26 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
     setSubmitting(true);
     setSubmitError("");
     try {
+      // Consent first, before anything else moves.
+      //
+      // NHIC §3.1.17 requires the consent to be recorded *before* the telehealth
+      // activity, and "before" here has to mean before the reservation and
+      // before the gateway too — a consent written only after a successful
+      // payment is a consent conditional on the money clearing, which is not
+      // what was asked for and not what a patient thinks they are giving.
+      //
+      // The record carries no booking id: this platform is pay-first
+      // (20260807110000), so the appointment row does not exist yet. It is
+      // linked to the patient and stamped with the server's clock, which is
+      // what the audit question actually needs answering — who agreed to what,
+      // and when.
+      if (mode === "remote") {
+        await recordTelehealthConsent({
+          templateVersion: TELEHEALTH_CONSENT_VERSION,
+          consentText: telehealthConsentText(),
+        });
+      }
+
       const notes = [
         `المنطقة: ${details.region === "منطقة أخرى" && (details.regionOther ?? "").trim() ? details.regionOther.trim() : details.region}`,
         `بداية الأعراض: ${details.onset}`,
@@ -267,7 +322,12 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
         return;
       }
       const message = reason instanceof Error ? reason.message : "تعذر إنشاء الحجز";
-      setSubmitError(message.includes("SLOT_UNAVAILABLE") ? "هذا الموعد حُجز للتو. اختر موعدًا آخر." : message);
+      if (message.includes("SLOT_UNAVAILABLE")) setSubmitError("هذا الموعد حُجز للتو. اختر موعدًا آخر.");
+      // Nothing was reserved and nothing was charged: the consent write is the
+      // first thing that runs, so a failure here leaves the wizard exactly as
+      // the patient left it.
+      else if (message.includes("CONSENT_NOT_RECORDED")) setSubmitError("تعذر تسجيل موافقتك على الجلسة عن بُعد، ولم يُنشأ أي حجز ولم يُخصم أي مبلغ. تحقق من اتصالك وحاول مرة أخرى.");
+      else setSubmitError(message);
     } finally {
       setSubmitting(false);
     }
@@ -358,7 +418,20 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
 
       {step === 1 && <section><header><span className="kicker">الخطوة الثانية</span><h2>اختر المختص والموعد</h2><p>اختر المختص ثم الوقت المناسب لك.</p></header><div className="selection-grid specialist-selection">{catalog.specialists.map((item) => <button type="button" className={specialistId === item.id ? "selected" : ""} onClick={() => setSpecialistId(item.id)} key={item.id}><span className="selection-check"><Check /></span><span className="small-avatar"><UserRound /></span><div><h3>{item.name}</h3><p>{item.title}</p>{item.isDemo && <DemoBadge compact />}</div></button>)}</div><div className="slots"><h3><CalendarDays /> المواعيد المتاحة</h3>{slotsByDay.length ? <div className="slot-days">{slotsByDay.map((day) => <div className="slot-day" key={day[0].id}><h4>{formatDayLabel(day[0].startsAt)}</h4><div className="slot-times">{day.map((item) => <button type="button" className={slotId === item.id ? "selected" : ""} onClick={() => setSlotId(item.id)} key={item.id} aria-pressed={slotId === item.id}><span className="slot-time">{formatTime(item.startsAt)}</span>{slotId === item.id && <Check aria-hidden="true" />}</button>)}</div></div>)}</div> : <div className="empty-slots"><AlertCircle /><span><strong>لا توجد مواعيد مطابقة.</strong><small>جرّب طريقة جلسة أخرى أو مختصًا آخر.</small></span></div>}</div></section>}
       {step === 2 && <section><header><span className="kicker">الخطوة الثالثة</span><h2>اكتب ملخصًا وظيفيًا للحالة</h2><p>لا تضف رقم الهوية أو ملفات صحية حساسة هنا.</p></header><div className="form-grid"><label><span>المنطقة المتأثرة</span><select value={details.region} onChange={(event) => setDetails({ ...details, region: event.target.value })}><option>الركبة</option><option>الكتف</option><option>أسفل الظهر</option><option>الكاحل والقدم</option><option>الرقبة</option><option>منطقة أخرى</option></select></label>{details.region === "منطقة أخرى" && <label><span>حدد المنطقة <b className="req">*</b></span><input placeholder="اكتب المنطقة المتأثرة" value={details.regionOther ?? ""} onChange={(event) => setDetails({ ...details, regionOther: event.target.value })} /></label>}<label><span>بداية الأعراض <b className="req">*</b></span><select value={details.onset} onChange={(event) => setDetails({ ...details, onset: event.target.value })}><option value="">اختر المدة</option><option>أقل من أسبوع</option><option>من أسبوع إلى شهر</option><option>من شهر إلى ثلاثة أشهر</option><option>أكثر من ثلاثة أشهر</option></select></label><label className="wide"><span>الأثر على الحركة أو النشاط <b className="req">*</b></span><textarea required maxLength={300} placeholder="مثال: صعوبة صعود الدرج بعد النشاط" value={details.complaint} onChange={(event) => setDetails({ ...details, complaint: event.target.value })} /></label><label className="wide"><span>الأعراض الحالية</span><textarea rows={2} placeholder="مثال: تورم خفيف وتيبس صباحي" value={details.currentSymptoms ?? ""} onChange={(event) => setDetails({ ...details, currentSymptoms: event.target.value })} /></label><label className="wide range-field"><span>شدة الألم: <strong>{details.pain}/10</strong></span><input type="range" min="0" max="10" value={details.pain} onChange={(event) => setDetails({ ...details, pain: Number(event.target.value) })} /></label><label><span>عملية سابقة</span><select value={details.previousSurgery} onChange={(event) => setDetails({ ...details, previousSurgery: event.target.value })}><option>لا</option><option>نعم</option></select></label>{details.previousSurgery === "نعم" && <label><span>تفاصيل العملية <b className="req">*</b></span><input placeholder="نوع العملية وتاريخها التقريبي" value={details.surgeryDetail ?? ""} onChange={(event) => setDetails({ ...details, surgeryDetail: event.target.value })} /></label>}<label><span>أمراض مزمنة</span><select value={details.chronicConditions} onChange={(event) => setDetails({ ...details, chronicConditions: event.target.value })}><option>لا</option><option>نعم</option></select></label>{details.chronicConditions === "نعم" && <label><span>حدد الأمراض المزمنة <b className="req">*</b></span><input placeholder="مثال: سكري، ضغط، ربو" value={details.chronicDetail ?? ""} onChange={(event) => setDetails({ ...details, chronicDetail: event.target.value })} /></label>}<label><span>هدفك من الجلسة <b className="req">*</b></span><input placeholder="مثال: العودة للمشي دون ألم" value={details.goal} onChange={(event) => setDetails({ ...details, goal: event.target.value })} /></label></div></section>}
-      {step === 3 && <section><header><span className="kicker">الخطوة الرابعة</span><h2>راجع الحجز</h2><p>تأكد من التفاصيل قبل تأكيد الطلب.</p></header><div className="summary-card"><div className="summary-price-cell"><span>الخدمة</span><strong>{service?.name}</strong>{service && <strong className="summary-price">{formatCurrency(service.price)}</strong>}</div><div><span>طريقة الجلسة</span><strong>{deliveryLabel(mode)}</strong>{mode === "clinic" && <small>{catalog.branches.find((item) => item.id === slot?.branchId)?.name ?? "يحدد الفرع عند التأكيد"}</small>}</div><div><span>المختص</span><strong>{specialist?.name}</strong></div><div><span>الموعد</span><strong>{slot ? formatDateTime(slot.startsAt) : "لم يحدد"}</strong></div><div><span>الحالة</span><strong>{details.region} · ألم {details.pain}/10</strong></div></div><label className="policy-check"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} /><span>قرأت <a href="/terms" target="_blank">الشروط</a> و<a href="/privacy" target="_blank">الخصوصية</a> و<a href="/refund-policy" target="_blank">سياسة الإلغاء</a>.</span></label><div className="payment-note"><ShieldCheck /><span><strong>دفع آمن</strong><small>ننقلك إلى بوابة الدفع لإتمام العملية، ويُحجز موعدك فور نجاح الدفع. لا تمر بيانات بطاقتك عبر المنصة.</small></span></div>{submitError && <div className="form-error" role="alert">{submitError}</div>}</section>}
+      {step === 3 && <section><header><span className="kicker">الخطوة الرابعة</span><h2>راجع الحجز</h2><p>تأكد من التفاصيل قبل تأكيد الطلب.</p></header><div className="summary-card"><div className="summary-price-cell"><span>الخدمة</span><strong>{service?.name}</strong>{service && <strong className="summary-price">{formatCurrency(service.price)}</strong>}</div><div><span>طريقة الجلسة</span><strong>{deliveryLabel(mode)}</strong>{mode === "clinic" && <small>{catalog.branches.find((item) => item.id === slot?.branchId)?.name ?? "يحدد الفرع عند التأكيد"}</small>}</div><div><span>المختص</span><strong>{specialist?.name}</strong></div><div><span>الموعد</span><strong>{slot ? formatDateTime(slot.startsAt) : "لم يحدد"}</strong></div><div><span>الحالة</span><strong>{details.region} · ألم {details.pain}/10</strong></div></div>
+        {/* Telehealth informed consent — remote sessions only.
+            Rendered from lib/telehealth-consent.ts, which is also what gets
+            stored, so the record and the screen cannot drift apart. A clinic
+            booking never reaches this branch and is never blocked by it. */}
+        {mode === "remote" && <><h3 className="booking-subhead" id="telehealth-consent-title">{TELEHEALTH_CONSENT.title}</h3>
+          <div className="branch-note" role="group" aria-labelledby="telehealth-consent-title"><Video aria-hidden="true" /><div>
+            <strong>{TELEHEALTH_CONSENT.intro}</strong>
+            <ul id="telehealth-consent-clauses">{TELEHEALTH_CONSENT.clauses.map((clause) => <li key={clause}>{clause}</li>)}</ul>
+            <small>إصدار نموذج الموافقة: <b dir="ltr">{TELEHEALTH_CONSENT_VERSION}</b> · يُحفظ نص الموافقة كما هو أعلاه مقترناً بتاريخ وساعة موافقتك.</small>
+          </div></div>
+          <label className="policy-check"><input type="checkbox" checked={remoteConsent} onChange={(event) => setRemoteConsent(event.target.checked)} aria-describedby="telehealth-consent-clauses" /><span>{TELEHEALTH_CONSENT.checkboxLabel}</span></label>
+        </>}
+        <label className="policy-check"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} /><span>قرأت <a href="/terms" target="_blank">الشروط</a> و<a href="/privacy" target="_blank">الخصوصية</a> و<a href="/refund-policy" target="_blank">سياسة الإلغاء</a>.</span></label><div className="payment-note"><ShieldCheck /><span><strong>دفع آمن</strong><small>ننقلك إلى بوابة الدفع لإتمام العملية، ويُحجز موعدك فور نجاح الدفع. لا تمر بيانات بطاقتك عبر المنصة.</small></span></div>{submitError && <div className="form-error" role="alert">{submitError}</div>}</section>}
       {/* Say what is still needed rather than leaving a dead grey button. */}
       {missing.length > 0 && <p className="booking-missing" role="status"><AlertCircle /> يتبقى: {missing.join(" · ")}</p>}
       <footer className="booking-footer"><button type="button" className="button button-secondary" disabled={step === 0 || submitting} onClick={() => setStep((value) => value - 1)}><ArrowRight /> السابق</button>{step < 3 ? <button type="button" className="button" disabled={!canContinue} onClick={() => setStep((value) => value + 1)}>التالي <ArrowLeft /></button> : <button type="button" className="button" disabled={!canContinue || submitting} onClick={() => void submitBooking()}>{submitting ? <LoaderCircle className="spin" /> : <CreditCard />} المتابعة إلى الدفع</button>}</footer>

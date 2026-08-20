@@ -77,13 +77,25 @@ docs/            this file + the ones listed in §7
 ## 4. The security model (understand before touching payments)
 
 The original code let the browser insert `bookings` and set `total` itself. That
-is fixed, and the fix is load-bearing:
+is fixed, and the fix is load-bearing. It has also moved once since: the first
+fix (`20260804120000_booking_payment_flow.sql`) still created a real `bookings`
+row — locked slot included — *before* payment. `20260807110000_pay_before_booking.sql`
+replaced that: no `bookings` row exists until payment is verified. **Both old
+functions were dropped from the database on 2026-08-20**
+(`20260820150000_drop_orphaned_prepayment_booking_functions.sql`) after an audit
+found they were still callable by any authenticated user — a slot could be
+locked for free, permanently, since the new expiry job didn't know that old
+code path existed. If you find code or a doc referencing
+`create_booking_with_payment` or `create_enrollment_with_payment`, it is stale;
+treat it as a bug report, not documentation.
 
-1. `create_booking_with_payment(...)` — `SECURITY DEFINER`. Reads price from
-   `services`, locks the slot `FOR UPDATE`, inserts booking + `payments` row
-   atomically, raises typed errors (`SLOT_UNAVAILABLE`, `MODE_NOT_ALLOWED`, …).
+1. `create_booking_intent(...)` / `create_enrollment_intent(...)` — `SECURITY
+   DEFINER`. Read price from `services`/`courses`, place a **time-limited
+   reservation** on the slot, insert a `payments` row. No `bookings` row yet.
+   `convert_paid_intent(...)` — called only from `verifyPayment` after the
+   gateway confirms payment — is what actually inserts the `bookings` row.
 2. Direct `INSERT` on `bookings`/`enrollments` is **not** granted. Creation must
-   go through the functions.
+   go through the functions above.
 3. Patient `UPDATE` on `bookings` is column-scoped to
    `(meeting_url, meeting_event_id, meeting_provider, notes)`. It previously
    covered the whole row, including `total` and `status`.

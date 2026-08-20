@@ -1,0 +1,33 @@
+-- Drop the pre-payment booking/enrollment functions the app no longer calls.
+--
+-- `create_booking_with_payment` and `create_enrollment_with_payment`
+-- (20260804120000_booking_payment_flow.sql, redefined in
+-- 20260804180000_fix_enrollment_ambiguity.sql) implement the flow
+-- 20260807110000_pay_before_booking.sql deliberately replaced: they lock an
+-- availability slot and insert a real `bookings`/`enrollments` row
+-- immediately, with payment only expected to follow.
+--
+-- The replacement — create_booking_intent / create_enrollment_intent /
+-- convert_paid_intent, same file — is what runtime-api.ts actually calls
+-- today (grep confirms zero references to either old function outside this
+-- migration history and the stale docs/APPLY_MIGRATION.sql, which points at
+-- a different Supabase project entirely and is corrected separately).
+--
+-- The old functions were never revoked, so `grant execute ... to
+-- authenticated` (20260804120000:191-192) is still live. Any authenticated
+-- patient can call either directly over PostgREST right now and:
+--
+--   1. Flip a real availability_slots row to is_available = false with no
+--      payment at all — create_booking_with_payment does this before it
+--      ever touches `payments`.
+--   2. Have that lock survive forever. release_expired_reservations()
+--      (pay_before_booking.sql:41) only expires rows in booking_intents /
+--      enrollment_intents — the table this old path never wrote to. A slot
+--      taken this way is never released by anything.
+--
+-- A short script looping over open slots empties the calendar for real
+-- patients, for free, permanently. Dropping both closes it; nothing in the
+-- current app, tested or otherwise, calls them.
+
+drop function if exists public.create_booking_with_payment(uuid, uuid, uuid, text);
+drop function if exists public.create_enrollment_with_payment(uuid);

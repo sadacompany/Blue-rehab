@@ -1,11 +1,12 @@
 import { AlertCircle, CheckCircle2, FileText, FlaskConical, GraduationCap, LoaderCircle, Send } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDate } from "../lib/format";
 import {
   loadMySubmissions, submitContentForReview,
-  type ContentKind, type MySubmission,
+  type ContentKind,
 } from "../lib/content";
+import { useAsync } from "../lib/use-async";
 
 /**
  * طلب نشر — a specialist putting work forward for the scientific team to review.
@@ -36,15 +37,14 @@ const EMPTY = {
 export default function ContentSubmission() {
   const [kind, setKind] = useState<ContentKind | "course">("article");
   const [form, setForm] = useState(EMPTY);
-  const [mine, setMine] = useState<MySubmission[]>([]);
+  // The load failure is not surfaced anywhere — this list is not the point of
+  // the screen, so a fetch error here just means it stays empty rather than
+  // blocking the actual submission form above it.
+  const { data: mine, reload } = useAsync(loadMySubmissions, []);
+  const submissions = mine ?? [];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
-
-  async function reload() {
-    try { setMine(await loadMySubmissions()); } catch { /* the list is not the point of the screen */ }
-  }
-  useEffect(() => { void reload(); }, []);
 
   const field = (key: keyof typeof EMPTY) => ({
     value: form[key],
@@ -156,10 +156,10 @@ export default function ContentSubmission() {
       <p className="application-hint">لا يُنشر المحتوى إلا بعد اعتماد الإدارة. تُسجَّل كل موافقة باسم معتمِدها.</p>
     </div>}
 
-    {mine.length > 0 && <>
+    {submissions.length > 0 && <>
       <h3 className="trainer-section-title">طلباتك</h3>
       <div className="admin-list">
-        {mine.map((item) => <article key={`${item.kind}-${item.id}`} className={`admin-row status-${item.status}`}>
+        {submissions.map((item) => <article key={`${item.kind}-${item.id}`} className={`admin-row status-${item.status}`}>
           <div className="admin-row-main">
             <div>
               <strong>{item.title}</strong>

@@ -1,6 +1,7 @@
 import { ArrowUpLeft } from "lucide-react";
 import { Brand } from "./SiteHeader";
 import { Link } from "react-router-dom";
+import SocialLinks from "./SocialLinks";
 
 export default function SiteFooter() {
   return (
@@ -9,6 +10,7 @@ export default function SiteFooter() {
         <div className="footer-intro">
           <Brand />
           <p>منصة لإدارة رحلة العلاج الطبيعي والتعلم التأهيلي، من الطلب الأول إلى المتابعة والتوثيق.</p>
+          <SocialLinks />
         </div>
         <div>
           <strong>العلاج</strong>

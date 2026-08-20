@@ -1,9 +1,10 @@
 import { ArrowLeft, BookOpen, Clock3, Languages, MapPin, Monitor, RefreshCcw, ShieldCheck, UserRoundCheck, Video } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CatalogResponse, Course, Specialist } from "../lib/catalog-types";
-import { courseModeLabel, formatDate, formatPrice } from "../lib/format";
+import { courseModeLabel, formatDate, formatPrice, isOnOffer } from "../lib/format";
 import { loadCatalog } from "../lib/catalog";
 import DemoBadge from "./DemoBadge";
+import OfferBadge from "./OfferBadge";
 import { Link } from "react-router-dom";
 
 export function useCatalog() {
@@ -44,6 +45,7 @@ export function SpecialistCard({ specialist }: { specialist: Specialist }) {
 }
 
 export function CourseCard({ course }: { course: Course }) {
+  const onOffer = isOnOffer(course);
   return <article className="course-card">
     <div className={`course-cover course-${course.mode}`}>
       {/* The poster is the card whenever one exists — the same rule دوراتنا
@@ -54,13 +56,16 @@ export function CourseCard({ course }: { course: Course }) {
         : <><span><BookOpen /></span><small>{courseModeLabel(course.mode)}</small></>}
     </div>
     <div className="course-body">
-      <div className="course-labels"><span>{course.level}</span>{course.isDemo && <DemoBadge compact />}</div>
+      <div className="course-labels"><span>{course.level}</span>{onOffer && <OfferBadge compact />}{course.isDemo && <DemoBadge compact />}</div>
       <h3>{course.title}</h3>
       {course.presenterName && <p className="course-presenter"><UserRoundCheck /> {course.presenterName}</p>}
       <p>{course.summary}</p>
       <div className="course-facts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span></div>
       <div className="course-date">{course.startsAt ? `${course.isDemo ? "موعد توضيحي: " : "تاريخ البدء: "}${formatDate(course.startsAt)}` : "يعلن الموعد عند اعتماد الجدول"}</div>
-      <div className="course-footer"><div><small>{course.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatPrice(course.price)}</strong></div><Link to={`/courses/${course.slug}`}>التفاصيل <ArrowLeft /></Link></div>
+      {/* The former price is struck through beside the current one, so the
+          saving is a fact on the card and not something to work out from the
+          badge alone. */}
+      <div className="course-footer"><div><small>{course.isDemo ? "سعر توضيحي" : onOffer ? "السعر بعد العرض" : "السعر"}</small><strong className="course-price">{formatPrice(course.price)}{onOffer && <s>{formatPrice(course.compareAtPrice as number)}</s>}</strong></div><Link to={`/courses/${course.slug}`}>التفاصيل <ArrowLeft /></Link></div>
     </div>
   </article>;
 }

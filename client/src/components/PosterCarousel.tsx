@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 export type Poster = {
@@ -11,6 +12,13 @@ export type Poster = {
   /** Shown instead of artwork when a slot has no banner yet. */
   title?: string;
   note?: string;
+  /**
+   * A pill laid over the corner of the artwork. The artwork is the card here,
+   * so there is no body copy to hang a badge off — anything that has to be said
+   * about a poster has to be said on top of it. Only دوراتنا uses this, for the
+   * offer tag; a poster without one is drawn exactly as before.
+   */
+  badge?: ReactNode;
 };
 
 /**
@@ -82,11 +90,12 @@ export default function PosterCarousel(
           const body = item.image
             ? <img src={item.image} alt={item.alt} loading="lazy" decoding="async" />
             : <span className="poster-fallback"><b>{item.title}</b>{item.note && <small>{item.note}</small>}</span>;
+          const face = <>{body}{item.badge && <span className="poster-badge">{item.badge}</span>}</>;
           return (
             <li className={`poster ${item.featured ? "poster-featured" : "poster-side"}`} key={item.key}>
               {item.href
-                ? <Link className="poster-face" to={item.href}>{body}</Link>
-                : <div className="poster-face">{body}</div>}
+                ? <Link className="poster-face" to={item.href}>{face}</Link>
+                : <div className="poster-face">{face}</div>}
             </li>
           );
         })}

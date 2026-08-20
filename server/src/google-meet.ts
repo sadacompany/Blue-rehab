@@ -47,6 +47,14 @@ type GoogleEventResponse = {
   conferenceData?: { entryPoints?: Array<{ entryPointType: string; uri: string }> };
 };
 
+// Neither Google call had a bound before this: a hang here ran out the clock
+// on the whole request (see the comment on createMeeting's caller in
+// runtime-api.ts — this path runs *after* a payment is already confirmed, so
+// a stall here must not look like a failed payment to the user). 8s is
+// generous for a single token or calendar-insert call and still leaves the
+// rest of verifyPayment's 30s Vercel budget intact.
+const GOOGLE_TIMEOUT_MS = 8_000;
+
 async function fetchAccessToken(): Promise<string> {
   const response = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
@@ -57,6 +65,7 @@ async function fetchAccessToken(): Promise<string> {
       refresh_token: config.GOOGLE_OAUTH_REFRESH_TOKEN as string,
       grant_type: "refresh_token",
     }),
+    signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
   });
   const payload = (await response.json().catch(() => ({}))) as GoogleTokenResponse;
   if (!response.ok || !payload.access_token) {
@@ -105,6 +114,7 @@ export async function createMeetEvent(request: MeetRequest): Promise<MeetResult>
         },
       },
     }),
+    signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
   });
 
   if (!response.ok) {

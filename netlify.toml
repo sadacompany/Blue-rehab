@@ -26,3 +26,26 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Mirrors vercel.json's header set. Discovered 2026-08-20: this site is a live,
+# Git-connected mirror of the Vercel deployment (auto-deploys from GitHub
+# `main`), and until this block existed it was the one publicly reachable copy
+# of blue-rehab.vercel.app running with none of the CSP/HSTS/frame protections
+# below — those had only ever been added to vercel.json. Keep the two files in
+# sync; a header added to one and not the other is exactly this bug again.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://jmgfabzsgrukrzpnuhux.supabase.co; font-src 'self' data:; connect-src 'self' https://jmgfabzsgrukrzpnuhux.supabase.co wss://jmgfabzsgrukrzpnuhux.supabase.co; form-action 'self' https://api.moyasar.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), interest-cohort=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Cache-Control = "no-store"

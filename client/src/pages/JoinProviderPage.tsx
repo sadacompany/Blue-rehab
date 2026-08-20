@@ -1,5 +1,5 @@
 import { AlertCircle, BadgeCheck, CheckCircle2, Clock3, GraduationCap, ImagePlus, LoaderCircle, Send, Stethoscope, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import FileField, { attachmentLabel } from "../components/FileField";
 import PageShell from "../components/PageShell";
@@ -16,6 +16,7 @@ import {
   type ProviderApplication,
   type ProviderKind,
 } from "../lib/provider";
+import { useAsync } from "../lib/use-async";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "قيد المراجعة",
@@ -52,10 +53,13 @@ const EMPTY = {
 export default function JoinProviderPage() {
   const [kind, setKind] = useState<ProviderKind>("specialist");
   const [form, setForm] = useState(EMPTY);
-  const [applications, setApplications] = useState<ProviderApplication[]>([]);
-  const [roles, setRoles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Every action on this page — a photo upload, a credential upload, submit,
+  // withdraw, and the load itself — used to share this one `error` state, so
+  // it stays one state here too rather than being split per action; only the
+  // load's own failure is carved out into `loadError` below, the same way the
+  // other reworked screens on this page separate an action's own failure from
+  // a background reload's.
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [files, setFiles] = useState<string[]>([]);
@@ -116,24 +120,27 @@ export default function JoinProviderPage() {
     await removeCredential(path).catch(() => undefined);
   }
 
-  async function reload() {
-    setLoading(true);
+  const fetchApplications = useCallback(async (): Promise<{ applications: ProviderApplication[]; roles: string[] } | null> => {
     try {
       const [apps, myRoles] = await Promise.all([loadMyApplications(), loadMyRoles()]);
-      setApplications(apps);
-      setRoles(myRoles);
+      return { applications: apps, roles: myRoles };
     } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         window.location.href = `/login?returnTo=${encodeURIComponent("/join")}`;
-        return;
+        return null;
       }
-      setError(reason instanceof Error ? reason.message : "تعذر تحميل الطلبات");
-    } finally {
-      setLoading(false);
+      throw reason;
     }
-  }
+  }, []);
 
-  useEffect(() => { void reload(); }, []);
+  const { data, loading, error: loadError, reload } = useAsync(fetchApplications, [fetchApplications]);
+  const applications = data?.applications ?? [];
+  const roles = data?.roles ?? [];
+  // The load's own failure was never distinguished from an action's failure
+  // in the original — `reload()` fed the same `error` state without even
+  // clearing it first — so this combines them the same way the other reworked
+  // screens do, for the same reason.
+  const combinedError = error || loadError;
 
   const field = (key: keyof typeof EMPTY) => ({
     value: form[key],
@@ -290,7 +297,7 @@ export default function JoinProviderPage() {
           </div>
 
           {missing.length > 0 && <p className="booking-missing"><AlertCircle /> يتبقى: {missing.join(" · ")}</p>}
-          {error && <div className="form-error" role="alert">{error}</div>}
+          {combinedError && <div className="form-error" role="alert">{combinedError}</div>}
 
           <button className="button" type="button" disabled={busy || missing.length > 0} onClick={() => void submit()}>
             {busy ? <LoaderCircle className="spin" /> : <Send />} إرسال الطلب للمراجعة

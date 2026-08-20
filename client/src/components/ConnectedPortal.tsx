@@ -1,9 +1,10 @@
 import { BadgeCheck, Bell, BookOpenCheck, CalendarDays, CalendarPlus, CheckCircle2, CreditCard, GraduationCap, LogOut, MapPin, RefreshCcw, ShieldCheck, Stethoscope, UserRound, Video } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { deliveryLabel, formatCurrency, formatDateTime } from "../lib/format";
 import { downloadIcs } from "../lib/invites";
 import { AuthenticationRequiredError, loadPortalSnapshot, markNotificationsRead, settlePayments, type PortalSnapshot } from "../lib/platform";
 import { supabase } from "../lib/supabase";
+import { useAsync } from "../lib/use-async";
 import PageShell from "./PageShell";
 import { PortalSkeleton } from "./Skeleton";
 import { Link } from "react-router-dom";
@@ -63,27 +64,20 @@ function statusLabel(status: string) {
 }
 
 export default function ConnectedPortal() {
-  const [data, setData] = useState<PortalSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  async function reload() {
-    setLoading(true);
-    setError("");
+  const fetchPortal = useCallback(async (): Promise<PortalSnapshot | null> => {
     try {
-      setData(await loadPortalSnapshot());
-    }
-    catch (reason) {
+      return await loadPortalSnapshot();
+    } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
         const returnTo = encodeURIComponent("/portal");
         window.location.href = `/login?returnTo=${returnTo}`;
-        return;
+        return null;
       }
-      setError(reason instanceof Error ? reason.message : "تعذر تحميل الحساب");
-    } finally { setLoading(false); }
-  }
+      throw reason;
+    }
+  }, []);
 
-  useEffect(() => { void reload(); }, []);
+  const { data, loading, error, reload, setData } = useAsync(fetchPortal, [fetchPortal]);
 
   // Reconciliation runs *after* the page is on screen, not before it.
   //
@@ -98,7 +92,10 @@ export default function ConnectedPortal() {
       .then((result) => { if (alive && result.settled > 0) void reload(); })
       .catch(() => undefined);
     return () => { alive = false; };
-  }, []);
+    // `reload` is stable (see `useAsync`), so this still only runs once on
+    // mount — listing it is what the rule actually asks for, not a behaviour
+    // change.
+  }, [reload]);
 
   async function markAllRead() {
     setData((current) => current && { ...current, notifications: current.notifications.map((item) => ({ ...item, read_at: item.read_at ?? new Date().toISOString() })) });
