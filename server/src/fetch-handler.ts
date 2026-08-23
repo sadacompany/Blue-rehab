@@ -4,10 +4,13 @@ import {
   createBookingMeeting,
   createEnrollment,
   createPaymentCheckout,
+  createTestMeeting,
+  deleteTestMeeting,
   getCatalog,
   getCourseDetail,
   getHealth,
   getPaymentConfig,
+  listMeetTestSpecialists,
   settlePendingPayments,
   verifyPayment,
   type ApiResult,
@@ -77,6 +80,7 @@ export async function handleApiRequest(request: Request): Promise<Response> {
       if (path === "/payments/config") return json(request, getPaymentConfig());
       const courseMatch = path.match(/^\/courses\/([^/]+)$/);
       if (courseMatch) return json(request, await getCourseDetail(decodeURIComponent(courseMatch[1])));
+      if (path === "/admin/meet-test/specialists") return json(request, await listMeetTestSpecialists(authorization));
     }
 
     if (request.method === "POST") {
@@ -87,6 +91,8 @@ export async function handleApiRequest(request: Request): Promise<Response> {
       if (path === "/payments/settle") return json(request, await settlePendingPayments(authorization));
       const meetMatch = path.match(/^\/bookings\/([^/]+)\/meet$/);
       if (meetMatch) return json(request, await createBookingMeeting(authorization, { bookingId: decodeURIComponent(meetMatch[1]) }));
+      if (path === "/admin/meet-test") return json(request, await createTestMeeting(authorization, await readJson(request)));
+      if (path === "/admin/meet-test/cancel") return json(request, await deleteTestMeeting(authorization, await readJson(request)));
     }
 
     return json(request, { status: 404, body: { error: "Route not found" } });

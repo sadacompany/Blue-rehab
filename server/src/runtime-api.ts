@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { config } from "./config.js";
+import { deleteMeetEvent } from "./google-meet.js";
 import { createMeeting, isMeetingConfigured, meetingProvider } from "./meetings.js";
 import {
   createInvoice,
@@ -62,24 +63,37 @@ async function issueMeetingLinkIfRemote(
 ) {
   if (!isMeetingConfigured()) return;
   try {
+    // `patient:profiles(email)` / `specialist:specialists(email)` ride along
+    // on the same query via the existing patient_id/specialist_id foreign
+    // keys — this is the fix for the "both people just wait" bug. Neither
+    // column is reachable through the client's own grants (see
+    // 20260823100000_specialist_and_profile_email.sql); `admin` here is the
+    // service-role client, which reads past that by design.
     const { data: row } = await admin
       .from("payments")
-      .select("booking:bookings(id,mode,starts_at,ends_at,meeting_url)")
+      .select("booking:bookings(id,mode,starts_at,ends_at,meeting_url,patient:profiles(email),specialist:specialists(email))")
       .eq("order_number", orderNumber)
       .maybeSingle();
 
     const joined = (row as { booking?: unknown } | null)?.booking;
     const booking = (Array.isArray(joined) ? joined[0] : joined) as
-      | { id: string; mode: string; starts_at: string; ends_at: string | null; meeting_url: string | null }
+      | {
+          id: string; mode: string; starts_at: string; ends_at: string | null; meeting_url: string | null;
+          patient?: { email: string | null } | { email: string | null }[] | null;
+          specialist?: { email: string | null } | { email: string | null }[] | null;
+        }
       | undefined;
 
     if (!booking || booking.mode !== "remote" || booking.meeting_url) return;
+
+    const patientEmail = Array.isArray(booking.patient) ? booking.patient[0]?.email : booking.patient?.email;
+    const specialistEmail = Array.isArray(booking.specialist) ? booking.specialist[0]?.email : booking.specialist?.email;
 
     const meeting = await createMeeting({
       bookingId: booking.id,
       startsAt: booking.starts_at,
       endsAt: booking.ends_at,
-      attendeeEmail: null,
+      attendeeEmails: [patientEmail, specialistEmail],
     });
     if (!meeting) return;
 
@@ -263,7 +277,7 @@ export async function createBookingMeeting(authorization: string | null, params:
 
   const { data: booking, error: bookingError } = await client
     .from("bookings")
-    .select("id,patient_id,mode,starts_at,ends_at,meeting_url")
+    .select("id,patient_id,specialist_id,mode,starts_at,ends_at,meeting_url")
     .eq("id", bookingId)
     .maybeSingle();
   if (bookingError || !booking) return { status: 404, body: { error: "Booking not found" }, cacheControl: noStore };
@@ -277,11 +291,24 @@ export async function createBookingMeeting(authorization: string | null, params:
     return { status: 200, body: { meetingUrl: null, configured: false }, cacheControl: noStore };
   }
 
+  // `userData.user.email` is never real here — this platform authenticates by
+  // phone (see 20260823100000_specialist_and_profile_email.sql), so under the
+  // old code this endpoint minted a Meet link with no attendee at all, same
+  // bug as issueMeetingLinkIfRemote. `email` is grant-restricted away from
+  // `authenticated` (client), which is why this reads through `admin` —
+  // ownership was already established above via the RLS-scoped client, so
+  // this is only ever fetching contact emails for a booking this caller owns.
+  const admin = adminClient();
+  const [patientRow, specialistRow] = await Promise.all([
+    admin?.from("profiles").select("email").eq("id", booking.patient_id).maybeSingle().then((r) => r.data),
+    admin?.from("specialists").select("email").eq("id", booking.specialist_id).maybeSingle().then((r) => r.data),
+  ]);
+
   const meeting = await createMeeting({
     bookingId: booking.id,
     startsAt: booking.starts_at,
     endsAt: booking.ends_at,
-    attendeeEmail: userData.user.email ?? null,
+    attendeeEmails: [patientRow?.email, specialistRow?.email],
   });
   if (!meeting) {
     return { status: 200, body: { meetingUrl: null, configured: false }, cacheControl: noStore };
@@ -293,6 +320,123 @@ export async function createBookingMeeting(authorization: string | null, params:
     .eq("id", booking.id);
 
   return { status: 200, body: { meetingUrl: meeting.url, configured: true }, cacheControl: noStore };
+}
+
+// ---------------------------------------------------------- meet test tool --
+//
+// Admin-only diagnostic for the bug this whole file's Meet wiring exists to
+// fix: a real Calendar event, with the same attendee mechanism a real booking
+// uses, so a specialist and a tester can actually join with their real Google
+// accounts and confirm neither of them sits in the waiting room. Nothing
+// about this reuses booking/payment state — it exists so the fix can be
+// proven with real accounts before trusting it on a real patient.
+
+const testMeetingSchema = z.object({
+  specialistId: z.string().uuid(),
+  testEmail: z.string().email(),
+});
+
+async function requireAdmin(authorization: string | null): Promise<AuthOutcome> {
+  const auth = await authenticate(authorization);
+  if (!auth.ok) return auth;
+  const { data, error } = await auth.client.rpc("is_admin");
+  if (error || data !== true) {
+    return { ok: false, result: { status: 403, body: { error: "للإدارة فقط." }, cacheControl: noStore } };
+  }
+  return auth;
+}
+
+/**
+ * Specialist names for the test-meeting picker, with only a boolean saying
+ * whether an email is on file — never the address itself. The browser has no
+ * legitimate need for it; the create/delete actions below take a specialist
+ * id and resolve the real address server-side.
+ */
+export async function listMeetTestSpecialists(authorization: string | null): Promise<ApiResult> {
+  const auth = await requireAdmin(authorization);
+  if (!auth.ok) return auth.result;
+
+  const admin = adminClient();
+  if (!admin) return { status: 503, body: { error: "مفتاح الخدمة غير مهيأ على الخادم." }, cacheControl: noStore };
+
+  const { data, error } = await admin.from("specialists").select("id,display_name,email").order("display_name");
+  if (error) throw error;
+
+  return {
+    status: 200,
+    cacheControl: noStore,
+    body: (data ?? []).map((row) => ({ id: row.id, displayName: row.display_name, hasEmail: Boolean(row.email) })),
+  };
+}
+
+export async function createTestMeeting(authorization: string | null, payload: unknown): Promise<ApiResult> {
+  const auth = await requireAdmin(authorization);
+  if (!auth.ok) return auth.result;
+
+  if (meetingProvider() !== "google") {
+    return { status: 409, body: { error: "المزوّد الحالي ليس Google Meet — لا يوجد ما يُختبر." }, cacheControl: noStore };
+  }
+
+  const input = testMeetingSchema.parse(payload);
+  const admin = adminClient();
+  if (!admin) {
+    return { status: 503, body: { error: "مفتاح الخدمة غير مهيأ على الخادم." }, cacheControl: noStore };
+  }
+
+  const { data: specialist } = await admin
+    .from("specialists")
+    .select("display_name,email")
+    .eq("id", input.specialistId)
+    .maybeSingle();
+  if (!specialist) return { status: 404, body: { error: "لم نجد هذا الأخصائي." }, cacheControl: noStore };
+  if (!specialist.email) {
+    return { status: 422, body: { error: `لا يوجد بريد إلكتروني مسجّل لـ ${specialist.display_name}. أضِفه أولاً.` }, cacheControl: noStore };
+  }
+
+  // Ten minutes out, thirty-minute window — enough time to open the link and
+  // join, short enough that a forgotten test event does not sit on the
+  // clinic's calendar looking like a real appointment.
+  const startsAt = new Date(Date.now() + 10 * 60_000);
+  const endsAt = new Date(startsAt.getTime() + 30 * 60_000);
+
+  const meeting = await createMeeting({
+    bookingId: `test-${Date.now().toString(36)}`,
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+    attendeeEmails: [specialist.email, input.testEmail],
+  });
+  if (!meeting) {
+    return { status: 503, body: { error: "تعذّر إنشاء الاجتماع." }, cacheControl: noStore };
+  }
+
+  return {
+    status: 200,
+    cacheControl: noStore,
+    body: {
+      meetingUrl: meeting.url,
+      eventId: meeting.eventId,
+      attendees: meeting.attendees ?? [],
+      specialistName: specialist.display_name,
+      specialistEmail: specialist.email,
+      testEmail: input.testEmail,
+      startsAt: startsAt.toISOString(),
+    },
+  };
+}
+
+const deleteTestMeetingSchema = z.object({ eventId: z.string().min(1) });
+
+export async function deleteTestMeeting(authorization: string | null, payload: unknown): Promise<ApiResult> {
+  const auth = await requireAdmin(authorization);
+  if (!auth.ok) return auth.result;
+
+  const { eventId } = deleteTestMeetingSchema.parse(payload);
+  try {
+    await deleteMeetEvent(eventId);
+  } catch (reason) {
+    return { status: 502, body: { error: reason instanceof Error ? reason.message : "تعذّر الحذف." }, cacheControl: noStore };
+  }
+  return { status: 200, body: { deleted: true }, cacheControl: noStore };
 }
 
 // ------------------------------------------------------------------ courses --

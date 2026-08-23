@@ -31,6 +31,8 @@ export type MeetingResult = {
   provider: "jitsi" | "google_meet";
   /** Calendar event id, when the provider creates one. */
   eventId?: string | null;
+  /** Emails Google confirmed as invited, when the provider is google_meet. Empty for jitsi — there is no guest list to confirm. */
+  attendees?: string[];
 };
 
 export type MeetingRequest = {
@@ -38,7 +40,18 @@ export type MeetingRequest = {
   orderNumber?: string | null;
   startsAt: string;
   endsAt?: string | null;
-  attendeeEmail?: string | null;
+  /**
+   * Everyone who should be able to join without Meet making them "ask to
+   * join" first. This is not decoration — the clinic's Meet links are minted
+   * under a personal Gmail (not Google Workspace), so nobody joining is
+   * signed into the organising account. The only way Meet recognises a
+   * joiner and lets them straight in is if their signed-in Google account
+   * matches an email on this list. An empty list is what produced the
+   * original bug: both patient and specialist showed up as anonymous
+   * guests, both had to knock, and there was no one already inside able to
+   * let either of them in.
+   */
+  attendeeEmails?: (string | null | undefined)[];
 };
 
 export function meetingProvider(): "jitsi" | "google" | "none" {
@@ -88,7 +101,10 @@ export async function createMeeting(request: MeetingRequest): Promise<MeetingRes
     description: `رقم الحجز: ${request.bookingId}${request.orderNumber ? `\nرقم الطلب: ${request.orderNumber}` : ""}`,
     startsAt: request.startsAt,
     endsAt: request.endsAt ?? null,
-    attendees: request.attendeeEmail ? [request.attendeeEmail] : [],
+    // google-meet.ts's own attendee mapping already filters for a real "@",
+    // so passing through nulls/empties here is safe — this is just collecting
+    // whoever the caller actually has an email for.
+    attendees: (request.attendeeEmails ?? []).filter((email): email is string => Boolean(email)),
   });
-  return { url: meeting.meetUrl, provider: "google_meet", eventId: meeting.eventId };
+  return { url: meeting.meetUrl, provider: "google_meet", eventId: meeting.eventId, attendees: meeting.attendees };
 }

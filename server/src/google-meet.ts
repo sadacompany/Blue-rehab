@@ -37,6 +37,8 @@ export type MeetResult = {
   meetUrl: string;
   eventId: string;
   htmlLink: string;
+  /** Emails Google actually confirmed on the event, echoed back for callers that need to verify (the admin Meet-test tool). */
+  attendees: string[];
 };
 
 type GoogleTokenResponse = { access_token?: string; error_description?: string };
@@ -45,6 +47,7 @@ type GoogleEventResponse = {
   htmlLink: string;
   hangoutLink?: string;
   conferenceData?: { entryPoints?: Array<{ entryPointType: string; uri: string }> };
+  attendees?: Array<{ email: string }>;
 };
 
 // Neither Google call had a bound before this: a hang here ran out the clock
@@ -129,5 +132,27 @@ export async function createMeetEvent(request: MeetRequest): Promise<MeetResult>
   if (!meetUrl) {
     throw new Error("google_meet_link_missing");
   }
-  return { meetUrl, eventId: event.id, htmlLink: event.htmlLink };
+  return {
+    meetUrl,
+    eventId: event.id,
+    htmlLink: event.htmlLink,
+    attendees: (event.attendees ?? []).map((a) => a.email),
+  };
+}
+
+/** Cancel a calendar event. Used to clean up after the admin Meet-test tool; never called on a real booking's event. */
+export async function deleteMeetEvent(eventId: string): Promise<void> {
+  if (!isGoogleMeetConfigured()) {
+    throw new Error("google_meet_not_configured");
+  }
+  const accessToken = await fetchAccessToken();
+  const calendarId = encodeURIComponent(config.GOOGLE_CALENDAR_ID);
+  const response = await fetch(
+    `${GOOGLE_CALENDAR_API}/calendars/${calendarId}/events/${encodeURIComponent(eventId)}?sendUpdates=none`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS) },
+  );
+  // 410 Gone means it's already deleted — fine, that's the state we wanted.
+  if (!response.ok && response.status !== 410) {
+    throw new Error(`google_event_delete_failed_${response.status}`);
+  }
 }

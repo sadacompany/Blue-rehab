@@ -8,6 +8,7 @@ import AdminApplications from "./AdminApplications";
 import AdminBookings from "./AdminBookings";
 import AdminCatalogue from "./AdminCatalogue";
 import AdminContent from "./AdminContent";
+import AdminMeetTest from "./AdminMeetTest";
 import AdminOverview from "./AdminOverview";
 import AdminPayments from "./AdminPayments";
 import AdminSupport from "./AdminSupport";
@@ -18,7 +19,7 @@ import PageShell from "./PageShell";
 import { SkeletonLine, SkeletonMetrics } from "./Skeleton";
 import { useAsync } from "../lib/use-async";
 
-export type Tab = "overview" | "applications" | "users" | "catalogue" | "content" | "bookings" | "payments" | "support" | "training" | "team";
+export type Tab = "overview" | "applications" | "users" | "catalogue" | "content" | "bookings" | "payments" | "support" | "training" | "team" | "meetTest";
 
 /**
  * The admin dashboard shell.
@@ -120,6 +121,7 @@ export default function AdminDashboard() {
         ["support", `الدعم${overview.support.open ? ` (${overview.support.open})` : ""}`],
         ["training", `التدريب الصيفي${training.filter((t) => t.status === "new").length ? ` (${training.filter((t) => t.status === "new").length})` : ""}`],
         ["team", "الفريق الطبي"],
+        ["meetTest", "اختبار الاجتماع المرئي"],
       ] as [Tab, string][]).map(([key, label]) => <button
         key={key} role="tab" aria-selected={tab === key}
         className={tab === key ? "is-active" : ""} onClick={() => setTab(key)}
@@ -148,5 +150,7 @@ export default function AdminDashboard() {
     {tab === "training" && <AdminTraining training={training} note={note} setNote={setNote} {...actions} />}
 
     {tab === "team" && <AdminTeam />}
+
+    {tab === "meetTest" && <AdminMeetTest />}
   </div></section></PageShell>;
 }

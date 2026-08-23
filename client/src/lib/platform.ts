@@ -48,7 +48,8 @@ export type BookingResult = {
   reservedUntil: string | null;
 };
 
-async function authorizedFetch(path: string, init?: RequestInit) {
+/** Exported so other lib modules (admin.ts's Meet-test tool) hit the API the same authenticated way, rather than a second copy of this. */
+export async function authorizedFetch(path: string, init?: RequestInit) {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
   if (!token) throw new AuthenticationRequiredError();

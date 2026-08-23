@@ -1,4 +1,4 @@
-import { AuthenticationRequiredError } from "./platform";
+import { authorizedFetch, AuthenticationRequiredError } from "./platform";
 import { typedSupabase as supabase } from "./supabase";
 import type { ProviderApplication } from "./provider";
 import type { Database } from "./database.types";
@@ -507,4 +507,42 @@ export async function assignCourseTrainer(courseId: string, trainerId: string | 
 export async function setSupportStatus(requestId: string, status: string) {
   const { error } = await supabase.rpc("admin_set_support_status", { p_request_id: requestId, p_status: status });
   if (error) throw new Error(translate(error.message));
+}
+
+// -------------------------------------------------------- Meet test tool --
+//
+// A specialist's email is not readable from the browser at all (see
+// 20260823100000_specialist_and_profile_email.sql) — even for an admin — so
+// every call here goes through the Node API (server/src/runtime-api.ts),
+// which reads it with the service-role client and never sends the raw
+// address back down, only whether one is on file.
+
+export type MeetTestSpecialist = { id: string; displayName: string; hasEmail: boolean };
+
+export async function loadMeetTestSpecialists(): Promise<MeetTestSpecialist[]> {
+  return authorizedFetch("/admin/meet-test/specialists");
+}
+
+export type MeetTestResult = {
+  meetingUrl: string;
+  eventId: string;
+  attendees: string[];
+  specialistName: string;
+  specialistEmail: string;
+  testEmail: string;
+  startsAt: string;
+};
+
+export async function createMeetTest(specialistId: string, testEmail: string): Promise<MeetTestResult> {
+  return authorizedFetch("/admin/meet-test", {
+    method: "POST",
+    body: JSON.stringify({ specialistId, testEmail }),
+  });
+}
+
+export async function cancelMeetTest(eventId: string): Promise<void> {
+  await authorizedFetch("/admin/meet-test/cancel", {
+    method: "POST",
+    body: JSON.stringify({ eventId }),
+  });
 }
