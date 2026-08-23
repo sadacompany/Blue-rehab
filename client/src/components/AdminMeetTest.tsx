@@ -1,8 +1,21 @@
-import { AlertTriangle, CheckCircle2, LoaderCircle, Video, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, LoaderCircle, UserCheck, Video, XCircle } from "lucide-react";
 import { useState } from "react";
 import { formatDateTime } from "../lib/format";
-import { cancelMeetTest, createMeetTest, loadMeetTestSpecialists, type MeetTestResult } from "../lib/admin";
+import { cancelMeetTest, createMeetTest, loadMeetTestSpecialists, repairBookingMeeting, type MeetTestResult, type RepairMeetingResult } from "../lib/admin";
 import { useAsync } from "../lib/use-async";
+
+/**
+ * Bookings made before a patient's email was collected (everything before
+ * 2026-08-23) have a Meet event with nobody but the specialist invited — the
+ * booking-flow fix that now requires an email cannot reach a reservation
+ * that already exists. This repairs one booking at a time by id, and lists
+ * the two the client himself hit the bug on, so fixing them is one click
+ * rather than a database lookup.
+ */
+const KNOWN_STUCK_BOOKINGS = [
+  { id: "a0c65da7-463d-403e-9438-0410dd546246", label: "حجز جمال أبو النجا — الأول" },
+  { id: "a934c6b6-3548-4fef-93ee-b6a6ed22fba5", label: "حجز جمال أبو النجا — الثاني" },
+];
 
 /**
  * A real Google Meet event, minted through the exact same code path a paid
@@ -28,6 +41,25 @@ export default function AdminMeetTest() {
   const [result, setResult] = useState<MeetTestResult | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelled, setCancelled] = useState(false);
+
+  const [repairId, setRepairId] = useState("");
+  const [repairBusy, setRepairBusy] = useState("");
+  const [repairError, setRepairError] = useState("");
+  const [repairResult, setRepairResult] = useState<{ id: string; label: string; data: RepairMeetingResult } | null>(null);
+
+  async function repair(bookingId: string, label: string) {
+    setRepairBusy(bookingId);
+    setRepairError("");
+    setRepairResult(null);
+    try {
+      const data = await repairBookingMeeting(bookingId);
+      setRepairResult({ id: bookingId, label, data });
+    } catch (reason) {
+      setRepairError(reason instanceof Error ? reason.message : "تعذر إصلاح المدعوّين لهذا الحجز.");
+    } finally {
+      setRepairBusy("");
+    }
+  }
 
   async function create() {
     setBusy(true);
@@ -110,5 +142,35 @@ export default function AdminMeetTest() {
         بحساب {result.testEmail}. إن دخل كلاهما مباشرة دون شاشة «طلب الانضمام» — المشكلة محلولة.
       </p>
     </div>}
+
+    <hr style={{ margin: "24px 0", border: 0, borderTop: "1px solid var(--color-line)" }} />
+
+    <h3 className="booking-subhead">إصلاح حجوزات سابقة عالقة</h3>
+    <p className="application-hint" style={{ marginBottom: 16 }}>
+      حجوزات أُنشئت قبل إضافة البريد الإلكتروني للمريض لن يستفيد رابط اجتماعها من الإصلاح تلقائياً — هذه الأداة تضيف
+      من هو مسجّل الآن (بريد المريض و/أو الأخصائي) إلى نفس الاجتماع دون تغيير الموعد أو الرابط.
+    </p>
+
+    <div className="admin-row-actions" style={{ marginBottom: 12 }}>
+      {KNOWN_STUCK_BOOKINGS.map((b) => <button key={b.id} className="button button-small button-ghost" type="button"
+        disabled={repairBusy === b.id} onClick={() => void repair(b.id, b.label)}>
+        {repairBusy === b.id ? <LoaderCircle className="spin" /> : <UserCheck />} إصلاح: {b.label}
+      </button>)}
+    </div>
+
+    <form className="specialist-exercise-composer" onSubmit={(e) => { e.preventDefault(); if (repairId.trim()) void repair(repairId.trim(), repairId.trim()); }}>
+      <label>
+        <span>معرّف حجز آخر</span>
+        <input placeholder="Booking ID" dir="ltr" value={repairId} onChange={(e) => setRepairId(e.target.value)} />
+      </label>
+      <button className="button button-small" type="submit" disabled={!repairId.trim() || repairBusy === repairId.trim()}>
+        {repairBusy === repairId.trim() && repairBusy ? <LoaderCircle className="spin" /> : <UserCheck />} إصلاح
+      </button>
+    </form>
+
+    {repairError && <p className="specialist-error" style={{ marginTop: 8 }}><AlertTriangle /> {repairError}</p>}
+    {repairResult && <p className="application-hint" style={{ marginTop: 8 }}>
+      <CheckCircle2 /> تم تحديث «{repairResult.label}» — المدعوّون الآن: {repairResult.data.attendees.length ? repairResult.data.attendees.join("، ") : "لا أحد"}.
+    </p>}
   </section>;
 }

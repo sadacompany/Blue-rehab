@@ -2,7 +2,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, Check, CreditCard, He
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DeliveryMode } from "../lib/catalog-types";
 import { deliveryLabel, formatCurrency, formatDateTime, formatDayLabel, formatTime } from "../lib/format";
-import { AuthenticationRequiredError, createBooking, loadCatalog, loadPaymentConfig, recordTelehealthConsent, startCheckout, type BookingResult, type PaymentConfig } from "../lib/platform";
+import { AuthenticationRequiredError, createBooking, loadCatalog, loadPaymentConfig, recordTelehealthConsent, setContactEmail, startCheckout, type BookingResult, type PaymentConfig } from "../lib/platform";
 import { TELEHEALTH_CONSENT, TELEHEALTH_CONSENT_VERSION, telehealthConsentText } from "../lib/telehealth-consent";
 import { useAsync } from "../lib/use-async";
 import DemoBadge from "./DemoBadge";
@@ -45,7 +45,11 @@ type BookingDraft = {
   slotId: string;
   details: Details;
   accepted: boolean;
+  contactEmail: string;
 };
+
+/** Good enough to catch typos before they reach the server; the server re-validates. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Starting values, and the shape every restored draft is merged onto.
@@ -89,6 +93,22 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   const [slotId, setSlotId] = useState("");
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
   const [accepted, setAccepted] = useState(false);
+  /**
+   * Contact email for a *remote* session — the only reason this exists is
+   * that Google Meet, on the clinic's personal (non-Workspace) account, only
+   * lets an *invited* guest in without knocking, and only an invited guest
+   * already inside is positioned to admit anyone else. This platform
+   * otherwise never asks for an email (phone/OTP only), so without this
+   * field a patient's `profiles.email` stays null forever and every remote
+   * session leaves them stuck asking to join with nobody able to let them
+   * in — confirmed in real testing, not theoretical.
+   *
+   * Unlike the consent tick below, this is ordinary contact info, not a
+   * one-time attestation, so it *is* restored from the draft (and, once
+   * saved, from a returning patient's profile) rather than starting blank
+   * every time.
+   */
+  const [contactEmail, setContactEmailField] = useState("");
   /**
    * Informed consent to a *remote* session, kept separate from the terms
    * checkbox above on purpose.
@@ -155,6 +175,7 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
         // Merge, never replace: an older draft is missing the newer fields.
         setDetails({ ...EMPTY_DETAILS, ...(draft.details ?? {}) });
         setAccepted(draft.accepted);
+        setContactEmailField(draft.contactEmail ?? "");
         // Without a slot they must revisit step 2; otherwise resume where they left off.
         setStep(slotStillFree ? draft.step : 1);
       }
@@ -210,9 +231,9 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   useEffect(() => {
     if (!restored.current || booking) return;
     try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ step, serviceId, mode, specialistId, slotId, details, accepted }));
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ step, serviceId, mode, specialistId, slotId, details, accepted, contactEmail }));
     } catch { /* storage unavailable — the wizard still works, it just will not survive login */ }
-  }, [booking, step, serviceId, mode, specialistId, slotId, details, accepted]);
+  }, [booking, step, serviceId, mode, specialistId, slotId, details, accepted, contactEmail]);
 
   /**
    * What is still missing on the current step.
@@ -238,13 +259,15 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
         !text(details.goal) && "هدفك من الجلسة",
       ].filter(Boolean) as string[];
     }
-    // The telehealth consent blocks the confirm button for a remote session and
-    // only for a remote session — a clinic booking never sees it.
+    // The telehealth consent — and now the contact email — block the confirm
+    // button for a remote session and only for a remote session; a clinic
+    // booking never sees either.
     return [
       !accepted && "الموافقة على الشروط وسياسة الإلغاء",
       mode === "remote" && !remoteConsent && "الموافقة المستنيرة على الجلسة عن بُعد",
+      mode === "remote" && !EMAIL_PATTERN.test(contactEmail.trim()) && "بريد إلكتروني صالح لدعوتك لرابط الاجتماع",
     ].filter(Boolean) as string[];
-  }, [step, serviceId, mode, specialistId, slotId, details, accepted, remoteConsent]);
+  }, [step, serviceId, mode, specialistId, slotId, details, accepted, remoteConsent, contactEmail]);
 
   /** Only the services that can actually be delivered the way they chose. */
   const modeServices = useMemo(
@@ -288,6 +311,12 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
       // what the audit question actually needs answering — who agreed to what,
       // and when.
       if (mode === "remote") {
+        // Same reasoning as the consent write below it: this has to land
+        // before the meeting is created, not after, or the invite is issued
+        // to nobody. Order between the two doesn't matter to Meet, but doing
+        // the email first means a failure here never leaves an undisclosed
+        // consent on record for a booking that didn't go through.
+        await setContactEmail(contactEmail.trim());
         await recordTelehealthConsent({
           templateVersion: TELEHEALTH_CONSENT_VERSION,
           consentText: telehealthConsentText(),
@@ -323,9 +352,10 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
       }
       const message = reason instanceof Error ? reason.message : "تعذر إنشاء الحجز";
       if (message.includes("SLOT_UNAVAILABLE")) setSubmitError("هذا الموعد حُجز للتو. اختر موعدًا آخر.");
-      // Nothing was reserved and nothing was charged: the consent write is the
-      // first thing that runs, so a failure here leaves the wizard exactly as
-      // the patient left it.
+      // Nothing was reserved and nothing was charged: the email save and the
+      // consent write are the first things that run, so a failure at either
+      // one leaves the wizard exactly as the patient left it.
+      else if (message.includes("EMAIL_NOT_SAVED")) setSubmitError("تعذر حفظ بريدك الإلكتروني، ولم يُنشأ أي حجز ولم يُخصم أي مبلغ. تحقق من اتصالك وحاول مرة أخرى.");
       else if (message.includes("CONSENT_NOT_RECORDED")) setSubmitError("تعذر تسجيل موافقتك على الجلسة عن بُعد، ولم يُنشأ أي حجز ولم يُخصم أي مبلغ. تحقق من اتصالك وحاول مرة أخرى.");
       else setSubmitError(message);
     } finally {
@@ -430,6 +460,8 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
             <small>إصدار نموذج الموافقة: <b dir="ltr">{TELEHEALTH_CONSENT_VERSION}</b> · يُحفظ نص الموافقة كما هو أعلاه مقترناً بتاريخ وساعة موافقتك.</small>
           </div></div>
           <label className="policy-check"><input type="checkbox" checked={remoteConsent} onChange={(event) => setRemoteConsent(event.target.checked)} aria-describedby="telehealth-consent-clauses" /><span>{TELEHEALTH_CONSENT.checkboxLabel}</span></label>
+          <div className="form-grid" style={{ marginTop: 17 }}><label className="wide"><span>البريد الإلكتروني <b className="req">*</b></span><input type="email" dir="ltr" required placeholder="name@example.com" value={contactEmail} onChange={(event) => setContactEmailField(event.target.value)} /></label></div>
+          <small className="file-field-hint">لدعوتك مباشرة إلى رابط Google Meet — بدونه لن تتمكن من الدخول إلى الجلسة.</small>
         </>}
         <label className="policy-check"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} /><span>قرأت <a href="/terms" target="_blank">الشروط</a> و<a href="/privacy" target="_blank">الخصوصية</a> و<a href="/refund-policy" target="_blank">سياسة الإلغاء</a>.</span></label><div className="payment-note"><ShieldCheck /><span><strong>دفع آمن</strong><small>ننقلك إلى بوابة الدفع لإتمام العملية، ويُحجز موعدك فور نجاح الدفع. لا تمر بيانات بطاقتك عبر المنصة.</small></span></div>{submitError && <div className="form-error" role="alert">{submitError}</div>}</section>}
       {/* Say what is still needed rather than leaving a dead grey button. */}

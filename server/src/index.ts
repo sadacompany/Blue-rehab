@@ -14,6 +14,7 @@ import {
   getHealth,
   getPaymentConfig,
   listMeetTestSpecialists,
+  repairBookingMeetingAttendees,
   settlePendingPayments,
   verifyPayment,
   type ApiResult,
@@ -39,6 +40,7 @@ app.post("/api/bookings/:bookingId/meet", async (request, response, next) => { t
 app.get("/api/admin/meet-test/specialists", async (request, response, next) => { try { return sendResult(response, await listMeetTestSpecialists(request.headers.authorization ?? null)); } catch (error) { return next(error); } });
 app.post("/api/admin/meet-test", async (request, response, next) => { try { return sendResult(response, await createTestMeeting(request.headers.authorization ?? null, request.body)); } catch (error) { return next(error); } });
 app.post("/api/admin/meet-test/cancel", async (request, response, next) => { try { return sendResult(response, await deleteTestMeeting(request.headers.authorization ?? null, request.body)); } catch (error) { return next(error); } });
+app.post("/api/admin/bookings/repair-meeting", async (request, response, next) => { try { return sendResult(response, await repairBookingMeetingAttendees(request.headers.authorization ?? null, request.body)); } catch (error) { return next(error); } });
 app.post("/api/enrollments", async (request, response, next) => { try { return sendResult(response, await createEnrollment(request.headers.authorization ?? null, request.body)); } catch (error) { return next(error); } });
 app.get("/api/payments/config", (_request, response) => sendResult(response, getPaymentConfig()));
 app.post("/api/payments/checkout", async (request, response, next) => { try { return sendResult(response, await createPaymentCheckout(request.headers.authorization ?? null, request.body)); } catch (error) { return next(error); } });

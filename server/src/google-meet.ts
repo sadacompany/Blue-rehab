@@ -140,6 +140,50 @@ export async function createMeetEvent(request: MeetRequest): Promise<MeetResult>
   };
 }
 
+/**
+ * Add attendees to an existing calendar event, without touching anything
+ * else about it.
+ *
+ * Exists for bookings created before the attendee fix landed: their event
+ * has no invited guests, so neither side can join without knocking, and
+ * nobody is positioned to admit a knock on a personal (non-Workspace) Meet
+ * call — confirmed in real testing, not assumed. Re-fetches the event first
+ * and merges rather than overwrites, so a repeat repair (or one run against
+ * an event that already has some attendees) never drops anyone already on it.
+ */
+export async function addMeetEventAttendees(eventId: string, attendeeEmails: string[]): Promise<string[]> {
+  if (!isGoogleMeetConfigured()) {
+    throw new Error("google_meet_not_configured");
+  }
+  const accessToken = await fetchAccessToken();
+  const calendarId = encodeURIComponent(config.GOOGLE_CALENDAR_ID);
+  const eventUrl = `${GOOGLE_CALENDAR_API}/calendars/${calendarId}/events/${encodeURIComponent(eventId)}`;
+
+  const getResponse = await fetch(eventUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
+  });
+  if (!getResponse.ok) {
+    throw new Error(`google_event_fetch_failed_${getResponse.status}`);
+  }
+  const existing = (await getResponse.json()) as GoogleEventResponse;
+  const existingEmails = new Set((existing.attendees ?? []).map((a) => a.email));
+  const merged = [...existingEmails, ...attendeeEmails.filter((e) => e && e.includes("@"))];
+  const deduped = [...new Set(merged)];
+
+  const patchResponse = await fetch(`${eventUrl}?sendUpdates=all`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ attendees: deduped.map((email) => ({ email })) }),
+    signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
+  });
+  if (!patchResponse.ok) {
+    throw new Error(`google_event_patch_failed_${patchResponse.status}`);
+  }
+  const updated = (await patchResponse.json()) as GoogleEventResponse;
+  return (updated.attendees ?? []).map((a) => a.email);
+}
+
 /** Cancel a calendar event. Used to clean up after the admin Meet-test tool; never called on a real booking's event. */
 export async function deleteMeetEvent(eventId: string): Promise<void> {
   if (!isGoogleMeetConfigured()) {

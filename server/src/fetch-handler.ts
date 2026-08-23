@@ -11,6 +11,7 @@ import {
   getHealth,
   getPaymentConfig,
   listMeetTestSpecialists,
+  repairBookingMeetingAttendees,
   settlePendingPayments,
   verifyPayment,
   type ApiResult,
@@ -93,6 +94,7 @@ export async function handleApiRequest(request: Request): Promise<Response> {
       if (meetMatch) return json(request, await createBookingMeeting(authorization, { bookingId: decodeURIComponent(meetMatch[1]) }));
       if (path === "/admin/meet-test") return json(request, await createTestMeeting(authorization, await readJson(request)));
       if (path === "/admin/meet-test/cancel") return json(request, await deleteTestMeeting(authorization, await readJson(request)));
+      if (path === "/admin/bookings/repair-meeting") return json(request, await repairBookingMeetingAttendees(authorization, await readJson(request)));
     }
 
     return json(request, { status: 404, body: { error: "Route not found" } });

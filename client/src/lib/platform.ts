@@ -131,6 +131,30 @@ export async function recordTelehealthConsent(input: TelehealthConsentInput): Pr
   return data as TelehealthConsentRecord;
 }
 
+/**
+ * Save the patient's email onto their own profile — the one thing a remote
+ * booking actually needs it for is inviting them to the Meet event's guest
+ * list, the same way the specialist already is.
+ *
+ * This platform authenticates by phone; nothing else ever asked for an
+ * email, so `profiles.email` was null for essentially everyone. On a
+ * personal (non-Workspace) Google account, only guests on that list get
+ * "quick access" — everyone else has to knock, and nobody already inside is
+ * positioned to let them in. Confirmed in real testing, not assumed: a
+ * booking where only the specialist had an email on file left the specialist
+ * in and the patient stuck asking to join with no one able to admit them.
+ * Collected once at booking time, this fixes every remote session going
+ * forward, not just the one being booked right now.
+ */
+export async function setContactEmail(email: string): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData.session?.user;
+  if (!user) throw new AuthenticationRequiredError();
+
+  const { error } = await supabase.from("profiles").update({ email }).eq("id", user.id);
+  if (error) throw new Error(`EMAIL_NOT_SAVED: ${error.message}`);
+}
+
 export type PaymentConfig = {
   provider: string;
   configured: boolean;

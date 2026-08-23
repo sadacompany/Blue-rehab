@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { config } from "./config.js";
-import { deleteMeetEvent } from "./google-meet.js";
+import { addMeetEventAttendees, deleteMeetEvent } from "./google-meet.js";
 import { createMeeting, isMeetingConfigured, meetingProvider } from "./meetings.js";
 import {
   createInvoice,
@@ -437,6 +437,56 @@ export async function deleteTestMeeting(authorization: string | null, payload: u
     return { status: 502, body: { error: reason instanceof Error ? reason.message : "تعذّر الحذف." }, cacheControl: noStore };
   }
   return { status: 200, body: { deleted: true }, cacheControl: noStore };
+}
+
+const repairMeetingSchema = z.object({ bookingId: z.string().uuid() });
+
+/**
+ * Re-invite a booking's specialist and patient on its existing Meet event.
+ *
+ * For bookings created before the attendee fix (20260823100000 /
+ * 292b693): their calendar event has no guest list at all, so neither side
+ * could join without knocking — and on this clinic's personal (non-Workspace)
+ * Google account, only the organiser can admit a knock, which nobody ever
+ * is. Re-reads whichever email(s) are on file *now* (a patient's
+ * `profiles.email` may have just been added) and patches them onto the
+ * event that already exists, rather than minting a new link — the booking,
+ * the time and the link the patient already has stay exactly the same.
+ */
+export async function repairBookingMeetingAttendees(authorization: string | null, payload: unknown): Promise<ApiResult> {
+  const auth = await requireAdmin(authorization);
+  if (!auth.ok) return auth.result;
+
+  const { bookingId } = repairMeetingSchema.parse(payload);
+  const admin = adminClient();
+  if (!admin) return { status: 503, body: { error: "مفتاح الخدمة غير مهيأ على الخادم." }, cacheControl: noStore };
+
+  const { data: booking } = await admin
+    .from("bookings")
+    .select("id,mode,meeting_event_id,meeting_provider,patient:profiles(email),specialist:specialists(email,display_name)")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (!booking) return { status: 404, body: { error: "لم نجد هذا الحجز." }, cacheControl: noStore };
+  if (booking.mode !== "remote") return { status: 409, body: { error: "هذا الحجز ليس جلسة عن بُعد." }, cacheControl: noStore };
+  if (booking.meeting_provider !== "google_meet" || !booking.meeting_event_id) {
+    return { status: 409, body: { error: "لا يوجد اجتماع Google Meet مرتبط بهذا الحجز." }, cacheControl: noStore };
+  }
+
+  const patient = Array.isArray(booking.patient) ? booking.patient[0] : booking.patient;
+  const specialist = Array.isArray(booking.specialist) ? booking.specialist[0] : booking.specialist;
+  const emails = [patient?.email, specialist?.email].filter((e): e is string => Boolean(e));
+
+  if (!emails.length) {
+    return { status: 422, body: { error: "لا يوجد بريد إلكتروني لأي من المريض أو الأخصائي بعد." }, cacheControl: noStore };
+  }
+
+  try {
+    const attendees = await addMeetEventAttendees(booking.meeting_event_id, emails);
+    return { status: 200, cacheControl: noStore, body: { attendees, specialistName: specialist?.display_name ?? null } };
+  } catch (reason) {
+    return { status: 502, body: { error: reason instanceof Error ? reason.message : "تعذّر تحديث المدعوّين." }, cacheControl: noStore };
+  }
 }
 
 // ------------------------------------------------------------------ courses --

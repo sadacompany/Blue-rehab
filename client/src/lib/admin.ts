@@ -558,3 +558,19 @@ export async function cancelMeetTest(eventId: string): Promise<void> {
     body: JSON.stringify({ eventId }),
   });
 }
+
+export type RepairMeetingResult = { attendees: string[]; specialistName: string | null };
+
+/**
+ * Adds whoever is now on file (patient and/or specialist email) to an
+ * already-created remote booking's Meet event, without touching the time or
+ * the link. For bookings made before a patient's email was ever collected —
+ * the reservation already exists, so the fix in the booking flow itself
+ * cannot reach it retroactively; this is the one-time catch-up for those.
+ */
+export async function repairBookingMeeting(bookingId: string): Promise<RepairMeetingResult> {
+  return authorizedFetch("/admin/bookings/repair-meeting", {
+    method: "POST",
+    body: JSON.stringify({ bookingId }),
+  });
+}
