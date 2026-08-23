@@ -67,7 +67,10 @@ function Empty({ icon, text }: { icon: React.ReactNode; text: string }) {
  * Existing bodies use none of this syntax, so they render exactly as
  * before — this is additive, not a breaking change to the content model.
  */
-function renderBody(text: string): React.ReactNode[] {
+// Exported so AdminContent.tsx's review queue can render a submission with
+// this exact function — an admin approving or rejecting content should see
+// what will actually appear once published, not raw, unformatted text.
+export function renderBody(text: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   let para: string[] = [];
   let list: string[] = [];

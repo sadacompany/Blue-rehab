@@ -1,3 +1,4 @@
+import { AuthenticationRequiredError } from "./platform";
 import { typedSupabase as supabase } from "./supabase";
 import type { Database } from "./database.types";
 
@@ -152,6 +153,14 @@ export type ContentSubmission = {
   sourceYear?: number | null;
   sourceUrl?: string;
   practicalTakeaway?: string;
+  /**
+   * Set by `uploadPendingCover` below, before this is called — the file
+   * itself has already been written to the author's own `pending/{uid}/`
+   * prefix in the `content-covers` bucket by then. The function re-validates
+   * the URL actually belongs to the caller before attaching it, so this
+   * value is a claim, not a grant.
+   */
+  coverUrl?: string;
 };
 
 const SUBMIT_ERRORS: Record<string, string> = {
@@ -160,7 +169,36 @@ const SUBMIT_ERRORS: Record<string, string> = {
   TITLE_INVALID: "العنوان يجب أن يكون بين ٦ و٢٠٠ حرفًا.",
   BODY_TOO_SHORT: "أضف نصاً كافياً قبل الإرسال للمراجعة.",
   NOT_A_PROVIDER: "الطلب متاح للأخصائيين والمدربين المعتمدين فقط.",
+  COVER_PATH_INVALID: "تعذر التحقق من صورة الغلاف. أعد رفعها وحاول مجدداً.",
 };
+
+const MAX_COVER_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Upload a cover image before the article/research row exists to attach it
+ * to. Written to the author's own `pending/{uid}/` prefix — a path only they
+ * can write to (20260823110000_author_cover_upload.sql) — and returned as a
+ * public URL for `submitContentForReview` to pass straight through.
+ */
+export async function uploadPendingCover(file: File): Promise<string> {
+  if (file.size > MAX_COVER_BYTES) throw new Error("حجم الصورة يتجاوز ٥ ميغابايت.");
+  if (!/^image\/(jpeg|png|webp|avif)$/.test(file.type)) throw new Error("تُقبل صور JPG أو PNG أو WebP أو AVIF فقط.");
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) throw new AuthenticationRequiredError();
+
+  const extension = file.type.split("/")[1].replace("jpeg", "jpg");
+  const path = `pending/${userId}/${Date.now()}.${extension}`;
+
+  const { error } = await supabase.storage
+    .from("content-covers")
+    .upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" });
+  if (error) throw new Error("تعذر رفع الصورة.");
+
+  const { data } = supabase.storage.from("content-covers").getPublicUrl(path);
+  return data.publicUrl;
+}
 
 /**
  * Put an article or a research review forward for review.
@@ -188,6 +226,7 @@ export async function submitContentForReview(input: ContentSubmission) {
     p_source_year: input.sourceYear ?? undefined,
     p_source_url: input.sourceUrl || undefined,
     p_practical_takeaway: input.practicalTakeaway || undefined,
+    p_cover_url: input.coverUrl || undefined,
   });
   if (error) {
     const code = Object.keys(SUBMIT_ERRORS).find((key) => error.message.includes(key));

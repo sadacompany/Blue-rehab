@@ -1,9 +1,9 @@
-import { AlertCircle, CheckCircle2, FileText, FlaskConical, GraduationCap, LoaderCircle, Send } from "lucide-react";
-import { useState } from "react";
+import { AlertCircle, CheckCircle2, FileText, FlaskConical, GraduationCap, ImagePlus, LoaderCircle, Send } from "lucide-react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDate } from "../lib/format";
 import {
-  loadMySubmissions, submitContentForReview,
+  loadMySubmissions, submitContentForReview, uploadPendingCover,
   type ContentKind,
 } from "../lib/content";
 import { useAsync } from "../lib/use-async";
@@ -46,6 +46,30 @@ export default function ContentSubmission() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
+  // Client asked for this directly: the reviewer used to see text with no
+  // picture, decide whether the image was suitable separately (or not at
+  // all), and publish — now the author attaches it, so review covers both at
+  // once. Uploaded immediately on selection, same as CoverField's own
+  // pattern, so `coverUrl` is already a real, checkable URL by the time
+  // "إرسال للمراجعة" is pressed rather than something to sort out then.
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [coverError, setCoverError] = useState("");
+  const coverInput = useRef<HTMLInputElement>(null);
+
+  async function pickCover(file: File | undefined) {
+    if (!file) return;
+    setCoverUploading(true);
+    setCoverError("");
+    try {
+      setCoverUrl(await uploadPendingCover(file));
+    } catch (reason) {
+      setCoverError(reason instanceof Error ? reason.message : "تعذر رفع الصورة");
+    } finally {
+      setCoverUploading(false);
+    }
+  }
+
   const field = (key: keyof typeof EMPTY) => ({
     value: form[key],
     onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -75,9 +99,11 @@ export default function ContentSubmission() {
         sourceYear: form.sourceYear ? Number(form.sourceYear) : null,
         sourceUrl: form.sourceUrl,
         practicalTakeaway: form.practicalTakeaway,
+        coverUrl: coverUrl ?? undefined,
       });
       setDone(true);
       setForm(EMPTY);
+      setCoverUrl(null);
       await reload();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر إرسال الطلب");
@@ -119,6 +145,23 @@ export default function ContentSubmission() {
     </div>}
 
     {kind !== "course" && <div className="application-form">
+      <div className="cover-field">
+        <button type="button" className={`cover-thumb${coverUrl ? "" : " is-empty"}`} disabled={coverUploading}
+          onClick={() => coverInput.current?.click()}
+          aria-label={coverUrl ? "استبدال صورة الغلاف" : "إضافة صورة غلاف"}>
+          {coverUploading ? <LoaderCircle className="spin" />
+            : coverUrl ? <img src={coverUrl} alt="" />
+              : <><ImagePlus /><small>غلاف</small></>}
+        </button>
+        {coverUrl
+          ? <button type="button" className="cover-clear" onClick={() => setCoverUrl(null)}>إزالة</button>
+          : <small className="cover-hint">أضف صورة غلاف مناسبة — تراجعها الإدارة مع النص قبل النشر.</small>}
+        {coverError && <small className="specialist-error">{coverError}</small>}
+        <input ref={coverInput} type="file" className="file-field-input" accept="image/jpeg,image/png,image/webp,image/avif"
+          tabIndex={-1} aria-hidden="true"
+          onChange={(event) => { void pickCover(event.target.files?.[0]); event.target.value = ""; }} />
+      </div>
+
       <div className="form-grid">
         <label className="wide"><span>العنوان <b className="req">*</b></span>
           <input placeholder={kind === "article" ? "مثال: الألم لا يعني دائماً وجود ضرر" : "مثال: التمارين العلاجية في خشونة الركبة"} {...field("title")} /></label>

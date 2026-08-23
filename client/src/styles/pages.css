@@ -678,6 +678,22 @@
 }
 .admin-row-actions .button-small svg { width: 15px; height: 15px; }
 
+/* The content review queue's actual point: what a reviewer approving or
+   rejecting an article/research review/programme is meant to be reading.
+   `AdminContent.tsx` fetched only a title, a slug and a cover thumbnail
+   before this — nothing to review. */
+.admin-content-excerpt { margin: 10px 0 0; color: var(--color-ink-800); line-height: 1.7; }
+.admin-content-empty { margin: 10px 0 0; color: var(--color-muted); font-style: italic; }
+.admin-content-body { margin-top: 10px; }
+.admin-content-body summary { cursor: pointer; }
+/* `.article-body` is written for the public page's own width; inside an
+   admin row it needs a ceiling so a long paragraph doesn't run the full width
+   of a wide desktop screen and become hard to track line to line — the one
+   thing this block does not need is the public page's constraint of a
+   `.container.narrow` ancestor doing that job for it. Same rule serves
+   mobile and desktop: it only ever caps width, never forces one. */
+.admin-content-body .article-body { max-width: 68ch; margin-top: 10px; }
+
 .chip { border: 1px solid var(--color-line); background: #fff; border-radius: var(--radius-full); padding: 7px 13px; font: inherit; font-size: var(--fs-fine); color: var(--color-muted); cursor: pointer; }
 .chip:hover { border-color: var(--color-brand-400); }
 .chip.selected { border-color: var(--color-brand-700); background: var(--color-brand-700); color: #fff; font-weight: var(--weight-bold); }

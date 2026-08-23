@@ -92,6 +92,10 @@ export type AdminContentItem = {
   slug: string;
   status: string;
   coverUrl: string | null;
+  /** Short summary — `excerpt` for articles/research, `summary` for programs (aliased in the query below). */
+  excerpt: string | null;
+  /** The actual piece being reviewed — `body` for articles/research, `description` for programs (aliased below). Was never fetched at all; a reviewer approving or rejecting content had no way to read it. */
+  body: string | null;
 };
 
 /**
@@ -153,8 +157,8 @@ const one = <T,>(value: T | T[] | null | undefined): T | undefined =>
  * object or the one-element array PostgREST can return for a to-one join,
  * which is exactly what `one()` above already unwraps.
  */
-/** The four column shape shared by articles, research reviews and rehab programs. */
-type ContentRowSlim = { id: string; title: string; slug: string; status: string; cover_url: string | null };
+/** The column shape shared by articles, research reviews and rehab programs — `excerpt`/`body` are aliased onto programs' `summary`/`description` in the queries below, so one shape and one mapper covers all three. */
+type ContentRowSlim = { id: string; title: string; slug: string; status: string; cover_url: string | null; excerpt: string | null; body: string | null };
 
 type ProfileNameEmbed = Pick<Database["public"]["Tables"]["profiles"]["Row"], "full_name">;
 type SpecialistNameEmbed = Pick<Database["public"]["Tables"]["specialists"]["Row"], "display_name">;
@@ -201,9 +205,14 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       .order("created_at", { ascending: false }).limit(100),
     supabase.from("support_requests").select("*").order("created_at", { ascending: false }).limit(100),
     supabase.from("services").select("id,name,price,duration_minutes,allowed_modes,is_active").order("name"),
-    supabase.from("articles").select("id,title,slug,status,cover_url").order("created_at", { ascending: false }).limit(50),
-    supabase.from("research_reviews").select("id,title,slug,status,cover_url").order("created_at", { ascending: false }).limit(50),
-    supabase.from("rehab_programs").select("id,title,slug,status,cover_url").order("position").limit(50),
+    // excerpt/body were missing entirely — a reviewer saw a title, a slug and
+    // a cover thumbnail and had to approve or reject blind. rehab_programs has
+    // no excerpt/body columns of its own; `summary`/`description` are its
+    // equivalents, aliased here so asContent() below can treat all three
+    // tables the same way.
+    supabase.from("articles").select("id,title,slug,status,cover_url,excerpt,body").order("created_at", { ascending: false }).limit(50),
+    supabase.from("research_reviews").select("id,title,slug,status,cover_url,excerpt,body").order("created_at", { ascending: false }).limit(50),
+    supabase.from("rehab_programs").select("id,title,slug,status,cover_url,excerpt:summary,body:description").order("position").limit(50),
     supabase.from("courses").select("id,title,slug,summary,description,duration_hours,price,compare_at_price,mode,level,starts_at,capacity,learning_outcomes,prerequisites,language,certificate_available,cover_url,presenter_name,trainer_id,is_published,review_status,submitted_at,course_modules(count)").order("submitted_at", { ascending: false, nullsFirst: false }),
   ]);
 
@@ -218,7 +227,10 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
   const courseRows = (courses.data ?? []) as unknown as AdminCourseRow[];
 
   const asContent = (rows: ContentRowSlim[], table: AdminContentItem["table"]): AdminContentItem[] =>
-    rows.map((row) => ({ id: row.id, table, title: row.title, slug: row.slug, status: row.status, coverUrl: row.cover_url ?? null }));
+    rows.map((row) => ({
+      id: row.id, table, title: row.title, slug: row.slug, status: row.status, coverUrl: row.cover_url ?? null,
+      excerpt: row.excerpt ?? null, body: row.body ?? null,
+    }));
 
   return {
     overview: overviewResult.data as AdminOverview,

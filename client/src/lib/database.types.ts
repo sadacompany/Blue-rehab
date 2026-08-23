@@ -1161,6 +1161,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          email: string | null
           full_name: string
           id: string
           phone: string | null
@@ -1170,6 +1171,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           full_name: string
           id: string
           phone?: string | null
@@ -1179,6 +1181,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string
           id?: string
           phone?: string | null
@@ -1637,6 +1640,7 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string
+          email: string | null
           id: string
           is_demo: boolean
           is_verified: boolean
@@ -1654,6 +1658,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string
+          email?: string | null
           id?: string
           is_demo?: boolean
           is_verified?: boolean
@@ -1671,6 +1676,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string
+          email?: string | null
           id?: string
           is_demo?: boolean
           is_verified?: boolean
@@ -1942,6 +1948,7 @@ export type Database = {
         Returns: {
           avatar_url: string | null
           created_at: string
+          email: string | null
           full_name: string
           id: string
           phone: string | null
@@ -2133,6 +2140,7 @@ export type Database = {
         Args: {
           p_body?: string
           p_category?: string
+          p_cover_url?: string
           p_excerpt?: string
           p_kind: string
           p_practical_takeaway?: string
