@@ -8,6 +8,8 @@ export type Service = {
   price: number;
   modes: DeliveryMode[];
   isDemo: boolean;
+  /** Closed to new bookings but still shown, marked «قريباً» — distinct from being deleted. */
+  isComingSoon: boolean;
 };
 
 export type Specialist = {

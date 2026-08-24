@@ -5,6 +5,7 @@ import { deliveryLabel, formatCurrency, formatDateTime, formatDayLabel, formatTi
 import { AuthenticationRequiredError, createBooking, loadCatalog, loadPaymentConfig, recordTelehealthConsent, setContactEmail, startCheckout, type BookingResult, type PaymentConfig } from "../lib/platform";
 import { TELEHEALTH_CONSENT, TELEHEALTH_CONSENT_VERSION, telehealthConsentText } from "../lib/telehealth-consent";
 import { useAsync } from "../lib/use-async";
+import ComingSoonBadge from "./ComingSoonBadge";
 import DemoBadge from "./DemoBadge";
 import { Link } from "react-router-dom";
 
@@ -149,7 +150,15 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   const reloadCatalog = useCallback(async () => {
     try {
       const data = await loadCatalog();
-      const selectedService = data.services.find((item) => item.id === initialService) ?? data.services[0];
+      // The default pick when nothing was requested explicitly should be one
+      // a visitor can actually book — falling through to a closed service
+      // just because it happens to sort first would silently start the
+      // wizard on a dead end. A service named explicitly in the URL is still
+      // honoured even if it is coming soon: the missing-check below is what
+      // stops that case from proceeding, not this fallback.
+      const selectedService = data.services.find((item) => item.id === initialService)
+        ?? data.services.find((item) => !item.isComingSoon)
+        ?? data.services[0];
       const selectedSpecialist = data.specialists.find((item) => item.id === initialSpecialist) ?? data.specialists[0];
       if (selectedService) { setServiceId(selectedService.id); setMode(selectedService.modes[0]); }
       if (selectedSpecialist) setSpecialistId(selectedSpecialist.id);
@@ -163,21 +172,42 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
       // up whatever the save effect had written in between.
       const draft = pendingDraft.current;
       if (draft) {
-        if (data.services.some((item) => item.id === draft.serviceId)) {
-          setServiceId(draft.serviceId);
-          setMode(draft.mode);
+        // A specialist or service named explicitly in the URL — the patient
+        // followed a "حجز موعد" link for *that* card — means exactly that,
+        // not whatever a draft left over from an earlier, possibly abandoned
+        // pass through this same browser tab happens to say. Without this
+        // check, any stale draft silently swapped the pick straight back and
+        // dropped the patient into whatever step (2, 3…) it was saved at —
+        // they never saw either happen. A plain `/booking` link (no
+        // specialist/service in the URL) carries no such request, so it still
+        // resumes the draft untouched — this is also what the post-login
+        // redirect back to the same URL relies on.
+        const explicitConflict = Boolean(
+          (initialSpecialist && initialSpecialist !== draft.specialistId) ||
+          (initialService && initialService !== draft.serviceId),
+        );
+
+        if (!explicitConflict) {
+          if (data.services.some((item) => item.id === draft.serviceId)) {
+            setServiceId(draft.serviceId);
+            setMode(draft.mode);
+          }
+          if (data.specialists.some((item) => item.id === draft.specialistId)) {
+            setSpecialistId(draft.specialistId);
+          }
         }
-        if (data.specialists.some((item) => item.id === draft.specialistId)) {
-          setSpecialistId(draft.specialistId);
-        }
-        const slotStillFree = data.availability.some((item) => item.id === draft.slotId);
+        const slotStillFree = !explicitConflict && data.availability.some((item) => item.id === draft.slotId);
         setSlotId(slotStillFree ? draft.slotId : "");
         // Merge, never replace: an older draft is missing the newer fields.
+        // Kept even on an explicit conflict — the case description and
+        // consent aren't tied to which specialist was picked, so there is no
+        // reason to make the patient retype them just for choosing someone else.
         setDetails({ ...EMPTY_DETAILS, ...(draft.details ?? {}) });
         setAccepted(draft.accepted);
         setContactEmailField(draft.contactEmail ?? "");
-        // Without a slot they must revisit step 2; otherwise resume where they left off.
-        setStep(slotStillFree ? draft.step : 1);
+        // An explicit new pick always starts at the top. Otherwise: without a
+        // slot they must revisit step 2; with one, resume where they left off.
+        setStep(explicitConflict ? 0 : slotStillFree ? draft.step : 1);
       }
       return data;
     } finally {
@@ -198,22 +228,8 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
   useEffect(() => {
     if (service && !service.modes.includes(mode)) setMode(service.modes[0]);
   }, [service, mode]);
-  // Changing specialist or mode invalidates the chosen slot — but only when the
-  // patient actually changes it. A plain [specialistId, mode] effect also fires
-  // on the initial render, which would wipe a slot restored from the draft.
-  //
-  // The `!specialistId` guard matters: on the first render the wizard still
-  // holds its empty defaults, and recording that as the baseline would make the
-  // first real population look like a change and clear the restored slot.
-  const lastSelection = useRef("");
   /** True once reload() has had its chance to restore a saved draft. */
   const restored = useRef(false);
-  useEffect(() => {
-    if (!specialistId) return;
-    const key = `${specialistId}|${mode}`;
-    if (lastSelection.current && lastSelection.current !== key) setSlotId("");
-    lastSelection.current = key;
-  }, [specialistId, mode]);
 
   // A consent given for a remote session says nothing about a clinic visit, and
   // vice versa. Switching away from «عن بُعد» drops it, so coming back offers a
@@ -243,7 +259,14 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
    * the journey dead-ended with nothing on screen explaining why.
    */
   const missing = useMemo(() => {
-    if (step === 0) return [!mode && "طريقة الجلسة", !serviceId && "نوع الجلسة"].filter(Boolean) as string[];
+    if (step === 0) return [
+      !mode && "طريقة الجلسة",
+      !serviceId && "نوع الجلسة",
+      // The selection buttons already disable a coming-soon service, but a
+      // direct link naming one explicitly (`?service=`) still sets it —
+      // this is what stops *that* path from reaching the payment step.
+      service?.isComingSoon && "هذه الخدمة غير متاحة للحجز حالياً",
+    ].filter(Boolean) as string[];
     if (step === 1) return [
       !specialistId && "اختر المختص",
       !slotId && "اختر الموعد",
@@ -267,7 +290,7 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
       mode === "remote" && !remoteConsent && "الموافقة المستنيرة على الجلسة عن بُعد",
       mode === "remote" && !EMAIL_PATTERN.test(contactEmail.trim()) && "بريد إلكتروني صالح لدعوتك لرابط الاجتماع",
     ].filter(Boolean) as string[];
-  }, [step, serviceId, mode, specialistId, slotId, details, accepted, remoteConsent, contactEmail]);
+  }, [step, serviceId, mode, specialistId, slotId, details, accepted, remoteConsent, contactEmail, service]);
 
   /** Only the services that can actually be delivered the way they chose. */
   const modeServices = useMemo(
@@ -422,12 +445,22 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
           أونلاين, so those are the opening question, and the service list is
           filtered to what that choice supports. */}
       {step === 0 && <section><header><span className="kicker">الخطوة الأولى</span><h2>كيف تريد الجلسة؟</h2><p>اختر الحضور إلى المركز أو الجلسة عن بُعد، ثم حدد نوع الجلسة.</p></header>
+        {/* A clinic slot means nothing once the mode is remote (and vice versa),
+            so changing it here drops whatever slot was chosen — but only on an
+            actual click. An earlier version watched [specialistId, mode] with a
+            useEffect instead, and that effect could not tell a genuine click
+            apart from mode settling into its final value while a draft was
+            still being restored — proven live: reloading straight back into a
+            restored remote booking silently dropped its slot, because the
+            restore itself touches mode before specialistId in a separate
+            commit. Doing the drop only inside the click handler removes the
+            ambiguity entirely — restoring a draft never fires this code. */}
         <div className="mode-choice" role="group" aria-label="طريقة الجلسة">
           {(["clinic", "remote"] as DeliveryMode[]).map((item) => <button
             type="button" key={item}
             className={mode === item ? "selected" : ""}
             aria-pressed={mode === item}
-            onClick={() => { setMode(item); if (service && !service.modes.includes(item)) setServiceId(""); }}
+            onClick={() => { if (item !== mode) setSlotId(""); setMode(item); if (service && !service.modes.includes(item)) setServiceId(""); }}
           >
             <span className="selection-check"><Check /></span>
             {item === "remote" ? <Video /> : <MapPin />}
@@ -439,14 +472,14 @@ export default function BookingFlowConnected({ initialService, initialSpecialist
 
         {modeServices.length > 0 ? <>
           <h3 className="booking-subhead">نوع الجلسة</h3>
-          <div className="selection-grid services-selection">{modeServices.map((item) => <button type="button" className={serviceId === item.id ? "selected" : ""} onClick={() => setServiceId(item.id)} key={item.id}><span className="selection-check"><Check /></span><HeartPulse /><div><h3>{item.name}</h3><p>{item.description}</p><div className="service-meta"><span>{item.durationMinutes} دقيقة</span><strong className="booking-service-price">{formatCurrency(item.price)}</strong></div>{item.isDemo && <DemoBadge compact />}</div></button>)}</div>
+          <div className="selection-grid services-selection">{modeServices.map((item) => <button type="button" disabled={item.isComingSoon} className={serviceId === item.id ? "selected" : ""} onClick={() => setServiceId(item.id)} key={item.id}><span className="selection-check"><Check /></span><HeartPulse /><div><h3>{item.name}</h3><p>{item.description}</p><div className="service-meta"><span>{item.durationMinutes} دقيقة</span><strong className="booking-service-price">{formatCurrency(item.price)}</strong></div>{item.isDemo && <DemoBadge compact />}{item.isComingSoon && <ComingSoonBadge compact />}</div></button>)}</div>
         </> : <div className="empty-slots"><AlertCircle /><span><strong>لا توجد خدمات متاحة بهذه الطريقة.</strong><small>جرّب الطريقة الأخرى، أو تواصل معنا.</small></span></div>}
 
         {/* The address belongs after the decision to come in, not before it. */}
         {mode === "clinic" && serviceId && <div className="branch-note"><MapPin /><div><strong>موقع المركز</strong>{catalog.branches.length ? <ul>{catalog.branches.map((branch) => <li key={branch.id}><b>{branch.name}</b><small>{[branch.city, branch.address].filter(Boolean).join(" — ")}</small></li>)}</ul> : <small>سيتم تزويدك بموقع المركز عند تأكيد الموعد.</small>}<small>يُثبَّت الفرع النهائي مع الموعد الذي تختاره في الخطوة التالية.</small></div></div>}
       </section>}
 
-      {step === 1 && <section><header><span className="kicker">الخطوة الثانية</span><h2>اختر المختص والموعد</h2><p>اختر المختص ثم الوقت المناسب لك.</p></header><div className="selection-grid specialist-selection">{catalog.specialists.map((item) => <button type="button" className={specialistId === item.id ? "selected" : ""} onClick={() => setSpecialistId(item.id)} key={item.id}><span className="selection-check"><Check /></span><span className="small-avatar"><UserRound /></span><div><h3>{item.name}</h3><p>{item.title}</p>{item.isDemo && <DemoBadge compact />}</div></button>)}</div><div className="slots"><h3><CalendarDays /> المواعيد المتاحة</h3>{slotsByDay.length ? <div className="slot-days">{slotsByDay.map((day) => <div className="slot-day" key={day[0].id}><h4>{formatDayLabel(day[0].startsAt)}</h4><div className="slot-times">{day.map((item) => <button type="button" className={slotId === item.id ? "selected" : ""} onClick={() => setSlotId(item.id)} key={item.id} aria-pressed={slotId === item.id}><span className="slot-time">{formatTime(item.startsAt)}</span>{slotId === item.id && <Check aria-hidden="true" />}</button>)}</div></div>)}</div> : <div className="empty-slots"><AlertCircle /><span><strong>لا توجد مواعيد مطابقة.</strong><small>جرّب طريقة جلسة أخرى أو مختصًا آخر.</small></span></div>}</div></section>}
+      {step === 1 && <section><header><span className="kicker">الخطوة الثانية</span><h2>اختر المختص والموعد</h2><p>اختر المختص ثم الوقت المناسب لك.</p></header><div className="selection-grid specialist-selection">{catalog.specialists.map((item) => <button type="button" className={specialistId === item.id ? "selected" : ""} onClick={() => { if (item.id !== specialistId) setSlotId(""); setSpecialistId(item.id); }} key={item.id}><span className="selection-check"><Check /></span><span className="small-avatar"><UserRound /></span><div><h3>{item.name}</h3><p>{item.title}</p>{item.isDemo && <DemoBadge compact />}</div></button>)}</div><div className="slots"><h3><CalendarDays /> المواعيد المتاحة</h3>{slotsByDay.length ? <div className="slot-days">{slotsByDay.map((day) => <div className="slot-day" key={day[0].id}><h4>{formatDayLabel(day[0].startsAt)}</h4><div className="slot-times">{day.map((item) => <button type="button" className={slotId === item.id ? "selected" : ""} onClick={() => setSlotId(item.id)} key={item.id} aria-pressed={slotId === item.id}><span className="slot-time">{formatTime(item.startsAt)}</span>{slotId === item.id && <Check aria-hidden="true" />}</button>)}</div></div>)}</div> : <div className="empty-slots"><AlertCircle /><span><strong>لا توجد مواعيد مطابقة.</strong><small>جرّب طريقة جلسة أخرى أو مختصًا آخر.</small></span></div>}</div></section>}
       {step === 2 && <section><header><span className="kicker">الخطوة الثالثة</span><h2>اكتب ملخصًا وظيفيًا للحالة</h2><p>لا تضف رقم الهوية أو ملفات صحية حساسة هنا.</p></header><div className="form-grid"><label><span>المنطقة المتأثرة</span><select value={details.region} onChange={(event) => setDetails({ ...details, region: event.target.value })}><option>الركبة</option><option>الكتف</option><option>أسفل الظهر</option><option>الكاحل والقدم</option><option>الرقبة</option><option>منطقة أخرى</option></select></label>{details.region === "منطقة أخرى" && <label><span>حدد المنطقة <b className="req">*</b></span><input placeholder="اكتب المنطقة المتأثرة" value={details.regionOther ?? ""} onChange={(event) => setDetails({ ...details, regionOther: event.target.value })} /></label>}<label><span>بداية الأعراض <b className="req">*</b></span><select value={details.onset} onChange={(event) => setDetails({ ...details, onset: event.target.value })}><option value="">اختر المدة</option><option>أقل من أسبوع</option><option>من أسبوع إلى شهر</option><option>من شهر إلى ثلاثة أشهر</option><option>أكثر من ثلاثة أشهر</option></select></label><label className="wide"><span>الأثر على الحركة أو النشاط <b className="req">*</b></span><textarea required maxLength={300} placeholder="مثال: صعوبة صعود الدرج بعد النشاط" value={details.complaint} onChange={(event) => setDetails({ ...details, complaint: event.target.value })} /></label><label className="wide"><span>الأعراض الحالية</span><textarea rows={2} placeholder="مثال: تورم خفيف وتيبس صباحي" value={details.currentSymptoms ?? ""} onChange={(event) => setDetails({ ...details, currentSymptoms: event.target.value })} /></label><label className="wide range-field"><span>شدة الألم: <strong>{details.pain}/10</strong></span><input type="range" min="0" max="10" value={details.pain} onChange={(event) => setDetails({ ...details, pain: Number(event.target.value) })} /></label><label><span>عملية سابقة</span><select value={details.previousSurgery} onChange={(event) => setDetails({ ...details, previousSurgery: event.target.value })}><option>لا</option><option>نعم</option></select></label>{details.previousSurgery === "نعم" && <label><span>تفاصيل العملية <b className="req">*</b></span><input placeholder="نوع العملية وتاريخها التقريبي" value={details.surgeryDetail ?? ""} onChange={(event) => setDetails({ ...details, surgeryDetail: event.target.value })} /></label>}<label><span>أمراض مزمنة</span><select value={details.chronicConditions} onChange={(event) => setDetails({ ...details, chronicConditions: event.target.value })}><option>لا</option><option>نعم</option></select></label>{details.chronicConditions === "نعم" && <label><span>حدد الأمراض المزمنة <b className="req">*</b></span><input placeholder="مثال: سكري، ضغط، ربو" value={details.chronicDetail ?? ""} onChange={(event) => setDetails({ ...details, chronicDetail: event.target.value })} /></label>}<label><span>هدفك من الجلسة <b className="req">*</b></span><input placeholder="مثال: العودة للمشي دون ألم" value={details.goal} onChange={(event) => setDetails({ ...details, goal: event.target.value })} /></label></div></section>}
       {step === 3 && <section><header><span className="kicker">الخطوة الرابعة</span><h2>راجع الحجز</h2><p>تأكد من التفاصيل قبل تأكيد الطلب.</p></header><div className="summary-card"><div className="summary-price-cell"><span>الخدمة</span><strong>{service?.name}</strong>{service && <strong className="summary-price">{formatCurrency(service.price)}</strong>}</div><div><span>طريقة الجلسة</span><strong>{deliveryLabel(mode)}</strong>{mode === "clinic" && <small>{catalog.branches.find((item) => item.id === slot?.branchId)?.name ?? "يحدد الفرع عند التأكيد"}</small>}</div><div><span>المختص</span><strong>{specialist?.name}</strong></div><div><span>الموعد</span><strong>{slot ? formatDateTime(slot.startsAt) : "لم يحدد"}</strong></div><div><span>الحالة</span><strong>{details.region} · ألم {details.pain}/10</strong></div></div>
         {/* Telehealth informed consent — remote sessions only.

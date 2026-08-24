@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CatalogResponse, Course, Specialist } from "../lib/catalog-types";
 import { courseModeLabel, formatDate, formatPrice, isOnOffer } from "../lib/format";
 import { loadCatalog } from "../lib/catalog";
+import ComingSoonBadge from "./ComingSoonBadge";
 import DemoBadge from "./DemoBadge";
 import OfferBadge from "./OfferBadge";
 import { Link } from "react-router-dom";
@@ -108,5 +109,5 @@ export function ServicesCatalog() {
   const { data, error, loading, reload } = useCatalog();
   if (error) return <CatalogError retry={reload} />;
   if (loading || !data) return <LoadingCards />;
-  return <div className="service-catalog">{data.services.map((service) => <article key={service.id}><div className="service-title"><span><Monitor /></span><div><h3>{service.name}</h3>{service.isDemo && <DemoBadge compact />}</div></div><p>{service.description}</p><div className="service-details"><span><Clock3 /> {service.durationMinutes} دقيقة</span><span>{service.modes.map((mode) => mode === "remote" ? "عن بُعد" : "في المركز").join(" أو ")}</span></div><div className="service-price"><small>{service.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatPrice(service.price)}</strong></div><Link className="card-link" to={`/booking?service=${service.id}`}>اختيار الخدمة <ArrowLeft /></Link></article>)}</div>;
+  return <div className="service-catalog">{data.services.map((service) => <article key={service.id}><div className="service-title"><span><Monitor /></span><div><h3>{service.name}</h3>{service.isDemo && <DemoBadge compact />}{service.isComingSoon && <ComingSoonBadge compact />}</div></div><p>{service.description}</p><div className="service-details"><span><Clock3 /> {service.durationMinutes} دقيقة</span><span>{service.modes.map((mode) => mode === "remote" ? "عن بُعد" : "في المركز").join(" أو ")}</span></div><div className="service-price"><small>{service.isDemo ? "سعر توضيحي" : "السعر"}</small><strong>{formatPrice(service.price)}</strong></div>{service.isComingSoon ? <span className="card-link is-disabled" aria-disabled="true">هذه الخدمة قريباً</span> : <Link className="card-link" to={`/booking?service=${service.id}`}>اختيار الخدمة <ArrowLeft /></Link>}</article>)}</div>;
 }

@@ -28,6 +28,7 @@ function ServiceEditor({ service, onSaved }: { service?: AdminService; onSaved: 
     durationMinutes: String(service?.durationMinutes ?? "45"),
     modes: service?.modes ?? ["remote"],
     isActive: service?.isActive ?? true,
+    isComingSoon: service?.isComingSoon ?? false,
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -43,8 +44,9 @@ function ServiceEditor({ service, onSaved }: { service?: AdminService; onSaved: 
       await saveService({
         id: service?.id, name: form.name, price: Number(form.price) || 0,
         durationMinutes: Number(form.durationMinutes) || 45, modes: form.modes, isActive: form.isActive,
+        isComingSoon: form.isComingSoon,
       });
-      if (!service) setForm({ name: "", price: "", durationMinutes: "45", modes: ["remote"], isActive: true });
+      if (!service) setForm({ name: "", price: "", durationMinutes: "45", modes: ["remote"], isActive: true, isComingSoon: false });
       onSaved();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر الحفظ");
@@ -64,7 +66,10 @@ function ServiceEditor({ service, onSaved }: { service?: AdminService; onSaved: 
       >{label}</button>)}
       <button type="button" className={form.isActive ? "chip selected" : "chip"} aria-pressed={form.isActive}
         onClick={() => setForm({ ...form, isActive: !form.isActive })}>{form.isActive ? "مفعّلة" : "معطّلة"}</button>
+      <button type="button" className={form.isComingSoon ? "chip selected" : "chip"} aria-pressed={form.isComingSoon}
+        onClick={() => setForm({ ...form, isComingSoon: !form.isComingSoon })}>{form.isComingSoon ? "قريباً" : "مفتوحة للحجز"}</button>
     </div>
+    {form.isComingSoon && <p className="application-hint">تبقى الخدمة ظاهرة للزوار بعلامة «قريباً»، لكن لا يمكن حجزها — حتى عبر رابط مباشر.</p>}
     {error && <p className="specialist-error">{error}</p>}
     <button className="button button-small" type="button" disabled={busy} onClick={() => void submit()}>
       {busy ? <LoaderCircle className="spin" /> : <Plus />} {service ? "حفظ التعديل" : "إضافة خدمة"}
@@ -307,7 +312,7 @@ export default function AdminCatalogue({ services, courses, trainers, note, setN
             <small>{formatCurrency(service.price)} · {service.durationMinutes} دقيقة</small>
             <small>{service.modes.map((m) => (m === "remote" ? "عن بُعد" : "في المركز")).join("، ")}</small>
           </div>
-          <em>{service.isActive ? "مفعّلة" : "معطّلة"}</em>
+          <em>{!service.isActive ? "معطّلة" : service.isComingSoon ? "قريباً" : "مفعّلة"}</em>
         </div>
         <details><summary className="link-button">تعديل</summary><ServiceEditor service={service} onSaved={() => void reload()} /></details>
       </article>)}

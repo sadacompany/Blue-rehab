@@ -1522,6 +1522,7 @@ export type Database = {
           duration_minutes: number
           id: string
           is_active: boolean
+          is_coming_soon: boolean
           is_demo: boolean
           name: string
           price: number
@@ -1532,6 +1533,7 @@ export type Database = {
           duration_minutes: number
           id?: string
           is_active?: boolean
+          is_coming_soon?: boolean
           is_demo?: boolean
           name: string
           price: number
@@ -1542,6 +1544,7 @@ export type Database = {
           duration_minutes?: number
           id?: string
           is_active?: boolean
+          is_coming_soon?: boolean
           is_demo?: boolean
           name?: string
           price?: number

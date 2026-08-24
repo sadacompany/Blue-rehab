@@ -83,6 +83,8 @@ export type AdminService = {
   durationMinutes: number;
   modes: string[];
   isActive: boolean;
+  /** Closed to new bookings but still shown to visitors, marked «قريباً». */
+  isComingSoon: boolean;
 };
 
 export type AdminContentItem = {
@@ -204,7 +206,7 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       .select("id,order_number,status,amount,currency,paid_at,failure_reason,created_at,booking_id,enrollment_id,user:profiles(full_name)")
       .order("created_at", { ascending: false }).limit(100),
     supabase.from("support_requests").select("*").order("created_at", { ascending: false }).limit(100),
-    supabase.from("services").select("id,name,price,duration_minutes,allowed_modes,is_active").order("name"),
+    supabase.from("services").select("id,name,price,duration_minutes,allowed_modes,is_active,is_coming_soon").order("name"),
     // excerpt/body were missing entirely — a reviewer saw a title, a slug and
     // a cover thumbnail and had to approve or reject blind. rehab_programs has
     // no excerpt/body columns of its own; `summary`/`description` are its
@@ -237,7 +239,7 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
     services: (services.data ?? []).map((row) => ({
       id: row.id, name: row.name, price: Number(row.price),
       durationMinutes: Number(row.duration_minutes), modes: row.allowed_modes ?? [],
-      isActive: Boolean(row.is_active),
+      isActive: Boolean(row.is_active), isComingSoon: Boolean(row.is_coming_soon),
     })),
     content: [
       ...asContent(articles.data ?? [], "articles"),
@@ -361,7 +363,7 @@ export async function setUserRoles(userId: string, roles: string[]) {
 
 /** Pricing is administrative: the amount charged is derived from this row. */
 export async function saveService(input: {
-  id?: string; name: string; price: number; durationMinutes: number; modes: string[]; isActive: boolean;
+  id?: string; name: string; price: number; durationMinutes: number; modes: string[]; isActive: boolean; isComingSoon: boolean;
 }) {
   const row = {
     name: input.name.trim(),
@@ -371,6 +373,7 @@ export async function saveService(input: {
     // as a plain string, `services.allowed_modes` is the database's enum.
     allowed_modes: input.modes as Database["public"]["Enums"]["delivery_mode"][],
     is_active: input.isActive,
+    is_coming_soon: input.isComingSoon,
   };
   const { error } = input.id
     ? await supabase.from("services").update(row).eq("id", input.id)
