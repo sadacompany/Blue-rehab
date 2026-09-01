@@ -10,7 +10,9 @@ import AdminCatalogue from "./AdminCatalogue";
 import AdminContent from "./AdminContent";
 import AdminMeetTest from "./AdminMeetTest";
 import AdminOverview from "./AdminOverview";
+import AdminOnsiteCourses from "./AdminOnsiteCourses";
 import AdminPayments from "./AdminPayments";
+import AdminPromotions from "./AdminPromotions";
 import AdminSupport from "./AdminSupport";
 import AdminTeam from "./AdminTeam";
 import AdminTraining from "./AdminTraining";
@@ -19,7 +21,7 @@ import PageShell from "./PageShell";
 import { SkeletonLine, SkeletonMetrics } from "./Skeleton";
 import { useAsync } from "../lib/use-async";
 
-export type Tab = "overview" | "applications" | "users" | "catalogue" | "content" | "bookings" | "payments" | "support" | "training" | "team" | "meetTest";
+export type Tab = "overview" | "applications" | "users" | "catalogue" | "onsite" | "content" | "bookings" | "payments" | "promotions" | "support" | "training" | "team" | "meetTest";
 
 /**
  * The admin dashboard shell.
@@ -95,6 +97,9 @@ export default function AdminDashboard() {
   const { overview } = data;
   const pendingApps = data.applications.filter((item) => item.status === "pending");
   const inReviewCourses = data.courses.filter((c) => c.reviewStatus === "in_review");
+  // The courses that happen in a room, and so have a register, fee bands and
+  // membership claims behind them — see AdminOnsiteCourses.
+  const onsiteCourses = data.courses.filter((c) => c.mode === "onsite" || c.mode === "hybrid");
   const actions = { busy, run, onError: setActionError };
 
   return <PageShell><section className="admin-page"><div className="container">
@@ -115,9 +120,11 @@ export default function AdminDashboard() {
         ["applications", `طلبات الانضمام${pendingApps.length ? ` (${pendingApps.length})` : ""}`],
         ["users", `المستخدمون (${data.users.length})`],
         ["catalogue", `الخدمات والدورات${inReviewCourses.length ? ` (${inReviewCourses.length})` : ""}`],
+        ["onsite", `الدورات الحضورية${onsiteCourses.length ? ` (${onsiteCourses.length})` : ""}`],
         ["content", `المحتوى (${data.content.length})`],
         ["bookings", `الحجوزات (${data.bookings.length})`],
         ["payments", `المدفوعات (${data.payments.length})`],
+        ["promotions", "أكواد الخصم"],
         ["support", `الدعم${overview.support.open ? ` (${overview.support.open})` : ""}`],
         ["training", `التدريب الصيفي${training.filter((t) => t.status === "new").length ? ` (${training.filter((t) => t.status === "new").length})` : ""}`],
         ["team", "الفريق الطبي"],
@@ -139,11 +146,15 @@ export default function AdminDashboard() {
       note={note} setNote={setNote} reload={reload} {...actions}
     />}
 
+    {tab === "onsite" && <AdminOnsiteCourses courses={onsiteCourses} onError={setActionError} />}
+
     {tab === "content" && <AdminContent content={data.content} reload={reload} {...actions} />}
 
     {tab === "bookings" && <AdminBookings bookings={data.bookings} />}
 
     {tab === "payments" && <AdminPayments payments={data.payments} />}
+
+    {tab === "promotions" && <AdminPromotions />}
 
     {tab === "support" && <AdminSupport support={data.support} {...actions} />}
 

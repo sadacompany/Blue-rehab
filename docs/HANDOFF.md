@@ -1,5 +1,12 @@
 # Session handoff — Blue Rehab
 
+> ⚠️ **Stale in one important way (noted 2026-09-01).** §0 and §5.1 below say
+> the migrations are blocked on the owner's credentials. That was true when it
+> was written and is not true now: the Supabase CLI is logged in, the project
+> is linked, and `npx supabase db push` works from this checkout. Everything
+> through `20260901120000` is applied. Before believing any claim here about
+> what is or is not applied, run `npx supabase migration list --linked`.
+
 Written for a Claude Code session picking this project up fresh (e.g. a local
 Remote Control session taking over from a cloud session). Read this first, then
 `docs/APP_REVIEW.md`.

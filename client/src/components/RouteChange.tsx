@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { capturePromoRef } from "../lib/promotions";
 
 /**
  * What a full page reload used to do for free.
@@ -42,7 +43,16 @@ const TITLES: Record<string, string> = {
 };
 
 export default function RouteChange() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+
+  /*
+   * A promotion link is `?ref=CODE` on whatever page the campaign points at,
+   * so the place that already watches every navigation is the place to notice
+   * it. Kept apart from the effect below because it is keyed by the query
+   * string, not the path — the same page arrived at through two different
+   * campaign links is two arrivals.
+   */
+  useEffect(() => { capturePromoRef(search); }, [search]);
 
   useEffect(() => {
     // A hash means the author is pointing at a section; leave that alone.

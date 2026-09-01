@@ -1,0 +1,131 @@
+/* ==========================================================================
+   Promotion codes, and registering for a course held in a room.
+
+   A partial of its own rather than more of pages.css, following the split
+   b376ba0 made: one owner per stylesheet. Everything here belongs to two
+   screens that did not exist before — the administrator's code list, and the
+   four-step in-person registration form — and nothing outside them uses it.
+
+   Where a shape already existed it is reused rather than restated: the status
+   pills below only recolour `.admin-row-main em`, the option buttons are
+   `.chip`, and the composers are `.specialist-plan-composer`. What is here is
+   what genuinely had no equivalent.
+   ========================================================================== */
+
+/* A two-value choice rendered as one control rather than two buttons that
+   happen to sit together — «خصم | مسوّق» is one question with one answer. */
+.segmented { display: inline-flex; border: 1px solid var(--color-line); border-radius: var(--radius-full); padding: 3px; background: var(--color-soft); }
+.segmented button { flex: 1; border: 0; border-radius: var(--radius-full); padding: 8px 18px; background: transparent; font: inherit; font-size: var(--fs-fine); font-weight: var(--weight-medium); color: var(--color-muted); cursor: pointer; white-space: nowrap; }
+.segmented button.is-active { background: var(--color-ink-950); color: #fff; font-weight: var(--weight-bold); }
+
+/* A unit that belongs to the field rather than sitting beside it — «20 %», or
+   the ticket mark on a code box. The input drops its own border to the wrapper
+   so the composed control still shows focus as one thing. */
+.suffixed-field { display: flex; align-items: center; gap: 6px; border: 1px solid var(--color-line); border-radius: var(--radius-xs); padding-inline: 10px; background: #fff; }
+.suffixed-field input { flex: 1; min-width: 0; border: 0; padding-inline: 0; background: transparent; }
+.suffixed-field input:focus { outline: none; }
+.suffixed-field:focus-within { border-color: var(--color-brand-400); box-shadow: 0 0 0 3px var(--color-brand-50); }
+.suffixed-field em, .suffixed-field > svg { flex: none; font-style: normal; color: var(--color-muted); }
+.suffixed-field > svg { width: 17px; }
+
+.promo-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 14px; }
+.promo-search { display: flex; align-items: center; gap: 8px; flex: 1 1 280px; border: 1px solid var(--color-line); border-radius: var(--radius-full); padding-inline: 14px; background: #fff; }
+.promo-search > svg { width: 18px; flex: none; color: var(--color-muted); }
+.promo-search input { flex: 1; min-width: 0; border: 0; background: transparent; padding-block: 11px; }
+.promo-search input:focus { outline: none; }
+.promo-search:focus-within { border-color: var(--color-brand-400); box-shadow: 0 0 0 3px var(--color-brand-50); }
+
+/* Deliberately not `.filters`: that is the three-column panel on the services
+   page. This is a row of pills that wraps. */
+.promo-filters { display: flex; flex-wrap: wrap; gap: 7px; }
+
+/* Four fields across where there is room, stacking on a phone. The base
+   `.specialist-plan-composer-row` is a fixed two-column grid, which would put
+   «الخصم» underneath «الكود» on a wide screen for no reason. */
+.specialist-plan-composer .specialist-plan-composer-row { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+
+/* A code is a string to be copied exactly, so it is set like one. */
+.promo-code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: var(--fs-body); letter-spacing: .04em; }
+
+/* Only recolours the pill `.admin-row-main em` already draws, so a code reads
+   its state the same way every other status on the dashboard does. */
+.promo-status.is-active { color: var(--color-success-ink); background: var(--color-success-soft); }
+.promo-status.is-scheduled { color: var(--color-brand-800); background: var(--color-brand-50); }
+.promo-status.is-paused { color: var(--color-warning-ink); background: var(--color-warning-soft); }
+.promo-status.is-expired, .promo-status.is-exhausted { color: var(--color-danger-ink); background: var(--color-danger-soft); }
+
+.promo-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin: 12px 0 0; padding: 12px; border-radius: var(--radius-xs); background: var(--color-soft); }
+.promo-stats div { text-align: center; }
+.promo-stats dt { color: var(--color-muted); font-size: var(--fs-micro); }
+.promo-stats dd { margin: 3px 0 0; color: var(--color-ink-950); font-size: var(--fs-body); font-weight: var(--weight-bold); }
+
+.promo-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.promo-link input { flex: 1 1 240px; min-width: 0; font-size: var(--fs-fine); color: var(--color-muted); background: var(--color-soft); }
+.promo-field { display: block; margin-bottom: 10px; }
+
+/* The redemption drawer is a real table: five short numbers per row read
+   better as columns than as the stacked cards the rest of the panel uses. */
+table.data-table { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: var(--fs-micro); }
+table.data-table th, table.data-table td { padding: 8px 10px; text-align: start; border-bottom: 1px solid var(--color-line); }
+table.data-table th { color: var(--color-muted); font-weight: var(--weight-bold); background: var(--color-mist); }
+
+/* ------------------------------------------ the in-person registration form */
+
+.registration-page { max-width: 780px; }
+.registration-head { margin-bottom: 22px; }
+.registration-head h1 { margin: 6px 0 12px; }
+
+/* A step counter rather than a progress bar: four named steps say how much is
+   left more honestly than a bar that is always somewhere in the middle. */
+.registration-steps { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; padding: 0; list-style: none; }
+.registration-steps li { display: flex; align-items: center; gap: 7px; padding: 7px 13px; border: 1px solid var(--color-line); border-radius: var(--radius-full); color: var(--color-muted); font-size: var(--fs-fine); background: #fff; }
+.registration-steps i { display: grid; place-items: center; width: 21px; height: 21px; border-radius: 50%; background: var(--color-soft); font-style: normal; font-size: var(--fs-micro); font-weight: var(--weight-bold); }
+.registration-steps i svg { width: 13px; }
+.registration-steps .is-current { border-color: var(--color-brand-700); color: var(--color-ink-950); font-weight: var(--weight-bold); }
+.registration-steps .is-current i { background: var(--color-brand-700); color: #fff; }
+.registration-steps .is-done i { background: var(--color-success-soft); color: var(--color-success-ink); }
+
+.registration-card { display: grid; gap: 16px; padding: 22px; border: 1px solid var(--color-line); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow-sm); }
+.registration-card fieldset { border: 0; margin: 0; padding: 0; }
+.registration-card legend { padding: 0 0 8px; color: var(--color-ink-950); font-weight: var(--weight-bold); font-size: var(--fs-small); }
+
+.scale-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.scale-row small { color: var(--color-muted); font-size: var(--fs-micro); }
+.scale-row button { width: 44px; height: 44px; border: 1px solid var(--color-line); border-radius: var(--radius-xs); background: #fff; font: inherit; font-weight: var(--weight-bold); color: var(--color-muted); cursor: pointer; }
+.scale-row button:hover { border-color: var(--color-brand-400); }
+.scale-row button.is-active { border-color: var(--color-brand-700); background: var(--color-brand-700); color: #fff; }
+
+.tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.tier-option { display: grid; gap: 4px; padding: 15px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: #fff; font: inherit; text-align: start; cursor: pointer; }
+.tier-option:hover { border-color: var(--color-brand-400); }
+.tier-option.is-active { border-color: var(--color-brand-700); box-shadow: 0 0 0 2px var(--color-brand-50); }
+.tier-option b { color: var(--color-ink-950); }
+.tier-option span { color: var(--color-brand-700); font-weight: var(--weight-bold); font-size: var(--fs-body); }
+
+.registration-summary dl { display: grid; gap: 8px; margin: 0 0 16px; }
+.registration-summary dl div { display: flex; justify-content: space-between; gap: 14px; padding-bottom: 7px; border-bottom: 1px solid var(--color-line); }
+.registration-summary dt { color: var(--color-muted); font-size: var(--fs-fine); }
+.registration-summary dd { margin: 0; color: var(--color-ink-950); overflow-wrap: anywhere; }
+
+.registration-total { display: grid; gap: 8px; padding: 16px; border-radius: var(--radius-sm); background: var(--color-soft); }
+.registration-total div { display: flex; justify-content: space-between; gap: 14px; }
+.registration-total .is-discount { color: var(--color-success-ink); }
+.registration-total .is-total { padding-top: 9px; border-top: 1px solid var(--color-line); color: var(--color-ink-950); font-size: var(--fs-body); }
+.registration-total .is-total b { color: var(--color-brand-800); }
+
+/* Why the next button is disabled, said out loud. A required field that
+   silently refuses to advance is the commonest way a long form is abandoned. */
+.registration-missing { margin: 12px 0 0; color: var(--color-warning-ink); font-size: var(--fs-fine); }
+.registration-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+
+/* -------------------------------------------------------------- the roster */
+
+.roster-answers { margin-top: 10px; color: var(--color-ink-800); font-size: var(--fs-micro); line-height: 1.7; }
+.roster-answers p { margin: 0 0 4px; }
+.roster-money { display: block; margin-top: 8px; color: var(--color-muted); font-size: var(--fs-micro); }
+.roster-membership { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 11px 13px; border-radius: var(--radius-xs); background: var(--color-brand-50); font-size: var(--fs-fine); }
+.roster-membership > span:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.roster-membership svg { width: 17px; flex: none; }
+.roster-membership em { font-style: normal; font-weight: var(--weight-bold); }
+.roster-membership .is-verified { display: inline-flex; align-items: center; gap: 5px; color: var(--color-success-ink); }
+.roster-membership .is-pending { color: var(--color-warning-ink); }

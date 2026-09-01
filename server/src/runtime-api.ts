@@ -25,6 +25,8 @@ const bookingSchema = z.object({
   slotId: z.string().uuid(),
   mode: z.enum(["remote", "clinic"]).optional(),
   notes: z.string().max(800).optional(),
+  /** A code, never an amount — see the note on `enrollmentSchema` below. */
+  promoCode: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/).optional(),
 });
 
 /** Errors raised by the SQL functions, mapped to HTTP status + Arabic copy. */
@@ -48,6 +50,19 @@ const BOOKING_ERRORS: Record<string, { status: number; message: string }> = {
   // records consent immediately before this call in the normal flow, so this
   // should only ever surface for a caller that skipped that step.
   TELEHEALTH_CONSENT_REQUIRED: { status: 412, message: "يلزم تسجيل الموافقة على الجلسة عن بُعد أولاً." },
+  // Raised by promo_apply (20260901110000). Five refusals rather than one,
+  // because the five situations ask different things of the person holding the
+  // code — the reasoning is set out in full in client/src/lib/promotions.ts,
+  // which carries the same wording for the paths that call Supabase directly.
+  PROMO_NOT_FOUND: { status: 404, message: "لا يوجد كود بهذا الاسم. تأكد من كتابته كما وصلك." },
+  PROMO_PAUSED: { status: 409, message: "هذا الكود متوقف مؤقتاً." },
+  PROMO_EXPIRED: { status: 409, message: "انتهت صلاحية هذا الكود." },
+  PROMO_SCHEDULED: { status: 409, message: "لم يبدأ العمل بهذا الكود بعد." },
+  PROMO_EXHAUSTED: { status: 409, message: "اكتمل عدد مرات استخدام هذا الكود." },
+  PROMO_ALREADY_USED: { status: 409, message: "سبق أن استخدمت هذا الكود." },
+  PROMO_ON_FREE_COURSE: { status: 409, message: "هذه الدورة مجانية أصلاً، ولا حاجة لكود خصم." },
+  PROMO_COVERS_WHOLE_SESSION: { status: 409, message: "هذا الكود يغطي قيمة الجلسة بالكامل ولا يمكن إتمام الحجز به. تواصل معنا." },
+  SERVICE_COMING_SOON: { status: 409, message: "هذه الخدمة «قريباً» ولا تقبل الحجز بعد." },
 };
 
 /**
@@ -232,6 +247,7 @@ export async function createBookingDraft(authorization: string | null, payload: 
     p_specialist_id: body.specialistId,
     p_slot_id: body.slotId,
     p_notes: body.notes ?? null,
+    p_promo_code: body.promoCode ?? null,
   });
   if (error) {
     const mapped = mapDomainError(error.message);
@@ -491,22 +507,38 @@ export async function repairBookingMeetingAttendees(authorization: string | null
 
 // ------------------------------------------------------------------ courses --
 
-const enrollmentSchema = z.object({ courseId: z.string().uuid() });
+const enrollmentSchema = z.object({
+  courseId: z.string().uuid(),
+  // A code, never an amount. What it is worth is decided by the database —
+  // see 20260901110000_promotion_codes_on_payments.sql. The pattern is the
+  // same one the column enforces, so a malformed string is refused here rather
+  // than travelling on to be refused there.
+  promoCode: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/).optional(),
+});
 
-/** Enroll in a course. Price and seat check are enforced in the database. */
+/** Enroll in a course. Price, discount and seat check are enforced in the database. */
 export async function createEnrollment(authorization: string | null, payload: unknown): Promise<ApiResult> {
   const auth = await authenticate(authorization);
   if (!auth.ok) return auth.result;
   const body = enrollmentSchema.parse(payload);
 
-  const { data, error } = await auth.client.rpc("create_enrollment_intent", { p_course_id: body.courseId });
+  const { data, error } = await auth.client.rpc("create_enrollment_intent", {
+    p_course_id: body.courseId,
+    p_promo_code: body.promoCode ?? null,
+  });
   if (error) {
     const mapped = mapDomainError(error.message);
     if (mapped) return { status: mapped.status, body: { error: mapped.message }, cacheControl: noStore };
     throw error;
   }
+  // The four columns create_enrollment_intent() actually returns, plus the
+  // discount added alongside them. The previous shape here named
+  // `enrollment_id` and `status`, neither of which the function has returned
+  // since 20260807110000 inverted the order — both arrived as `undefined` and
+  // were forwarded as such. `status` is derived from the one fact the response
+  // does carry: an order number means there is still something to pay.
   const row = (Array.isArray(data) ? data[0] : data) as
-    | { enrollment_id: string; order_number: string | null; amount: number; currency: string; status: string }
+    | { order_number: string | null; amount: number; currency: string; course_title: string; discount: number }
     | undefined;
   if (!row) return { status: 409, body: { error: "تعذر إتمام التسجيل." }, cacheControl: noStore };
 
@@ -515,11 +547,12 @@ export async function createEnrollment(authorization: string | null, payload: un
     cacheControl: noStore,
     body: {
       data: {
-        id: row.enrollment_id,
-        status: row.status,
+        status: row.order_number ? "pending_payment" : "active",
         amountDue: Number(row.amount),
         orderNumber: row.order_number,
         currency: row.currency,
+        courseTitle: row.course_title,
+        discount: Number(row.discount ?? 0),
       },
       next: isMoyasarConfigured() ? "payment" : "payment_unconfigured",
     },

@@ -23,6 +23,7 @@ const CourseDetailConnected = lazy(() => import("./components/CourseDetailConnec
 const CoursesPage = lazy(() => import("./pages/CoursesPage"));
 const FaqPage = lazy(() => import("./pages/FaqPage"));
 const JoinProviderPage = lazy(() => import("./pages/JoinProviderPage"));
+const OnsiteRegistrationFlow = lazy(() => import("./components/OnsiteRegistrationFlow"));
 const PaymentCallbackPage = lazy(() => import("./pages/PaymentCallbackPage"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const RefundPolicyPage = lazy(() => import("./pages/RefundPolicyPage"));
@@ -60,6 +61,17 @@ function CoursePage() {
 }
 
 /**
+ * The in-person registration form, on its own route rather than inside the
+ * course page. It is four steps long and ends at a payment gateway, so it
+ * deserves an address a half-finished attempt can be returned to — and the
+ * course page keeps its own job of describing the course.
+ */
+function CourseRegistrationPage() {
+  const { slug = "" } = useParams();
+  return <OnsiteRegistrationFlow slug={slug} />;
+}
+
+/**
  * A wrong link is usually a stale one, so the page offers the two halves of the
  * platform rather than only the front door — the visitor was heading somewhere.
  */
@@ -93,6 +105,7 @@ export default function App() {
       <Route path="/courses" element={<CoursesPage />} />
       <Route path="/training" element={<TrainingPage />} />
       <Route path="/courses/:slug" element={<CoursePage />} />
+      <Route path="/courses/:slug/register" element={<CourseRegistrationPage />} />
       <Route path="/booking" element={<BookingPage />} />
       <Route path="/portal" element={<ConnectedPortal />} />
       <Route path="/specialist" element={<SpecialistDashboard />} />

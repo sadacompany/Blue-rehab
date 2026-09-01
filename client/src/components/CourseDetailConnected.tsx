@@ -1,5 +1,6 @@
-import { Award, BookOpen, CalendarDays, CheckCircle2, ChevronDown, Clock3, CreditCard, Languages, LoaderCircle, LockKeyhole, MonitorPlay, PlayCircle, RefreshCcw, ShieldCheck, UserRoundCheck, UsersRound } from "lucide-react";
+import { Award, BookOpen, CalendarDays, CheckCircle2, ChevronDown, Clock3, CreditCard, Languages, LoaderCircle, LockKeyhole, MapPin, MonitorPlay, PlayCircle, RefreshCcw, ShieldCheck, Ticket, UserRoundCheck, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
+import { storedPromoCode } from "../lib/promotions";
 import type { CourseModule } from "../lib/catalog-types";
 import { countLabel, courseModeLabel, formatDate, formatPrice, isOnOffer } from "../lib/format";
 import { loadCourseDetail } from "../lib/catalog";
@@ -45,6 +46,9 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
   const [enrollError, setEnrollError] = useState("");
   const [payBusy, setPayBusy] = useState(false);
   const [access, setAccess] = useState<LessonAccess>({ status: null, unlocked: false, content: {} });
+  // Prefilled when the reader arrived through a promotion link, so someone who
+  // followed a campaign does not have to remember the code they came in on.
+  const [promoCode, setPromoCode] = useState(storedPromoCode);
 
   // What this reader may open. Runs after the course arrives because it is keyed
   // by course id, and never blocks the page: the catalogue renders either way.
@@ -62,7 +66,7 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
     setEnrolling(true);
     setEnrollError("");
     try {
-      const result = await enrollInCourse(data.course);
+      const result = await enrollInCourse(data.course, promoCode);
 
       // A free course enrols immediately — create_enrollment_intent() skips
       // the payments row entirely and activates the seat outright, so there
@@ -112,10 +116,29 @@ export default function CourseDetailConnected({ slug }: { slug: string }) {
 
   const { course, modules } = data;
   const onOffer = isOnOffer(course);
+  /*
+   * A course held in a room is not enrolled in, it is registered for: there are
+   * questions to answer and a fee band to pick before there is anything to pay.
+   * That flow has its own route, so this card hands over to it rather than
+   * trying to be both. `hybrid` goes the same way — it still meets in person.
+   */
+  const isOnsite = course.mode === "onsite" || course.mode === "hybrid";
   return <>
     <section className="course-detail-hero"><div className="container course-detail-grid"><div><div className="course-labels"><span>{courseModeLabel(course.mode)}</span><span>{course.level}</span>{onOffer && <OfferBadge />}{course.isDemo && <DemoBadge compact />}</div><h1>{course.title}</h1>{course.presenterName && <p className="course-presenter detail"><UserRoundCheck /> {course.presenterName}</p>}<p>{course.description || course.summary}</p><div className="course-keyfacts"><span><Clock3 /> {course.durationHours} ساعة</span><span><Languages /> {course.language}</span><span><CalendarDays /> {course.startsAt ? formatDate(course.startsAt) : "يحدد لاحقًا"}</span></div></div><aside className="enrollment-card">{course.coverUrl && <span className="enrollment-poster"><img src={course.coverUrl} alt="" /></span>}{onOffer && <OfferBadge />}<small>{course.isDemo ? "قيمة توضيحية" : course.price <= 0 ? "الدورة" : onOffer ? "رسوم التسجيل بعد العرض" : "رسوم التسجيل"}</small><strong className="price-line">{formatPrice(course.price)}{onOffer && <s>{formatPrice(course.compareAtPrice as number)}</s>}</strong><p>{course.price <= 0 ? "التسجيل فوري بعد تسجيل الدخول — لا توجد رسوم." : "يُنشأ التسجيل والفاتورة بعد تسجيل الدخول."}</p>{access.unlocked ? <div className="enrollment-success"><CheckCircle2 /><span><b>أنت مسجل في هذه الدورة</b><small>المحتوى مفتوح لك أدناه.</small><Link className="button" to="/portal">متابعة من حسابي</Link></span></div>
       : enrollment ? <div className="enrollment-success"><CreditCard /><span><b>الخطوة الأخيرة: إتمام الدفع</b><small>لا يُفعَّل التسجيل قبل اكتمال الدفع.</small><small>رقم الطلب: <span dir="ltr">{enrollment.orderNumber}</span></small><button className="button" disabled={payBusy} onClick={() => void payCourse()}>{payBusy ? <LoaderCircle className="spin" /> : <CreditCard />} ادفع {formatPrice(enrollment.amountDue)}</button></span></div>
-      : <button className="button" disabled={enrolling} onClick={() => void enroll()}>{enrolling ? <LoaderCircle className="spin" /> : <CheckCircle2 />} {course.price <= 0 ? "سجّل الآن مجاناً" : "التسجيل في الدورة"}</button>}{enrollError && <div className="form-error" role="alert">{enrollError}</div>}<span><ShieldCheck /> لا تُخزن بيانات البطاقة في المنصة.</span></aside></div></section>
+      : isOnsite ? <Link className="button" to={`/courses/${course.slug}/register`}><CheckCircle2 /> التسجيل في الدورة</Link>
+      : <>
+        {/* Offered only where it can be applied. A free course has nothing to
+            discount, and a box that cannot change the price is a box that only
+            invites people to wonder what they are missing. */}
+        {course.price > 0 && <label className="promo-field"><span>كود خصم (اختياري)</span>
+          <span className="suffixed-field">
+            <Ticket />
+            <input dir="ltr" value={promoCode} placeholder="SARA20"
+              onChange={(event) => setPromoCode(event.target.value.toUpperCase())} />
+          </span></label>}
+        <button className="button" disabled={enrolling} onClick={() => void enroll()}>{enrolling ? <LoaderCircle className="spin" /> : <CheckCircle2 />} {course.price <= 0 ? "سجّل الآن مجاناً" : "التسجيل في الدورة"}</button>
+      </>}{enrollError && <div className="form-error" role="alert">{enrollError}</div>}{isOnsite && <span><MapPin /> دورة حضورية — المكان وفئات الرسوم في صفحة التسجيل.</span>}<span><ShieldCheck /> لا تُخزن بيانات البطاقة في المنصة.</span></aside></div></section>
     <section className="section"><div className="container detail-content-grid"><div><section className="detail-block"><h2>نتائج التعلم</h2><ul className="check-list">{course.learningOutcomes.map((item) => <li key={item}><CheckCircle2 /> {item}</li>)}</ul></section><section className="detail-block"><h2>المحتوى</h2><div className="module-list">{modules.length ? modules.map((module, index) => <details key={module.id} open={index === 0}><summary><span><i>{index + 1}</i><b>{module.title}</b></span><ChevronDown /></summary><div><p>{module.summary || "تظهر تفاصيل الوحدة عند نشر المحتوى."}</p>{module.lessons.length ? <ul>{module.lessons.map((lesson) => <LessonRow key={lesson.id} lesson={lesson} access={access} />)}</ul> : <span className="locked-note"><LockKeyhole /> تظهر الدروس للمسجلين حسب سياسة إتاحة المحتوى.</span>}</div></details>) : <div className="catalog-message"><strong>لم تنشر الوحدات بعد.</strong><p>تضاف الوحدات والدروس من لوحة المدرب.</p></div>}</div></section></div><aside className="detail-sidebar"><section><h3>المتطلبات السابقة</h3><ul>{course.prerequisites.map((item) => <li key={item}><UsersRound /> {item}</li>)}</ul></section><section><h3>شروط الشهادة</h3>{course.certificateAvailable ? <p><Award /> تصدر بعد استيفاء الحضور والمحتوى والتقييمات المحددة.</p> : <p>لا تتضمن هذه الدورة شهادة.</p>}</section><section><h3>إتاحة المحتوى</h3><p><BookOpen /> ينشر المحتوى وفق الجدول، وقد يشترط إكمال درس سابق.</p></section></aside></div></section>
   </>;
 }

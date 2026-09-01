@@ -7,6 +7,7 @@ import "./styles/base.css";
 import "./styles/primitives.css";
 import "./styles/shell.css";
 import "./styles/pages.css";
+import "./styles/promotions.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>,

@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -540,6 +540,173 @@ export type Database = {
           },
         ]
       }
+      course_price_tiers: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          key: string
+          label: string
+          position: number
+          price: number
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          key: string
+          label: string
+          position?: number
+          price: number
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          key?: string
+          label?: string
+          position?: number
+          price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_price_tiers_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_registrations: {
+        Row: {
+          attended_similar: boolean
+          course_id: string
+          created_at: string
+          discount_amount: number
+          email: string
+          enrollment_id: string | null
+          full_name: string
+          goal_other: string | null
+          goals: string[]
+          gross_amount: number
+          id: string
+          is_member: boolean
+          job_title: string | null
+          knowledge_level: number
+          membership_number: string | null
+          membership_verified_at: string | null
+          membership_verified_by: string | null
+          net_amount: number
+          organization: string | null
+          payment_id: string | null
+          phone: string
+          question: string | null
+          status: string
+          tier_key: string
+          topics: string[]
+          updated_at: string
+          user_id: string
+          years_experience: string | null
+        }
+        Insert: {
+          attended_similar: boolean
+          course_id: string
+          created_at?: string
+          discount_amount?: number
+          email: string
+          enrollment_id?: string | null
+          full_name: string
+          goal_other?: string | null
+          goals?: string[]
+          gross_amount: number
+          id?: string
+          is_member?: boolean
+          job_title?: string | null
+          knowledge_level: number
+          membership_number?: string | null
+          membership_verified_at?: string | null
+          membership_verified_by?: string | null
+          net_amount: number
+          organization?: string | null
+          payment_id?: string | null
+          phone: string
+          question?: string | null
+          status?: string
+          tier_key: string
+          topics?: string[]
+          updated_at?: string
+          user_id: string
+          years_experience?: string | null
+        }
+        Update: {
+          attended_similar?: boolean
+          course_id?: string
+          created_at?: string
+          discount_amount?: number
+          email?: string
+          enrollment_id?: string | null
+          full_name?: string
+          goal_other?: string | null
+          goals?: string[]
+          gross_amount?: number
+          id?: string
+          is_member?: boolean
+          job_title?: string | null
+          knowledge_level?: number
+          membership_number?: string | null
+          membership_verified_at?: string | null
+          membership_verified_by?: string | null
+          net_amount?: number
+          organization?: string | null
+          payment_id?: string | null
+          phone?: string
+          question?: string | null
+          status?: string
+          tier_key?: string
+          topics?: string[]
+          updated_at?: string
+          user_id?: string
+          years_experience?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_registrations_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_registrations_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_registrations_membership_verified_by_fkey"
+            columns: ["membership_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_registrations_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_registrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           capacity: number | null
@@ -556,6 +723,7 @@ export type Database = {
           language: string
           learning_outcomes: string[]
           level: string
+          membership_discount_percent: number | null
           mode: Database["public"]["Enums"]["course_mode"]
           prerequisites: string[]
           presenter_name: string | null
@@ -570,6 +738,7 @@ export type Database = {
           summary: string | null
           title: string
           trainer_id: string | null
+          venue: string | null
         }
         Insert: {
           capacity?: number | null
@@ -586,6 +755,7 @@ export type Database = {
           language?: string
           learning_outcomes?: string[]
           level?: string
+          membership_discount_percent?: number | null
           mode?: Database["public"]["Enums"]["course_mode"]
           prerequisites?: string[]
           presenter_name?: string | null
@@ -600,6 +770,7 @@ export type Database = {
           summary?: string | null
           title: string
           trainer_id?: string | null
+          venue?: string | null
         }
         Update: {
           capacity?: number | null
@@ -616,6 +787,7 @@ export type Database = {
           language?: string
           learning_outcomes?: string[]
           level?: string
+          membership_discount_percent?: number | null
           mode?: Database["public"]["Enums"]["course_mode"]
           prerequisites?: string[]
           presenter_name?: string | null
@@ -630,6 +802,7 @@ export type Database = {
           summary?: string | null
           title?: string
           trainer_id?: string | null
+          venue?: string | null
         }
         Relationships: [
           {
@@ -1033,6 +1206,7 @@ export type Database = {
           order_number: string
           paid_at: string | null
           payment_url: string | null
+          promo_code_id: string | null
           provider: string
           provider_invoice_id: string | null
           provider_payment_id: string | null
@@ -1064,6 +1238,7 @@ export type Database = {
           order_number: string
           paid_at?: string | null
           payment_url?: string | null
+          promo_code_id?: string | null
           provider?: string
           provider_invoice_id?: string | null
           provider_payment_id?: string | null
@@ -1095,6 +1270,7 @@ export type Database = {
           order_number?: string
           paid_at?: string | null
           payment_url?: string | null
+          promo_code_id?: string | null
           provider?: string
           provider_invoice_id?: string | null
           provider_payment_id?: string | null
@@ -1149,6 +1325,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payments_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "payments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -1189,6 +1372,152 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      promo_code_redemptions: {
+        Row: {
+          discount_amount: number
+          gross_amount: number
+          id: string
+          kind: string
+          net_amount: number
+          order_number: string | null
+          payment_id: string | null
+          promo_code_id: string
+          redeemed_at: string
+          user_id: string
+        }
+        Insert: {
+          discount_amount: number
+          gross_amount: number
+          id?: string
+          kind: string
+          net_amount: number
+          order_number?: string | null
+          payment_id?: string | null
+          promo_code_id: string
+          redeemed_at?: string
+          user_id: string
+        }
+        Update: {
+          discount_amount?: number
+          gross_amount?: number
+          id?: string
+          kind?: string
+          net_amount?: number
+          order_number?: string | null
+          payment_id?: string | null
+          promo_code_id?: string
+          redeemed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_code_redemptions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: true
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_redemptions_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_redemptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_code_visits: {
+        Row: {
+          first_seen_at: string
+          id: string
+          promo_code_id: string
+          visitor_key: string
+        }
+        Insert: {
+          first_seen_at?: string
+          id?: string
+          promo_code_id: string
+          visitor_key: string
+        }
+        Update: {
+          first_seen_at?: string
+          id?: string
+          promo_code_id?: string
+          visitor_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_code_visits_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          discount_percent: number
+          ends_at: string | null
+          id: string
+          internal_note: string | null
+          is_paused: boolean
+          kind: string
+          marketer_name: string | null
+          starts_at: string | null
+          updated_at: string
+          usage_limit: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          discount_percent?: number
+          ends_at?: string | null
+          id?: string
+          internal_note?: string | null
+          is_paused?: boolean
+          kind: string
+          marketer_name?: string | null
+          starts_at?: string | null
+          updated_at?: string
+          usage_limit?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          discount_percent?: number
+          ends_at?: string | null
+          id?: string
+          internal_note?: string | null
+          is_paused?: boolean
+          kind?: string
+          marketer_name?: string | null
+          starts_at?: string | null
+          updated_at?: string
+          usage_limit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       provider_applications: {
         Row: {
@@ -1895,7 +2224,76 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_create_promo_code: {
+        Args: {
+          p_code: string
+          p_discount_percent?: number
+          p_ends_at?: string
+          p_internal_note?: string
+          p_kind: string
+          p_marketer_name?: string
+          p_starts_at?: string
+          p_usage_limit?: number
+        }
+        Returns: {
+          code: string
+          created_at: string
+          created_by: string | null
+          discount_percent: number
+          ends_at: string | null
+          id: string
+          internal_note: string | null
+          is_paused: boolean
+          kind: string
+          marketer_name: string | null
+          starts_at: string | null
+          updated_at: string
+          usage_limit: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "promo_codes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_overview: { Args: never; Returns: Json }
+      admin_promo_code_redemptions: {
+        Args: { p_id: string; p_limit?: number }
+        Returns: {
+          discount_amount: number
+          gross_amount: number
+          id: string
+          kind: string
+          net_amount: number
+          order_number: string
+          redeemed_at: string
+          user_name: string
+        }[]
+      }
+      admin_promo_codes: {
+        Args: never
+        Returns: {
+          code: string
+          created_at: string
+          discount_percent: number
+          discount_total: number
+          ends_at: string
+          gross_total: number
+          id: string
+          internal_note: string
+          is_paused: boolean
+          kind: string
+          last_used_at: string
+          marketer_name: string
+          net_total: number
+          starts_at: string
+          status: string
+          usage_limit: number
+          uses: number
+          visits: number
+        }[]
+      }
       admin_set_course_offer: {
         Args: { p_course_id: string; p_enabled: boolean }
         Returns: {
@@ -1913,6 +2311,7 @@ export type Database = {
           language: string
           learning_outcomes: string[]
           level: string
+          membership_discount_percent: number | null
           mode: Database["public"]["Enums"]["course_mode"]
           prerequisites: string[]
           presenter_name: string | null
@@ -1927,12 +2326,31 @@ export type Database = {
           summary: string | null
           title: string
           trainer_id: string | null
+          venue: string | null
         }
         SetofOptions: {
           from: "*"
           to: "courses"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      admin_set_course_price_tiers: {
+        Args: { p_course_id: string; p_tiers: Json }
+        Returns: {
+          course_id: string
+          created_at: string
+          id: string
+          key: string
+          label: string
+          position: number
+          price: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "course_price_tiers"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
       admin_set_specialist_verified: {
@@ -1982,6 +2400,7 @@ export type Database = {
           language: string
           learning_outcomes: string[]
           level: string
+          membership_discount_percent: number | null
           mode: Database["public"]["Enums"]["course_mode"]
           prerequisites: string[]
           presenter_name: string | null
@@ -1996,6 +2415,7 @@ export type Database = {
           summary: string | null
           title: string
           trainer_id: string | null
+          venue: string | null
         }
         SetofOptions: {
           from: "*"
@@ -2004,15 +2424,123 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_update_promo_code: {
+        Args: {
+          p_clear?: string[]
+          p_discount_percent?: number
+          p_ends_at?: string
+          p_id: string
+          p_internal_note?: string
+          p_is_paused?: boolean
+          p_marketer_name?: string
+          p_starts_at?: string
+          p_usage_limit?: number
+        }
+        Returns: {
+          code: string
+          created_at: string
+          created_by: string | null
+          discount_percent: number
+          ends_at: string | null
+          id: string
+          internal_note: string | null
+          is_paused: boolean
+          kind: string
+          marketer_name: string | null
+          starts_at: string | null
+          updated_at: string
+          usage_limit: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "promo_codes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_verify_membership: {
+        Args: { p_registration_id: string; p_verified: boolean }
+        Returns: {
+          attended_similar: boolean
+          course_id: string
+          created_at: string
+          discount_amount: number
+          email: string
+          enrollment_id: string | null
+          full_name: string
+          goal_other: string | null
+          goals: string[]
+          gross_amount: number
+          id: string
+          is_member: boolean
+          job_title: string | null
+          knowledge_level: number
+          membership_number: string | null
+          membership_verified_at: string | null
+          membership_verified_by: string | null
+          net_amount: number
+          organization: string | null
+          payment_id: string | null
+          phone: string
+          question: string | null
+          status: string
+          tier_key: string
+          topics: string[]
+          updated_at: string
+          user_id: string
+          years_experience: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_registrations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      after_intent_settled: {
+        Args: {
+          p_kind: string
+          p_pay: Database["public"]["Tables"]["payments"]["Row"]
+        }
+        Returns: undefined
+      }
       attach_training_cv: {
         Args: { p_id: string; p_path: string }
         Returns: undefined
       }
       content_slug: { Args: { p_title: string }; Returns: string }
       convert_paid_intent: { Args: { p_order_number: string }; Returns: string }
+      course_registration_roster: {
+        Args: { p_course_id: string }
+        Returns: {
+          attended_similar: boolean
+          created_at: string
+          discount_amount: number
+          email: string
+          full_name: string
+          goal_other: string
+          goals: string[]
+          gross_amount: number
+          id: string
+          is_member: boolean
+          job_title: string
+          knowledge_level: number
+          membership_number: string
+          membership_verified_at: string
+          net_amount: number
+          organization: string
+          phone: string
+          question: string
+          status: string
+          tier_key: string
+          topics: string[]
+          years_experience: string
+        }[]
+      }
       create_booking_intent: {
         Args: {
           p_notes?: string
+          p_promo_code?: string
           p_service_id: string
           p_slot_id: string
           p_specialist_id: string
@@ -2020,6 +2548,7 @@ export type Database = {
         Returns: {
           amount: number
           currency: string
+          discount: number
           ends_at: string
           mode: Database["public"]["Enums"]["delivery_mode"]
           order_number: string
@@ -2028,12 +2557,43 @@ export type Database = {
         }[]
       }
       create_enrollment_intent: {
-        Args: { p_course_id: string }
+        Args: { p_course_id: string; p_promo_code?: string }
         Returns: {
           amount: number
           course_title: string
           currency: string
+          discount: number
           order_number: string
+        }[]
+      }
+      create_onsite_registration_intent: {
+        Args: {
+          p_attended_similar: boolean
+          p_course_id: string
+          p_email: string
+          p_full_name: string
+          p_goal_other?: string
+          p_goals: string[]
+          p_is_member?: boolean
+          p_job_title?: string
+          p_knowledge_level: number
+          p_membership_number?: string
+          p_organization?: string
+          p_phone: string
+          p_promo_code?: string
+          p_question?: string
+          p_tier_key: string
+          p_topics: string[]
+          p_years_experience?: string
+        }
+        Returns: {
+          course_title: string
+          currency: string
+          discount_amount: number
+          gross_amount: number
+          net_amount: number
+          order_number: string
+          registration_id: string
         }[]
       }
       has_role: {
@@ -2042,12 +2602,54 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
+      onsite_registration_quote: {
+        Args: {
+          p_course_id: string
+          p_is_member?: boolean
+          p_promo_code?: string
+          p_tier_key: string
+        }
+        Returns: {
+          discount_amount: number
+          discount_label: string
+          gross_amount: number
+          net_amount: number
+          promo_code_id: string
+        }[]
+      }
+      promo_apply: {
+        Args: {
+          p_code: string
+          p_gross: number
+          p_kind: string
+          p_user: string
+        }
+        Returns: {
+          discount_amount: number
+          net_amount: number
+          promo_code_id: string
+        }[]
+      }
+      promo_code_state: {
+        Args: {
+          p_ends_at: string
+          p_is_paused: boolean
+          p_starts_at: string
+          p_usage_limit: number
+          p_uses: number
+        }
+        Returns: string
+      }
       publish_content: {
         Args: {
           p_id: string
           p_status: Database["public"]["Enums"]["content_status"]
           p_table: string
         }
+        Returns: undefined
+      }
+      record_promo_visit: {
+        Args: { p_code: string; p_visitor_key: string }
         Returns: undefined
       }
       release_expired_reservations: { Args: never; Returns: number }
@@ -2070,6 +2672,7 @@ export type Database = {
           language: string
           learning_outcomes: string[]
           level: string
+          membership_discount_percent: number | null
           mode: Database["public"]["Enums"]["course_mode"]
           prerequisites: string[]
           presenter_name: string | null
@@ -2084,6 +2687,7 @@ export type Database = {
           summary: string | null
           title: string
           trainer_id: string | null
+          venue: string | null
         }
         SetofOptions: {
           from: "*"
@@ -2174,6 +2778,7 @@ export type Database = {
           language: string
           learning_outcomes: string[]
           level: string
+          membership_discount_percent: number | null
           mode: Database["public"]["Enums"]["course_mode"]
           prerequisites: string[]
           presenter_name: string | null
@@ -2188,6 +2793,7 @@ export type Database = {
           summary: string | null
           title: string
           trainer_id: string | null
+          venue: string | null
         }
         SetofOptions: {
           from: "*"

@@ -222,15 +222,21 @@ export async function settlePayments(): Promise<SettleResult> {
   return (await authorizedFetch("/payments/settle", { method: "POST" })) as SettleResult;
 }
 
-export async function enrollViaApi(courseId: string) {
+export async function enrollViaApi(courseId: string, promoCode?: string) {
   const payload = await authorizedFetch("/enrollments", {
     method: "POST",
-    body: JSON.stringify({ courseId }),
+    // A code, not an amount. `undefined` is dropped by JSON.stringify, which is
+    // what keeps an empty box from being sent as an empty string the schema
+    // would then reject.
+    body: JSON.stringify({ courseId, promoCode: promoCode?.trim() || undefined }),
   });
-  // orderNumber is null for a free course: create_enrollment_intent() skips
-  // the payments row and activates the seat outright, so there is nothing to
-  // check out.
-  return payload.data as { status: string; amountDue: number; orderNumber: string | null; currency: string; courseTitle: string };
+  // orderNumber is null for a free course — or for one a code covered entirely:
+  // create_enrollment_intent() skips the payments row and activates the seat
+  // outright, so there is nothing to check out.
+  return payload.data as {
+    status: string; amountDue: number; orderNumber: string | null;
+    currency: string; courseTitle: string; discount: number;
+  };
 }
 
 export type MeetingLinkResult = { meetingUrl: string | null; configured?: boolean; reused?: boolean };
@@ -260,8 +266,8 @@ export async function requestMeetingLink(bookingId: string): Promise<MeetingLink
  * Enroll in a course. Like bookings, the price and the seat check are enforced
  * server-side; re-enrolling returns the existing record instead of duplicating.
  */
-export async function enrollInCourse(course: Course) {
-  return enrollViaApi(course.id);
+export async function enrollInCourse(course: Course, promoCode?: string) {
+  return enrollViaApi(course.id, promoCode);
 }
 
 export type SupportRequestInput = {
