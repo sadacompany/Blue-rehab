@@ -36,7 +36,12 @@ const sections = [
     ],
   },
 ];
-const plainLinks = [["عن المنصة", "/about"], ["الأسئلة الشائعة", "/faq"]];
+/* «الدعم» is in this list and not only in the footer for a plain reason: the
+   support form has existed at /contact since the beginning, and the client
+   could not find it. A page reachable only from the bottom of the page is a
+   page most people never reach — least of all someone who already has a
+   problem and is looking for help. */
+const plainLinks = [["عن المنصة", "/about"], ["الأسئلة الشائعة", "/faq"], ["الدعم", "/contact"]];
 
 export default function SiteHeader() {
   const [open, setOpen] = useState(false);

@@ -321,6 +321,11 @@ export type PortalSnapshot = {
   enrollments: Array<{ id: string; status: string; progress: number; amount_due: number; course_id: string }>;
   payments: Array<{ id: string; status: string; amount: number; order_number: string; created_at: string }>;
   notifications: Array<{ id: string; title: string; body: string; read_at: string | null; created_at: string }>;
+  /* The requests this user has filed. `support_requests_own_read` has allowed
+     this since the table was created and nothing ever read it, so somebody who
+     reported a problem had no way to see that it had been received, let alone
+     answered. */
+  support: Array<{ id: string; subject: string; message: string; status: string; created_at: string }>;
   services: Record<string, string>;
   courses: Record<string, string>;
 };
@@ -352,12 +357,13 @@ export async function loadPortalSnapshot(): Promise<PortalSnapshot> {
   // Two name lookups, not the entire catalogue. loadCatalog() also pulls
   // specialists, branches, availability and every description — none of which
   // this page shows — and it was the slowest call in the set.
-  const [profileResult, bookingsResult, enrollmentsResult, paymentsResult, notificationsResult, serviceNames, courseNames] = await Promise.all([
+  const [profileResult, bookingsResult, enrollmentsResult, paymentsResult, notificationsResult, supportResult, serviceNames, courseNames] = await Promise.all([
     supabase.from("profiles").select("full_name,phone,roles").eq("id", user.id).maybeSingle(),
     supabase.from("bookings").select("id,status,starts_at,total,service_id,mode,meeting_url,specialist:specialists(display_name)").order("starts_at", { ascending: false }).limit(20),
     supabase.from("enrollments").select("id,status,progress,amount_due,course_id").order("created_at", { ascending: false }).limit(20),
     supabase.from("payments").select("id,status,amount,order_number,created_at").order("created_at", { ascending: false }).limit(20),
     supabase.from("notifications").select("id,title,body,read_at,created_at").order("created_at", { ascending: false }).limit(20),
+    supabase.from("support_requests").select("id,subject,message,status,created_at").order("created_at", { ascending: false }).limit(10),
     supabase.from("services").select("id,name"),
     supabase.from("courses").select("id,title"),
   ]);
@@ -385,6 +391,7 @@ export async function loadPortalSnapshot(): Promise<PortalSnapshot> {
     enrollments: (enrollmentsResult.data ?? []).map((item) => ({ ...item, amount_due: Number(item.amount_due) })),
     payments: (paymentsResult.data ?? []).map((item) => ({ ...item, amount: Number(item.amount) })),
     notifications: notificationsResult.data ?? [],
+    support: supportResult.data ?? [],
     services: Object.fromEntries((serviceNames.data ?? []).map((item) => [item.id, item.name])),
     courses: Object.fromEntries((courseNames.data ?? []).map((item) => [item.id, item.title])),
   };
