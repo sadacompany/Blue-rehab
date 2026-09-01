@@ -209,10 +209,19 @@ export async function uploadPendingCover(file: File): Promise<string> {
  */
 export async function submitContentForReview(input: ContentSubmission) {
   // Every optional argument below is `default null` in the function
-  // (20260816120000), so omitting the key — `undefined` — reaches the
-  // function exactly the same as sending `null` did. The generated Args type
-  // just does not carry `| null` for RPC parameters the way it does for table
-  // columns, so `undefined` is the spelling that satisfies it.
+  // (20260816120000), and the generated Args type does not carry `| null` for
+  // RPC parameters, so `undefined` is the spelling that satisfies it.
+  //
+  // This works — probed against the live database, all nine optionals omitted
+  // still resolves — but it is NOT the general rule it was once described as.
+  // PostgREST does not reliably fill a defaulted argument back in: on
+  // `create_onsite_registration_intent`, omitting a single optional argument
+  // makes the whole function unresolvable (PGRST202, «could not find the
+  // function … in the schema cache»), and on `onsite_registration_quote` one
+  // subset of arguments resolves while a superset of it does not. The evidence
+  // is written up in lib/registration.ts. New call sites should send every
+  // argument explicitly with `null`; this one is left alone because it is
+  // verified working and the generated types would fight the change.
   const { data, error } = await supabase.rpc("submit_content_for_review", {
     p_kind: input.kind,
     p_title: input.title,

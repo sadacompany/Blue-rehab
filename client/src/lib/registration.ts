@@ -199,22 +199,30 @@ export async function quoteRegistration(input: {
      * means "omitted", not "use the default".
      *
      * Omitting a defaulted argument is *unreliable*, which is worse than it
-     * being unsupported. Probed against the live database, this function:
+     * being unsupported. Probed against the live database:
      *
-     *   { p_course_id }                          → PGRST202, not found
-     *   { p_course_id, p_is_member }             → PGRST202, not found
-     *   { p_course_id, p_tier_key }              → resolves
-     *   { all four }                             → resolves
+     *   onsite_registration_quote
+     *     { p_course_id }                  → PGRST202, not found
+     *     { p_course_id, p_is_member }     → PGRST202, not found
+     *     { p_course_id, p_tier_key }      → resolves
+     *     { all four }                     → resolves
      *
-     * A superset failing where a subset succeeds means the resolution rule is
-     * not simply "defaults get filled in", and the failure surfaces as «Could
-     * not find the function ... in the schema cache» — which reads like a
-     * missing migration rather than a malformed call, and cost real time here.
-     * Other RPCs in this codebase (review_course, unpublish_course) do omit
-     * their optional argument and happen to work; that is luck with their
-     * particular signatures, not a pattern to copy.
+     *   create_onsite_registration_intent
+     *     { 16 of 17, p_tier_key omitted } → PGRST202, not found
+     *     { all 17 }                       → resolves
      *
-     * Sending the full set always resolves. Do that.
+     *   submit_content_for_review
+     *     { 9 optional args all omitted }  → resolves
+     *
+     * A superset failing where a subset succeeds, and nine omissions being
+     * fine on one function while one omission breaks another, means there is
+     * no rule here worth carrying in your head. The failure also surfaces as
+     * «Could not find the function ... in the schema cache», which reads like
+     * a missing migration rather than a malformed call — it cost real time
+     * twice before this note existed.
+     *
+     * Sending the full set always resolves. Do that, everywhere, including
+     * the arguments that look obviously optional.
      */
     p_tier_key: input.tierKey || null,
     p_is_member: input.isMember,
@@ -246,7 +254,7 @@ export async function submitOnsiteRegistration(
 ): Promise<OnsiteRegistrationResult> {
   const { data, error } = await supabase.rpc("create_onsite_registration_intent", {
     p_course_id: input.courseId,
-    p_tier_key: input.tierKey || undefined,
+    p_tier_key: input.tierKey || null,
     p_full_name: input.fullName,
     p_phone: input.phone,
     p_email: input.email,

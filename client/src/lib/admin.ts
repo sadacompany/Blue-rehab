@@ -339,11 +339,15 @@ export async function reviewApplication(applicationId: string, approve: boolean,
   const { error } = await supabase.rpc("review_provider_application", {
     p_application_id: applicationId,
     p_approve: approve,
-    // `p_note` is `text default null` (20260805100000) — omitting the key has
-    // the same effect on the function as sending `null` explicitly, and the
-    // generated Args type only allows the former: `supabase gen types` does
-    // not carry `| null` for optional RPC parameters the way it does for
-    // table columns, so `undefined` is the accurate spelling here now.
+    // `p_note` is `text default null` (20260805100000) and the generated Args
+    // type only allows `undefined`, not `null` — `supabase gen types` does not
+    // carry `| null` for optional RPC parameters the way it does for table
+    // columns.
+    //
+    // Verified to resolve with the argument omitted, but do not read that as a
+    // general rule: omitting a defaulted argument is unreliable in PostgREST
+    // and fails outright on some signatures. See lib/registration.ts for the
+    // evidence and prefer explicit `null` at new call sites.
     p_note: note || undefined,
   });
   if (error) throw new Error(translate(error.message));

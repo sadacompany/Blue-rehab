@@ -304,9 +304,65 @@ working unchanged between the migration and the deploy.
 - **No promotion code box in the booking flow.** The database, the API and the
   error wording all support a code on a session booking; only
   `BookingFlowConnected.tsx` has no field for one yet. Courses have it.
-- **The schema is live; the user journeys are not yet walked end to end.** The
-  migrations applied cleanly and every object and grant was verified against
-  production (§5), and `npm run build` / `npm run lint` pass against the
-  regenerated types. What has *not* happened is a real registration paid with a
-  real test card, or a real code redeemed — both need a signed-in account and a
-  published onsite course. Do that once before the shoulder course opens.
+- **Everything up to the payment gateway is tested against production; the
+  gateway itself is not.** See §7. Moyasar is configured with **live** keys, so
+  a real checkout would charge a real card — the one step nobody should
+  automate. Walk one registration through to payment by hand before the
+  shoulder course opens.
+
+---
+
+## 7. What was tested, against the live database
+
+Run 2026-09-01 as a real authenticated patient account, not a mock.
+
+| | Result |
+|---|---|
+| Quote with no tier / no member / no code | 1.00 gross, 0 discount, 1.00 net |
+| Quote as member on a course with no member rate | `MEMBERSHIP_NOT_OFFERED` |
+| Quote with an unknown code | `PROMO_NOT_FOUND` |
+| Quote with an unknown tier | `TIER_UNKNOWN` |
+| Quote with membership **and** a code | `DISCOUNTS_DO_NOT_STACK` |
+| Create registration intent (all 17 args) | registration + order created |
+| Re-run the same intent | same registration id, same order — idempotent |
+| Registration readable by its owner | yes, under own-read RLS |
+| Payment row | `amount` net, `discount` recorded, `intent_kind = enrollment` |
+| Arabic answers round-trip | exact, including «؟» (U+061F) |
+
+Server-side validation, none of which the browser can skip:
+`GOALS_REQUIRED`, `TOPICS_REQUIRED`, `KNOWLEDGE_LEVEL_REQUIRED`,
+`MEMBERSHIP_NUMBER_REQUIRED`, `MEMBERSHIP_NOT_OFFERED`, `PROMO_NOT_FOUND`,
+`COURSE_UNAVAILABLE`.
+
+Security, as an ordinary patient account:
+
+| | Result |
+|---|---|
+| `admin_promo_codes`, `admin_create_promo_code`, `admin_verify_membership`, `course_registration_roster` | `FORBIDDEN` |
+| `promo_apply` called directly | `permission denied` — the anti-enumeration boundary holds |
+| `select` on `promo_codes` | `200 []` — RLS hides every row without leaking that any exist |
+
+Backwards compatibility, since the migration landed before the deploy:
+`create_enrollment_intent` resolves with **one** argument (what the old
+deployed API sent) and with two; `create_booking_intent` resolves with four and
+with five. There was no window in which the live site was broken.
+
+Regression on the rewritten `create_booking_intent`: a real service with a
+bogus slot reaches `SLOT_UNAVAILABLE`, which proves the service lookup, the
+`is_coming_soon` gate and the new promo branch all ran in order first.
+
+**Not tested:** checkout, `convert_paid_intent`, and the promotion ledger write
+— all three need a completed payment. Also untested are the admin happy paths
+(creating a code, verifying a membership), which need an administrator account.
+
+### 7.1 Test data left in production
+
+Created by the run above and **not removable without the service role key**:
+
+- auth user + profile `qa-flowtest-20260901@blue-rehab-test.invalid`
+- one `course_registrations` row on الكتف المؤلم, status `pending_payment`
+- one `payments` row, `BR-R-20260901-…`, status `pending`
+
+It shows in **الدورات الحضورية → كشف المسجّلين** as an unpaid registrant. It
+stops counting against the 20-seat capacity 15 minutes after creation. Delete
+the three rows when convenient.
