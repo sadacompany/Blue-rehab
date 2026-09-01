@@ -83,6 +83,9 @@ const PROMO_ERRORS: Record<string, string> = {
   PROMO_ON_FREE_COURSE: "هذه الدورة مجانية أصلاً، ولا حاجة لكود خصم.",
   PROMO_COVERS_WHOLE_SESSION: "هذا الكود يغطي قيمة الجلسة بالكامل ولا يمكن إتمام الحجز به. تواصل معنا.",
   DISCOUNTS_DO_NOT_STACK: "لا يمكن الجمع بين خصم العضوية وكود الخصم. اختر واحداً منهما.",
+  // A discount can legitimately land the total in the gap between zero and
+  // the gateway floor, so this reaches the code box too.
+  AMOUNT_BELOW_GATEWAY_MINIMUM: "الإجمالي بعد الخصم أقل من الحد الأدنى الذي تقبله بوابة الدفع (١ ر.س). تواصل معنا لإتمام العملية.",
 
   // Administrative — raised by the create/update functions.
   FORBIDDEN: "هذه العملية تتطلب صلاحية إدارية.",

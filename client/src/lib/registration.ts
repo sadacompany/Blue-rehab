@@ -102,6 +102,9 @@ const REGISTRATION_ERRORS: Record<string, string> = {
   GOALS_REQUIRED: "اختر هدفاً واحداً على الأقل.",
   TOPICS_REQUIRED: "اختر محوراً واحداً على الأقل.",
   NOTHING_TO_PAY: "لا توجد رسوم على هذا التسجيل. تواصل معنا لإتمامه.",
+  // Raised where the price is decided, not at the pay button — see
+  // 20260901130000. Moyasar declines anything under 100 halalas.
+  AMOUNT_BELOW_GATEWAY_MINIMUM: "رسوم هذه الدورة أقل من الحد الأدنى الذي تقبله بوابة الدفع (١ ر.س). تواصل معنا لإتمام التسجيل.",
   FORBIDDEN: "هذه العملية تتطلب صلاحية إدارية.",
   REGISTRATION_NOT_FOUND: "لم نجد هذا التسجيل.",
   NOT_A_MEMBERSHIP_CLAIM: "هذا التسجيل لا يتضمن ادعاء عضوية.",

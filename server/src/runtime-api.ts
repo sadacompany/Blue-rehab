@@ -63,6 +63,10 @@ const BOOKING_ERRORS: Record<string, { status: number; message: string }> = {
   PROMO_ON_FREE_COURSE: { status: 409, message: "هذه الدورة مجانية أصلاً، ولا حاجة لكود خصم." },
   PROMO_COVERS_WHOLE_SESSION: { status: 409, message: "هذا الكود يغطي قيمة الجلسة بالكامل ولا يمكن إتمام الحجز به. تواصل معنا." },
   SERVICE_COMING_SOON: { status: 409, message: "هذه الخدمة «قريباً» ولا تقبل الحجز بعد." },
+  // Raised by the intent functions (20260901130000) when a price is above
+  // zero but below what Moyasar will invoice. Refused where the amount is
+  // decided, so nobody fills in a form for something that cannot be paid for.
+  AMOUNT_BELOW_GATEWAY_MINIMUM: { status: 409, message: "قيمة هذا الطلب أقل من الحد الأدنى الذي تقبله بوابة الدفع (١ ر.س). تواصل معنا لإتمام التسجيل." },
 };
 
 /**
@@ -610,14 +614,48 @@ export async function createPaymentCheckout(authorization: string | null, payloa
     return { status: 200, body: { paymentUrl: payment.payment_url, reused: true }, cacheControl: noStore };
   }
 
-  const invoice = await createInvoice({
-    amount: Number(payment.amount),
-    description: payment.booking_id ? `جلسة علاج طبيعي — ${payment.order_number}` : `دورة تأهيلية — ${payment.order_number}`,
-    callbackUrl: `${config.PUBLIC_SITE_URL.replace(/\/$/, "")}/payment/callback`,
-    successUrl: `${config.PUBLIC_SITE_URL.replace(/\/$/, "")}/payment/callback`,
-    backUrl: `${config.PUBLIC_SITE_URL.replace(/\/$/, "")}/portal`,
-    orderNumber: payment.order_number,
-  });
+  /*
+   * A gateway refusal is not a server fault, and must not be reported as one.
+   *
+   * Every MoyasarError used to propagate to `apiErrorResult`, which answers
+   * «Unexpected server error» — the message a patient actually saw after
+   * filling in a four-step registration form for a course priced at 0.99 SAR,
+   * because Moyasar declines anything under 100 halalas. The reason was
+   * knowable, printed in full in the gateway's own response, and thrown away.
+   *
+   * The amount floor is now refused earlier, when the price is decided
+   * (20260901130000), so this should no longer be reachable for that case. It
+   * stays because orders created before that migration still exist, and
+   * because the next refusal will be some other rule of Moyasar's that this
+   * platform has not learned yet — and it should surface as itself.
+   */
+  let invoice;
+  try {
+    invoice = await createInvoice({
+      amount: Number(payment.amount),
+      description: payment.booking_id ? `جلسة علاج طبيعي — ${payment.order_number}` : `دورة تأهيلية — ${payment.order_number}`,
+      callbackUrl: `${config.PUBLIC_SITE_URL.replace(/\/$/, "")}/payment/callback`,
+      successUrl: `${config.PUBLIC_SITE_URL.replace(/\/$/, "")}/payment/callback`,
+      backUrl: `${config.PUBLIC_SITE_URL.replace(/\/$/, "")}/portal`,
+      orderNumber: payment.order_number,
+    });
+  } catch (reason) {
+    if (!(reason instanceof MoyasarError)) throw reason;
+    // Logged in full: the Arabic below is what the payer can act on, and the
+    // gateway's own wording is what an operator needs.
+    console.error("moyasar_invoice_rejected", payment.order_number, reason.message);
+    const belowMinimum = /greater than or equal to 100|amount/i.test(reason.message)
+      && Number(payment.amount) < 1;
+    return {
+      status: 422,
+      cacheControl: noStore,
+      body: {
+        error: belowMinimum
+          ? "قيمة هذا الطلب أقل من الحد الأدنى الذي تقبله بوابة الدفع (١ ر.س). تواصل معنا لإتمام التسجيل."
+          : "تعذّر فتح صفحة الدفع لدى البوابة. حاول مرة أخرى، وإن تكرر الأمر تواصل معنا.",
+      },
+    };
+  }
 
   // Persisting needs the service role (users cannot write payments). Best-effort:
   // the hosted URL is returned either way and verification is by payment id.
