@@ -39,10 +39,11 @@
    page. This is a row of pills that wraps. */
 .promo-filters { display: flex; flex-wrap: wrap; gap: 7px; }
 
-/* Four fields across where there is room, stacking on a phone. The base
-   `.specialist-plan-composer-row` is a fixed two-column grid, which would put
-   «الخصم» underneath «الكود» on a wide screen for no reason. */
-.specialist-plan-composer .specialist-plan-composer-row { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+/* Four fields across where there is room. The responsive row and the
+   control-baseline alignment are now `.field-row` in styles/forms.css, applied
+   to every composer in the product; this only tightens the minimum so four
+   short fields fit on one line here. */
+.specialist-plan-composer .specialist-plan-composer-row { grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); }
 
 /* A code is a string to be copied exactly, so it is set like one. */
 .promo-code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: var(--fs-body); letter-spacing: .04em; }
@@ -86,8 +87,6 @@ table.data-table th { color: var(--color-muted); font-weight: var(--weight-bold)
 .registration-steps .is-done i { background: var(--color-success-soft); color: var(--color-success-ink); }
 
 .registration-card { display: grid; gap: 16px; padding: 22px; border: 1px solid var(--color-line); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow-sm); }
-.registration-card fieldset { border: 0; margin: 0; padding: 0; }
-.registration-card legend { padding: 0 0 8px; color: var(--color-ink-950); font-weight: var(--weight-bold); font-size: var(--fs-small); }
 
 .scale-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .scale-row small { color: var(--color-muted); font-size: var(--fs-micro); }
@@ -113,9 +112,14 @@ table.data-table th { color: var(--color-muted); font-weight: var(--weight-bold)
 .registration-total .is-total { padding-top: 9px; border-top: 1px solid var(--color-line); color: var(--color-ink-950); font-size: var(--fs-body); }
 .registration-total .is-total b { color: var(--color-brand-800); }
 
-/* Why the next button is disabled, said out loud. A required field that
-   silently refuses to advance is the commonest way a long form is abandoned. */
-.registration-missing { margin: 12px 0 0; color: var(--color-warning-ink); font-size: var(--fs-fine); }
+/* A tally, next to the button that revealed it. The messages themselves live
+   against their own fields (`.field-error` in forms.css) — this only says how
+   many there are, so pressing «التالي» is never silent. */
+.registration-missing {
+  display: flex; align-items: center; gap: 7px;
+  margin: 12px 0 0; color: var(--color-danger-ink); font-size: var(--fs-fine);
+}
+.registration-missing > svg { width: 16px; height: 16px; flex: none; color: var(--color-danger); }
 .registration-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 
 /* -------------------------------------------------------------- the roster */

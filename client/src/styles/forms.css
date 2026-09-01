@@ -1,0 +1,232 @@
+/* ==========================================================================
+   Form controls — the single owner.
+
+   Why this file exists.
+
+   Control styling used to be opt-in by ancestor: one rule listed `.filters`,
+   `.form-grid` and `.contact-form`, and `.auth-card` carried a second,
+   different treatment of its own. Every form outside those four selectors —
+   the admin composers, the trainer and specialist panels, the in-person
+   registration card — rendered **native browser inputs**. Measured on the
+   registration form before this file: 37px tall, 1px/2px padding, square
+   corners, sitting directly beneath fields elsewhere in the same product that
+   were 54px, rounded and 16px-padded.
+
+   That is the whole of "the form is not aligned together". It was never a
+   layout bug in any one screen; it was three input treatments and an unstyled
+   fourth, decided by which ancestor a field happened to have.
+
+   So the base case moves to the element. A control looks like a control
+   because it is one, not because somebody remembered the right wrapper. Adding
+   a form to this codebase now costs no CSS at all, which is the point.
+
+   The opt-outs are explicit and narrow: checkboxes, radios, file and range
+   inputs are excluded in the selector, and the three composed controls
+   (`.suffixed-field`, `.promo-search`, `.file-field`) restate what they need in
+   promotions.css / pages.css, both of which load after this file.
+   ========================================================================== */
+
+/* ------------------------------------------------------------- 1. controls */
+
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="submit"])),
+:where(select),
+:where(textarea) {
+  width: 100%;
+  min-height: var(--control-height);
+  padding-inline: 16px;
+  /* Three longhands rather than the `border` shorthand, so that the focus and
+     error states below only have to restate `border-color` — the one part that
+     actually changes — instead of repeating width and style to overwrite a
+     shorthand. */
+  border-width: var(--stroke-hairline);
+  border-style: solid;
+  border-color: var(--color-line);
+  border-radius: var(--radius-xs);
+  background: #fff;
+  color: var(--color-ink-900);
+  font: inherit;
+  font-size: var(--fs-meta);
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease);
+}
+
+/* `:where()` above keeps the base at zero specificity, so any existing rule in
+   pages.css that sets a width, a height or a background on a specific field
+   still wins without needing `!important` or a rewrite. These two, by contrast,
+   are deliberately specific — focus and error must not be overridable by
+   accident. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+textarea {
+  min-height: 104px;
+  padding-block: 12px;
+  line-height: var(--leading-snug);
+  resize: vertical;
+}
+
+/* A native select keeps its own arrow; the extra inline-end room stops the
+   longest option colliding with it in RTL. */
+select { padding-inline-end: 38px; }
+
+:where(input, select, textarea):disabled {
+  background: var(--color-soft);
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
+::placeholder { color: var(--color-muted); opacity: 1; }
+
+/* The range slider is a track, not a box. It predates this file and its reset
+   has to be restated because primitives.css loads before it. */
+.range-field input { min-height: 0; padding: 0; border: 0; accent-color: var(--color-brand-600); }
+
+/* Checkboxes and radios are excluded above, but they still deserve a size and
+   the brand colour rather than the browser's blue. */
+input[type="checkbox"], input[type="radio"] {
+  width: 18px; height: 18px; flex: none;
+  accent-color: var(--color-brand-700);
+}
+
+/* ------------------------------------------------- 2. labels and structure */
+
+/*
+ * One rhythm for every field: label, control, then the error directly beneath
+ * the control it belongs to. `display: grid` on the label is what guarantees
+ * the parts stack in that order and cannot drift apart.
+ */
+:where(label:has(> input, > select, > textarea, > .suffixed-field)) {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+}
+
+:where(label > span) {
+  color: var(--color-ink-900);
+  font-size: var(--fs-fine);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+}
+
+/* The required marker, so it reads as a mark and not as punctuation somebody
+   forgot to delete. Applied by <Field> and by any label that spells it. */
+.req { color: var(--color-danger); margin-inline-start: 3px; font-weight: var(--weight-bold); }
+
+/* An optional line of guidance under the label, above the control. */
+.field-hint { color: var(--color-muted); font-size: var(--fs-micro); line-height: var(--leading-snug); }
+
+/* -------------------------------------------------------- 3. field errors */
+
+/*
+ * Red, and directly beneath the input it is about.
+ *
+ * The previous arrangement put a single message at the foot of the form — or,
+ * worse on the registration step, a full-width banner in the middle of the
+ * card. Neither says *which* field is wrong, and the banner pushed the summary
+ * around as it appeared and disappeared. A field error belongs to a field, so
+ * it renders inside that field's label, in the row the grid above reserves for
+ * it, and it takes no space until there is something to say.
+ *
+ * `role="alert"` on the element makes it announced when it appears; the
+ * control carries `aria-invalid` and points at it with `aria-describedby`, so
+ * a screen reader reaches the message from the field rather than having to
+ * hunt for it.
+ */
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--color-danger-ink);
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+}
+.field-error > svg { width: 15px; height: 15px; flex: none; margin-top: 1px; color: var(--color-danger); }
+
+/* The control itself says it is wrong too — colour alone is not a signal
+   everyone receives, but it is the one that makes the pair findable at a
+   glance once the message beneath has named the problem. */
+/* Spelled out per element rather than wrapped in `:where()`. The base above is
+   deliberately zero-specificity so that existing page rules can still override
+   it — but that is exactly why the error state must not be: it has to outrank
+   both the base and anything a screen has set on its own fields, and an
+   element+attribute selector says so plainly. */
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+input[aria-invalid="true"]:focus-visible,
+select[aria-invalid="true"]:focus-visible,
+textarea[aria-invalid="true"]:focus-visible {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px rgba(178, 72, 63, .16);
+}
+
+/* ------------------------------------------------------------ 4. form rows */
+
+/*
+ * A row of fields side by side.
+ *
+ * Two changes from the fixed `1fr 1fr` this replaces. It wraps by measurement
+ * rather than by count, so a three-field row is three across on a desktop and
+ * stacks on a phone instead of breaking 2 + 1 with an orphan — which is what
+ * the in-person form was doing to «جهة العمل / المسمى الوظيفي / سنوات الخبرة».
+ *
+ * And `align-items: end` aligns the row on the *controls*, not the tops of the
+ * labels. When one label wraps to two lines and its neighbours do not, tops
+ * disagree by a line and the inputs sit at different heights; ending the
+ * alignment puts every input in a row on one line, which is the thing the eye
+ * actually tracks.
+ */
+.specialist-plan-composer-row,
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+/* A field that should take the whole row regardless. */
+.field-row > .wide, .specialist-plan-composer-row > .wide { grid-column: 1 / -1; }
+
+/* ------------------------------------------------------- 5. form messaging */
+
+/*
+ * `.form-error` stays what it was — a *form*-level failure, the server refusing
+ * the whole submission — and keeps its box. What changed is that it is no
+ * longer asked to carry field-level problems as well; those have `.field-error`
+ * now. Restated here rather than left in primitives.css so that the two live
+ * next to each other and the difference between them is legible.
+ */
+.form-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid #e3b3ac;
+  border-radius: var(--radius-xs);
+  background: var(--color-danger-soft);
+  color: var(--color-danger-ink);
+  font-size: var(--fs-meta);
+  line-height: var(--leading-snug);
+}
+.form-error > svg { width: 19px; height: 19px; flex: none; margin-top: 2px; color: var(--color-danger); }
+
+/* A fieldset is a grouping, never a box — the browser's default border and
+   padding fight every layout it is used in. */
+:where(fieldset) { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+:where(legend) {
+  padding: 0 0 8px;
+  color: var(--color-ink-950);
+  font-size: var(--fs-small);
+  font-weight: var(--weight-bold);
+}

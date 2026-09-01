@@ -162,6 +162,13 @@
   --shadow-feature: 0 26px 60px rgba(68, 80, 86, .2);
   --focus-ring: 0 0 0 3px rgba(80, 111, 255, .32);
 
+  /* One height for every text control in the product — see styles/forms.css.
+     54px was already the figure `.form-grid` and `.contact-form` used, so this
+     names the number that was working rather than picking a new one; it is also
+     comfortably past the 44px minimum touch target. Everything that was not
+     covered by those two selectors was rendering at the browser's 37px. */
+  --control-height: 54px;
+
   /* ------------------------------------------------------------- 8. motion */
 
   --ease: cubic-bezier(.22, .61, .36, 1);

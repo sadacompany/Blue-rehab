@@ -193,9 +193,32 @@ export async function quoteRegistration(input: {
 }): Promise<RegistrationQuote> {
   const { data, error } = await supabase.rpc("onsite_registration_quote", {
     p_course_id: input.courseId,
-    p_tier_key: input.tierKey || undefined,
+    /*
+     * Every argument, every time, and `null` rather than `undefined` for the
+     * absent ones — `JSON.stringify` drops `undefined` keys, so `undefined`
+     * means "omitted", not "use the default".
+     *
+     * Omitting a defaulted argument is *unreliable*, which is worse than it
+     * being unsupported. Probed against the live database, this function:
+     *
+     *   { p_course_id }                          → PGRST202, not found
+     *   { p_course_id, p_is_member }             → PGRST202, not found
+     *   { p_course_id, p_tier_key }              → resolves
+     *   { all four }                             → resolves
+     *
+     * A superset failing where a subset succeeds means the resolution rule is
+     * not simply "defaults get filled in", and the failure surfaces as «Could
+     * not find the function ... in the schema cache» — which reads like a
+     * missing migration rather than a malformed call, and cost real time here.
+     * Other RPCs in this codebase (review_course, unpublish_course) do omit
+     * their optional argument and happen to work; that is luck with their
+     * particular signatures, not a pattern to copy.
+     *
+     * Sending the full set always resolves. Do that.
+     */
+    p_tier_key: input.tierKey || null,
     p_is_member: input.isMember,
-    p_promo_code: input.promoCode?.trim() || undefined,
+    p_promo_code: input.promoCode?.trim() || null,
   });
   if (error) fail(error.message);
 
@@ -231,14 +254,15 @@ export async function submitOnsiteRegistration(
     p_attended_similar: input.attendedSimilar,
     p_goals: input.goals,
     p_topics: input.topics,
-    p_organization: input.organization || undefined,
-    p_job_title: input.jobTitle || undefined,
-    p_years_experience: input.yearsExperience || undefined,
-    p_goal_other: input.goalOther || undefined,
-    p_question: input.question || undefined,
+    // Explicit nulls, never omissions — see the note in quoteRegistration().
+    p_organization: input.organization || null,
+    p_job_title: input.jobTitle || null,
+    p_years_experience: input.yearsExperience || null,
+    p_goal_other: input.goalOther || null,
+    p_question: input.question || null,
     p_is_member: input.isMember,
-    p_membership_number: input.membershipNumber || undefined,
-    p_promo_code: input.promoCode?.trim() || undefined,
+    p_membership_number: input.membershipNumber || null,
+    p_promo_code: input.promoCode?.trim() || null,
   });
   if (error) fail(error.message);
 

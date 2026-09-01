@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check, CreditCard, LoaderCircle, MapPin, RefreshCcw, ShieldCheck, Ticket, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check, CircleAlert, CreditCard, LoaderCircle, MapPin, RefreshCcw, ShieldCheck, Ticket, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { loadCourseDetail } from "../lib/catalog";
@@ -50,35 +50,56 @@ const BLANK: Form = {
 const toggle = (list: string[], value: string) =>
   list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 
+/** Which field each problem belongs to, so the message can be shown against it. */
+type FieldErrors = Partial<Record<keyof Form, string>>;
+
 /**
- * What is still missing on the step being shown.
+ * Everything wrong on the step being shown, keyed by the field it is wrong on.
  *
- * Returned as a message rather than a boolean so the button can say why it is
- * disabled. A required field that silently refuses to advance is the single
- * most common way a long form is abandoned.
+ * Keyed rather than returned as one message, because a single line at the foot
+ * of a form names a problem without naming *where* it is — the reader still has
+ * to hunt. Every message here is rendered directly beneath its own input by
+ * `<FieldError>`, which is also what the red border keys off.
+ *
+ * All problems on the step are collected, not just the first: fixing one and
+ * being told about the next one is the loop that makes long forms exhausting.
  */
-function whatIsMissing(step: number, form: Form, tiers: CoursePriceTier[]): string {
+function problems(step: number, form: Form, tiers: CoursePriceTier[]): FieldErrors {
+  const found: FieldErrors = {};
+
   if (step === 0) {
-    if (form.fullName.trim().split(/\s+/).filter(Boolean).length < 2) return "اكتب اسمك كاملاً.";
-    if (!/^[0-9+][0-9 +()-]{6,19}$/.test(form.phone.trim())) return "أدخل رقم جوال صحيحاً.";
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) return "أدخل بريداً إلكترونياً صحيحاً.";
-    return "";
+    if (form.fullName.trim().split(/\s+/).filter(Boolean).length < 2) found.fullName = "اكتب اسمك كاملاً — الاسم الأول واسم العائلة على الأقل.";
+    if (!/^[0-9+][0-9 +()-]{6,19}$/.test(form.phone.trim())) found.phone = "أدخل رقم جوال صحيحاً، مثل 0512345678.";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) found.email = "أدخل بريداً إلكترونياً صحيحاً، مثل name@example.com.";
   }
+
   if (step === 1) {
-    if (!form.knowledgeLevel) return "حدد مستوى معرفتك الحالي بموضوع الدورة.";
-    if (form.attendedSimilar === null) return "أخبرنا إن كنت قد حضرت دورة مشابهة.";
-    if (!form.goals.length) return "اختر هدفاً واحداً على الأقل.";
-    if (form.goals.includes(GOAL_OTHER) && !form.goalOther.trim()) return "اكتب هدفك في خانة «أخرى».";
-    if (!form.topics.length) return "اختر محوراً واحداً على الأقل.";
-    return "";
+    if (!form.knowledgeLevel) found.knowledgeLevel = "حدد مستوى معرفتك الحالي بموضوع الدورة.";
+    if (form.attendedSimilar === null) found.attendedSimilar = "أخبرنا إن كنت قد حضرت دورة مشابهة.";
+    if (!form.goals.length) found.goals = "اختر هدفاً واحداً على الأقل.";
+    else if (form.goals.includes(GOAL_OTHER) && !form.goalOther.trim()) found.goalOther = "اكتب هدفك في خانة «أخرى».";
+    if (!form.topics.length) found.topics = "اختر محوراً واحداً على الأقل.";
   }
+
   if (step === 2) {
-    if (tiers.length && !form.tierKey) return "اختر فئة التسجيل.";
-    if (form.isMember === null) return "أخبرنا إن كنت من حاملي العضوية.";
-    if (form.isMember && !form.membershipNumber.trim()) return "أدخل رقم العضوية.";
-    return "";
+    if (tiers.length && !form.tierKey) found.tierKey = "اختر فئة التسجيل.";
+    if (form.isMember === null) found.isMember = "أخبرنا إن كنت من حاملي العضوية.";
+    else if (form.isMember && !form.membershipNumber.trim()) found.membershipNumber = "أدخل رقم العضوية.";
   }
-  return "";
+
+  return found;
+}
+
+/**
+ * One field's error, in the row its label reserves for it.
+ *
+ * `role="alert"` so it is announced the moment it appears, and an `id` the
+ * control points at with `aria-describedby` so the message is reachable from
+ * the field rather than only visible near it.
+ */
+function FieldError({ id, message }: { id: string; message: string | undefined }) {
+  if (!message) return null;
+  return <small className="field-error" id={id} role="alert"><CircleAlert />{message}</small>;
 }
 
 export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
@@ -148,7 +169,41 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
     // to any one of the three refetches exactly once.
   }, [course?.id, step, tiers.length, priceInputs, form.tierKey, form.isMember, form.promoCode]);
 
-  const missing = useMemo(() => whatIsMissing(step, form, tiers), [step, form, tiers]);
+  const errors = useMemo(() => problems(step, form, tiers), [step, form, tiers]);
+
+  /*
+   * Errors appear when the reader tries to move on, not while they are still
+   * typing — nobody wants to be told an email is invalid at the second
+   * character. Once a step has been challenged the messages stay live, so a
+   * correction clears its own message as it is made.
+   *
+   * The next button is therefore never disabled. A disabled control that will
+   * not say why is the version of this that leaves people stuck; pressing it
+   * and being shown exactly which fields are unfinished is the version that
+   * gets them through.
+   */
+  const [challenged, setChallenged] = useState<Record<number, boolean>>({});
+  const showErrors = Boolean(challenged[step]);
+  const err = (field: keyof Form) => (showErrors ? errors[field] : undefined);
+  /** Wires a control to its message: red border, and a pointer to the text. */
+  const invalid = (field: keyof Form) => ({
+    "aria-invalid": err(field) ? true : undefined,
+    "aria-describedby": err(field) ? `err-${field}` : undefined,
+  } as const);
+
+  function next() {
+    if (Object.keys(errors).length) {
+      setChallenged((prev) => ({ ...prev, [step]: true }));
+      // Put the first unfinished field in front of the reader rather than
+      // leaving them to find it — on step 2 the form is taller than the window.
+      window.requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>('[aria-invalid="true"], .field-error')
+          ?.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
+      return;
+    }
+    setStep((current) => current + 1);
+  }
 
   async function submit() {
     if (!course) return;
@@ -222,23 +277,30 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
 
     <div className="registration-card">
       {step === 0 && <>
-        <label><span>الاسم الثلاثي *</span>
-          <input value={form.fullName} onChange={(event) => set("fullName", event.target.value)} /></label>
-        <div className="specialist-plan-composer-row">
-          <label><span>رقم الجوال *</span>
-            <input dir="ltr" inputMode="tel" value={form.phone}
-              onChange={(event) => set("phone", event.target.value)} /></label>
-          <label><span>البريد الإلكتروني *</span>
-            <input dir="ltr" inputMode="email" value={form.email}
-              onChange={(event) => set("email", event.target.value)} /></label>
+        <label><span>الاسم الثلاثي<b className="req" aria-hidden="true">*</b></span>
+          <input value={form.fullName} autoComplete="name" {...invalid("fullName")}
+            onChange={(event) => set("fullName", event.target.value)} />
+          <FieldError id="err-fullName" message={err("fullName")} /></label>
+        <div className="field-row">
+          <label><span>رقم الجوال<b className="req" aria-hidden="true">*</b></span>
+            <input dir="ltr" inputMode="tel" autoComplete="tel" value={form.phone} {...invalid("phone")}
+              onChange={(event) => set("phone", event.target.value)} />
+            <FieldError id="err-phone" message={err("phone")} /></label>
+          <label><span>البريد الإلكتروني<b className="req" aria-hidden="true">*</b></span>
+            <input dir="ltr" inputMode="email" autoComplete="email" value={form.email} {...invalid("email")}
+              onChange={(event) => set("email", event.target.value)} />
+            <FieldError id="err-email" message={err("email")} /></label>
         </div>
-        <div className="specialist-plan-composer-row">
+        <div className="field-row">
           <label><span>جهة العمل / الجامعة</span>
-            <input value={form.organization} onChange={(event) => set("organization", event.target.value)} /></label>
+            <input value={form.organization} autoComplete="organization"
+              onChange={(event) => set("organization", event.target.value)} /></label>
           <label><span>المسمى الوظيفي</span>
-            <input value={form.jobTitle} onChange={(event) => set("jobTitle", event.target.value)} /></label>
+            <input value={form.jobTitle} autoComplete="organization-title"
+              onChange={(event) => set("jobTitle", event.target.value)} /></label>
           <label><span>سنوات الخبرة</span>
-            <input value={form.yearsExperience} onChange={(event) => set("yearsExperience", event.target.value)} /></label>
+            <input value={form.yearsExperience} inputMode="numeric"
+              onChange={(event) => set("yearsExperience", event.target.value)} /></label>
         </div>
         <p className="application-hint">
           نستخدم بريدك لإرسال تأكيد التسجيل وتفاصيل الحضور. لن يُنشر أي من هذه البيانات.
@@ -247,7 +309,7 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
 
       {step === 1 && <>
         <fieldset className="registration-scale">
-          <legend>كيف تقيم مستوى معرفتك الحالي بموضوع الدورة؟ *</legend>
+          <legend>كيف تقيم مستوى معرفتك الحالي بموضوع الدورة؟<b className="req" aria-hidden="true">*</b></legend>
           <div className="scale-row">
             <small>{KNOWLEDGE_SCALE.minLabel}</small>
             {Array.from({ length: KNOWLEDGE_SCALE.max }, (_, index) => index + 1).map((value) => <button
@@ -257,10 +319,11 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
             >{value}</button>)}
             <small>{KNOWLEDGE_SCALE.maxLabel}</small>
           </div>
+          <FieldError id="err-knowledgeLevel" message={err("knowledgeLevel")} />
         </fieldset>
 
         <fieldset>
-          <legend>هل سبق لك حضور دورة مشابهة؟ *</legend>
+          <legend>هل سبق لك حضور دورة مشابهة؟<b className="req" aria-hidden="true">*</b></legend>
           <div className="chip-grid">
             {[["نعم", true], ["لا", false]].map(([label, value]) => <button
               key={String(label)} type="button" aria-pressed={form.attendedSimilar === value}
@@ -268,10 +331,11 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
               onClick={() => set("attendedSimilar", value as boolean)}
             >{label as string}</button>)}
           </div>
+          <FieldError id="err-attendedSimilar" message={err("attendedSimilar")} />
         </fieldset>
 
         <fieldset>
-          <legend>ما الهدف الرئيسي من حضورك للدورة؟ *</legend>
+          <legend>ما الهدف الرئيسي من حضورك للدورة؟<b className="req" aria-hidden="true">*</b></legend>
           <div className="chip-grid">
             {REGISTRATION_GOALS.map((goal) => <button
               key={goal} type="button" aria-pressed={form.goals.includes(goal)}
@@ -279,12 +343,15 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
               onClick={() => set("goals", toggle(form.goals, goal))}
             >{goal}</button>)}
           </div>
+          <FieldError id="err-goals" message={err("goals")} />
           {form.goals.includes(GOAL_OTHER) && <label><span>اذكر هدفك</span>
-            <input value={form.goalOther} onChange={(event) => set("goalOther", event.target.value)} /></label>}
+            <input value={form.goalOther} {...invalid("goalOther")}
+              onChange={(event) => set("goalOther", event.target.value)} />
+            <FieldError id="err-goalOther" message={err("goalOther")} /></label>}
         </fieldset>
 
         <fieldset>
-          <legend>أي المحاور التالية يهمك أكثر؟ *</legend>
+          <legend>أي المحاور التالية يهمك أكثر؟<b className="req" aria-hidden="true">*</b></legend>
           <div className="chip-grid">
             {REGISTRATION_TOPICS.map((topic) => <button
               key={topic} type="button" aria-pressed={form.topics.includes(topic)}
@@ -292,6 +359,7 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
               onClick={() => set("topics", toggle(form.topics, topic))}
             >{topic}</button>)}
           </div>
+          <FieldError id="err-topics" message={err("topics")} />
         </fieldset>
 
         <label><span>ما أكثر سؤال أو موضوع تتمنى أن تجد إجابته خلال الدورة؟</span>
@@ -301,7 +369,7 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
 
       {step === 2 && <>
         {tiers.length > 1 && <fieldset>
-          <legend>فئة التسجيل *</legend>
+          <legend>فئة التسجيل<b className="req" aria-hidden="true">*</b></legend>
           <div className="tier-grid">
             {tiers.map((tier) => <button
               key={tier.key} type="button" aria-pressed={form.tierKey === tier.key}
@@ -309,6 +377,7 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
               onClick={() => set("tierKey", tier.key)}
             ><b>{tier.label}</b><span>{formatCurrency(tier.price)}</span></button>)}
           </div>
+          <FieldError id="err-tierKey" message={err("tierKey")} />
         </fieldset>}
 
         <fieldset>
@@ -328,10 +397,12 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
               onClick={() => set("isMember", value as boolean)}
             >{label as string}</button>)}
           </div>
+          <FieldError id="err-isMember" message={err("isMember")} />
           {form.isMember === true && <>
-            <label><span>رقم العضوية *</span>
-              <input dir="ltr" value={form.membershipNumber}
-                onChange={(event) => set("membershipNumber", event.target.value)} /></label>
+            <label><span>رقم العضوية<b className="req" aria-hidden="true">*</b></span>
+              <input dir="ltr" value={form.membershipNumber} {...invalid("membershipNumber")}
+                onChange={(event) => set("membershipNumber", event.target.value)} />
+              <FieldError id="err-membershipNumber" message={err("membershipNumber")} /></label>
             {/* The form this replaces promises the same check. Saying it here,
                 before payment, is the difference between a condition and a
                 surprise. */}
@@ -363,7 +434,7 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
           <div><dt>العضوية</dt><dd>{form.isMember ? `نعم — ${form.membershipNumber}` : "لا"}</dd></div>
         </dl>
 
-        {quoteError && <div className="form-error" role="alert">{quoteError}</div>}
+        {quoteError && <div className="form-error" role="alert"><CircleAlert />{quoteError}</div>}
 
         {quote && <div className="registration-total">
           <div><span>رسوم الدورة</span><b>{formatCurrency(quote.grossAmount)}</b></div>
@@ -381,19 +452,23 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
         </p>
         <p className="application-hint"><ShieldCheck /> لا تُخزن بيانات البطاقة في المنصة.</p>
 
-        {submitError && <div className="form-error" role="alert">{submitError}</div>}
+        {submitError && <div className="form-error" role="alert"><CircleAlert />{submitError}</div>}
       </div>}
     </div>
 
-    {missing && <p className="registration-missing" role="status">{missing}</p>}
+    {/* A count, not the messages themselves — those are already beside the
+        fields they belong to, and repeating them here would say everything
+        twice and still not say where. */}
+    {showErrors && Object.keys(errors).length > 0 && <p className="registration-missing" role="status">
+      <CircleAlert /> {Object.keys(errors).length === 1 ? "حقل واحد يحتاج إلى مراجعة." : `${Object.keys(errors).length} حقول تحتاج إلى مراجعة.`}
+    </p>}
 
     <div className="registration-actions">
       {step > 0 && <button className="button button-secondary" type="button" disabled={busy}
         onClick={() => setStep((current) => current - 1)}><ArrowRight /> السابق</button>}
 
       {step < STEPS.length - 1
-        ? <button className="button" type="button" disabled={Boolean(missing)}
-            onClick={() => setStep((current) => current + 1)}>التالي <ArrowLeft /></button>
+        ? <button className="button" type="button" onClick={next}>التالي <ArrowLeft /></button>
         : <button className="button" type="button" disabled={busy || !quote}
             onClick={() => void submit()}>
             {busy ? <LoaderCircle className="spin" /> : <CreditCard />}

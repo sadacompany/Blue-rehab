@@ -1,0 +1,147 @@
+/* ==========================================================================
+   The administration shell.
+
+   The dashboard had thirteen destinations in a single `overflow-x: auto` strip.
+   Three things are wrong with that, and they compound:
+
+     1. You cannot see what exists. On a laptop roughly six of thirteen tabs are
+        visible, so the panel does not answer "where can I go" — the operator
+        has to remember, or drag to find out.
+     2. A horizontal scroller has no affordance and no scrollbar on a trackpad.
+        The seventh tab onward is, in practice, hidden.
+     3. Selecting the current tab moves the strip, so the thing you just clicked
+        can end up off-screen.
+
+   Thirteen flat destinations is also simply too many to hold in one list, so
+   the fix is not only "make them all visible" — it is to group them. Five
+   groups of two or three each, named for the job rather than the table:
+   المتابعة, الطلبات, المحتوى والدورات, العمليات, الأشخاص وأدوات.
+
+   Layout: a sticky sidebar from 1024px, where there is width to spare and the
+   operator works for long stretches; a wrapping list below that, so every
+   destination is still on screen and nothing scrolls sideways at any size.
+   ========================================================================== */
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-top: 22px;
+}
+
+@media (min-width: 1024px) {
+  .admin-shell { grid-template-columns: 248px minmax(0, 1fr); gap: 26px; }
+
+  .admin-nav {
+    position: sticky;
+    /* Clears the site header, which is itself sticky. */
+    top: 88px;
+    /* Its own scroll only if the operator's viewport genuinely cannot hold the
+       five groups — never a sideways one, and never the page's. */
+    max-height: calc(100vh - 108px);
+    overflow-y: auto;
+    padding: 14px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.admin-nav { display: grid; gap: 16px; }
+
+.admin-nav-group { display: grid; gap: 5px; }
+
+.admin-nav-group > h3 {
+  margin: 0 0 3px;
+  color: var(--color-muted);
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-bold);
+  letter-spacing: .02em;
+}
+
+/* Below the sidebar breakpoint the groups sit side by side and their items
+   wrap — the whole map still fits without a scroller. */
+@media (max-width: 1023px) {
+  .admin-nav {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    padding: 16px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+    background: #fff;
+  }
+  .admin-nav-group { align-content: start; }
+}
+
+.admin-nav button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-fine);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink-900);
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+.admin-nav button > svg { width: 17px; height: 17px; flex: none; color: var(--color-muted); }
+.admin-nav button:hover { background: var(--color-soft); }
+.admin-nav button.is-active {
+  background: var(--color-brand-700);
+  color: #fff;
+  font-weight: var(--weight-bold);
+}
+.admin-nav button.is-active > svg { color: #fff; }
+
+/* The label takes the slack so the count stays pinned to the inline end. */
+.admin-nav button > span { flex: 1; min-width: 0; }
+
+/* A count is context, not decoration: it says whether a queue needs opening.
+   It is rendered only where there is something in it — an empty queue showing
+   «(0)» is thirteen zeroes of noise. */
+.admin-nav-count {
+  flex: none;
+  font-style: normal;
+  min-width: 21px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-brand-50);
+  color: var(--color-brand-800);
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-bold);
+  text-align: center;
+}
+.admin-nav button.is-active .admin-nav-count { background: rgba(255, 255, 255, .22); color: #fff; }
+
+/* Work waiting on a person, rather than a total. Applied to the review queues
+   so «3 طلبات بانتظار المراجعة» is visible without opening anything. */
+.admin-nav-count.is-pending { background: var(--color-warning-soft); color: var(--color-warning-ink); }
+.admin-nav button.is-active .admin-nav-count.is-pending { background: rgba(255, 255, 255, .22); color: #fff; }
+
+/* --------------------------------------------------------------- the panel */
+
+/* The panel is the column beside the nav; it must be allowed to be narrower
+   than its widest child or a long table pushes the whole grid wide and
+   reintroduces the horizontal scroll at the page level. */
+.admin-main { min-width: 0; }
+
+/* Long registers and code lists get a measure. Full-bleed rows on a 1600px
+   monitor make the eye travel from an Arabic name on the right to a status pill
+   a foot away on the left. */
+.admin-main .specialist-panel { max-width: 1080px; }
+
+/* The dashboard header, so the page title and the refresh control stay
+   together and legible when the nav moves beside them. */
+.admin-page .specialist-head { flex-wrap: wrap; gap: 14px; }
+
+@media (max-width: 640px) {
+  .admin-nav { grid-template-columns: 1fr; }
+  .admin-main .specialist-panel { padding: 16px; }
+}

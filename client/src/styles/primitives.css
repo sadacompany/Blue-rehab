@@ -272,21 +272,13 @@
 
 /* ----------------------------------------------------------- 8. form fields */
 
-.filters input, .filters select, .form-grid input, .form-grid select, .form-grid textarea,
-.contact-form input, .contact-form select, .contact-form textarea {
-  width: 100%; min-height: 54px; padding-inline: 16px;
-  border: var(--stroke-hairline) solid var(--color-line); border-radius: var(--radius-xs);
-  background: #fff; color: var(--color-ink-900); font-size: var(--fs-meta);
-  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
-}
-.filters input:focus, .filters select:focus, .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus,
-.contact-form input:focus, .contact-form select:focus, .contact-form textarea:focus {
-  border-color: var(--color-accent); box-shadow: var(--focus-ring); outline: none;
-}
-.filters label > span, .form-grid label > span { display: block; margin-bottom: 7px; color: var(--color-ink-900); font-size: var(--fs-fine); font-weight: var(--weight-bold); }
-.range-field input { min-height: 0; padding: 0; border: 0; accent-color: var(--color-brand-600); }
+/* Text controls, labels, field errors and `.form-error` now live in
+   styles/forms.css, which owns them for the whole product rather than for the
+   three ancestors this block used to name. The rules that were here applied to
+   `.filters`, `.form-grid` and `.contact-form` only — every other form in the
+   app got the browser's defaults, which is what made fields look different from
+   screen to screen. See the header of that file. */
 .range-field strong { color: var(--color-brand-700); }
-.form-error { margin-top: 16px; padding: 14px 16px; border: 1px solid #e3b3ac; background: var(--color-danger-soft); color: var(--color-danger-ink); border-radius: var(--radius-xs); font-size: var(--fs-meta); line-height: var(--leading-snug); }
 
 /* ------------------------------------------------- 9. loading and messages */
 

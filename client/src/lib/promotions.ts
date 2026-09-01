@@ -170,15 +170,15 @@ export async function createPromoCode(input: NewPromoCode): Promise<void> {
     p_code: input.code,
     p_kind: input.kind,
     p_discount_percent: input.discountPercent,
-    // `undefined` rather than `null` for the optional arguments: the functions
-    // declare them `default null`, and omitting the key is the spelling the
-    // generated argument types accept — the same boundary admin.ts documents
-    // on reviewApplication().
-    p_marketer_name: input.marketerName || undefined,
-    p_usage_limit: input.usageLimit ?? undefined,
-    p_starts_at: input.startsAt || undefined,
-    p_ends_at: input.endsAt || undefined,
-    p_internal_note: input.internalNote || undefined,
+    // Every argument, every time, and `null` rather than `undefined` for the
+    // absent ones: `JSON.stringify` drops `undefined` keys, and omitting a
+    // defaulted argument resolves for some signatures and fails with PGRST202
+    // for others. The evidence is written up in lib/registration.ts.
+    p_marketer_name: input.marketerName || null,
+    p_usage_limit: input.usageLimit ?? null,
+    p_starts_at: input.startsAt || null,
+    p_ends_at: input.endsAt || null,
+    p_internal_note: input.internalNote || null,
   });
   if (error) fail(error.message);
 }
@@ -204,14 +204,17 @@ export type PromoCodePatch = {
 export async function updatePromoCode(id: string, patch: PromoCodePatch): Promise<void> {
   const { error } = await supabase.rpc("admin_update_promo_code", {
     p_id: id,
-    p_discount_percent: patch.discountPercent ?? undefined,
-    p_marketer_name: patch.marketerName || undefined,
-    p_usage_limit: patch.usageLimit ?? undefined,
-    p_starts_at: patch.startsAt || undefined,
-    p_ends_at: patch.endsAt || undefined,
-    p_internal_note: patch.internalNote || undefined,
-    p_is_paused: patch.isPaused ?? undefined,
-    p_clear: patch.clear ?? undefined,
+    // Explicit nulls, never omissions — see createPromoCode() above. Null also
+    // carries the server's own meaning of "leave this field alone", so the two
+    // agree: an argument the caller did not set changes nothing.
+    p_discount_percent: patch.discountPercent ?? null,
+    p_marketer_name: patch.marketerName || null,
+    p_usage_limit: patch.usageLimit ?? null,
+    p_starts_at: patch.startsAt || null,
+    p_ends_at: patch.endsAt || null,
+    p_internal_note: patch.internalNote || null,
+    p_is_paused: patch.isPaused ?? null,
+    p_clear: patch.clear ?? [],
   });
   if (error) fail(error.message);
 }
