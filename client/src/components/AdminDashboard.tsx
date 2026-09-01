@@ -1,7 +1,7 @@
 import {
   BadgePercent, BookOpen, CalendarDays, CreditCard, FileText, GraduationCap,
   LayoutDashboard, LifeBuoy, MapPin, RefreshCcw, ShieldCheck, Stethoscope,
-  TriangleAlert, UserRoundPlus, Users, Video, type LucideIcon,
+  TrendingUp, TriangleAlert, UserRoundPlus, Users, Video, type LucideIcon,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
@@ -17,6 +17,7 @@ import AdminOverview from "./AdminOverview";
 import AdminOnsiteCourses from "./AdminOnsiteCourses";
 import AdminPayments from "./AdminPayments";
 import AdminPromotions from "./AdminPromotions";
+import AdminRevenue from "./AdminRevenue";
 import AdminSupport from "./AdminSupport";
 import AdminTeam from "./AdminTeam";
 import AdminTraining from "./AdminTraining";
@@ -25,7 +26,7 @@ import PageShell from "./PageShell";
 import { SkeletonLine, SkeletonMetrics } from "./Skeleton";
 import { useAsync } from "../lib/use-async";
 
-export type Tab = "overview" | "applications" | "users" | "catalogue" | "onsite" | "content" | "bookings" | "payments" | "promotions" | "support" | "training" | "team" | "meetTest";
+export type Tab = "overview" | "applications" | "users" | "catalogue" | "onsite" | "content" | "bookings" | "payments" | "revenue" | "promotions" | "support" | "training" | "team" | "meetTest";
 
 /**
  * The dashboard's map.
@@ -67,6 +68,7 @@ const NAV_GROUPS: Array<{ title: string; items: Array<{ key: Tab; label: string;
     items: [
       { key: "bookings", label: "الحجوزات", icon: CalendarDays },
       { key: "payments", label: "المدفوعات", icon: CreditCard },
+      { key: "revenue", label: "الإيرادات", icon: TrendingUp },
       { key: "promotions", label: "أكواد الخصم", icon: BadgePercent },
     ],
   },
@@ -236,6 +238,8 @@ export default function AdminDashboard() {
     {tab === "bookings" && <AdminBookings bookings={data.bookings} />}
 
     {tab === "payments" && <AdminPayments payments={data.payments} onError={setActionError} reload={reload} />}
+
+    {tab === "revenue" && <AdminRevenue />}
 
     {tab === "promotions" && <AdminPromotions />}
 

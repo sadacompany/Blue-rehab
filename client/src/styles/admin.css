@@ -266,3 +266,36 @@
 /* A contact line on a payment row: latin digits and an address, kept quiet
    against the name above it but selectable for copying. */
 .payment-contact { color: var(--color-muted); user-select: all; }
+
+/* ------------------------------------------------------------- revenue */
+
+.revenue-totals { margin-bottom: 18px; }
+.revenue-totals dt { display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
+.revenue-totals dt svg { width: 15px; height: 15px; }
+
+/* The one-sentence answer, before the tables that support it. */
+.revenue-headline {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin: 0 0 18px; padding: 12px 14px;
+  border-radius: var(--radius-xs);
+  background: var(--color-brand-50);
+  color: var(--color-ink-950); font-size: var(--fs-fine); line-height: var(--leading-snug);
+}
+.revenue-headline > svg { width: 19px; height: 19px; flex: none; color: var(--color-brand-700); }
+
+.revenue-block { margin-bottom: 22px; }
+.revenue-block h4 {
+  display: flex; align-items: center; gap: 7px;
+  margin: 0 0 9px; font-size: var(--fs-small); color: var(--color-ink-950);
+}
+.revenue-block h4 svg { width: 17px; height: 17px; color: var(--color-brand-700); }
+
+.revenue-table td:first-child { min-width: 180px; }
+.revenue-table td b { display: block; }
+.revenue-table .is-top td { background: var(--color-brand-50); }
+.revenue-table .is-refunded { color: var(--color-danger-ink); }
+
+/* The ranking made visible. The figure beside it is the ranking made exact —
+   both, because a bar is compared and a number is read. */
+.revenue-bar { display: block; height: 4px; margin-top: 5px; border-radius: 2px; background: var(--color-line); }
+.revenue-bar i { display: block; height: 100%; border-radius: 2px; background: var(--color-brand-600); }

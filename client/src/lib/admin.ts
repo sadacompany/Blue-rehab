@@ -72,6 +72,13 @@ export type AdminPayment = {
   /** What was refunded so far, so partial refunds are visible in the list. */
   refundedAmount: number;
   kind: "booking" | "course";
+  /**
+   * *Which* course or service this paid for — the question the ledger could not
+   * answer. Attributed from the payment's own `intent_*` columns first, since
+   * those survive the booking or enrolment being cancelled, and from the
+   * settled booking/enrolment only for rows that predate them.
+   */
+  itemName: string | null;
 };
 
 export type AdminSupportRequest = {
@@ -185,7 +192,13 @@ type AdminBookingRow = Pick<Database["public"]["Tables"]["bookings"]["Row"], "id
 type AdminPaymentRow = Pick<
   Database["public"]["Tables"]["payments"]["Row"],
   "id" | "order_number" | "status" | "amount" | "currency" | "paid_at" | "failure_reason" | "created_at" | "booking_id" | "enrollment_id" | "refunded_amount"
-> & { user: ProfileContactEmbed | ProfileContactEmbed[] | null };
+> & {
+  user: ProfileContactEmbed | ProfileContactEmbed[] | null;
+  intent_course: { title: string } | { title: string }[] | null;
+  intent_service: { name: string } | { name: string }[] | null;
+  enrollment: { course: { title: string } | { title: string }[] | null } | null;
+  booking: { service: { name: string } | { name: string }[] | null } | null;
+};
 
 /** `course_modules(count)` comes back as a one-element array holding the tally. */
 type AdminCourseRow = Pick<
@@ -213,7 +226,7 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       .select("id,status,starts_at,mode,total,patient:profiles!bookings_patient_id_fkey(full_name),specialist:specialists(display_name),service:services(name)")
       .order("starts_at", { ascending: false }).limit(100),
     supabase.from("payments")
-      .select("id,order_number,status,amount,currency,paid_at,failure_reason,created_at,booking_id,enrollment_id,refunded_amount,user:profiles(full_name,email,phone)")
+      .select("id,order_number,status,amount,currency,paid_at,failure_reason,created_at,booking_id,enrollment_id,refunded_amount,user:profiles(full_name,email,phone),intent_course:courses!payments_intent_course_id_fkey(title),intent_service:services!payments_intent_service_id_fkey(name),enrollment:enrollments(course:courses(title)),booking:bookings(service:services(name))")
       .order("created_at", { ascending: false }).limit(400),
     supabase.from("support_requests").select("*").order("created_at", { ascending: false }).limit(100),
     supabase.from("services").select("id,name,price,duration_minutes,allowed_modes,is_active,is_coming_soon").order("name"),
@@ -304,6 +317,12 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       userPhone: one(row.user)?.phone ?? null,
       refundedAmount: Number(row.refunded_amount ?? 0),
       kind: row.booking_id ? "booking" as const : "course" as const,
+      // Intent first, settled record second — see the note on the type.
+      itemName: one(row.intent_course)?.title
+        ?? one(row.intent_service)?.name
+        ?? one(row.enrollment?.course)?.title
+        ?? one(row.booking?.service)?.name
+        ?? null,
     })),
     support: (support.data ?? []).map((row) => ({
       id: row.id, name: row.name, email: row.email, phone: row.phone,
@@ -774,6 +793,41 @@ export async function refundPayment(orderNumber: string, reason?: string): Promi
     method: "POST",
     body: JSON.stringify({ orderNumber, reason: reason?.trim() || undefined }),
   });
+}
+
+/**
+ * What each course and each service earned.
+ *
+ * Three figures rather than one, because they answer different questions:
+ * `collected` is the demand signal, `refunded` is what went back, and `net` is
+ * what the platform actually kept. Ranking by `net` is what "most needed in
+ * terms of money" means — a service that takes a lot and refunds most of it is
+ * not the one to staff for.
+ */
+export type RevenueRow = {
+  kind: "course" | "service";
+  itemId: string;
+  itemName: string;
+  orders: number;
+  buyers: number;
+  collected: number;
+  refunded: number;
+  net: number;
+};
+
+export async function loadRevenueBreakdown(): Promise<RevenueRow[]> {
+  const { data, error } = await supabase.rpc("admin_revenue_breakdown");
+  if (error) throw new Error(translate(error.message));
+  return (data ?? []).map((row) => ({
+    kind: (row.kind === "course" ? "course" : "service") as RevenueRow["kind"],
+    itemId: row.item_id ?? "",
+    itemName: row.item_name ?? "—",
+    orders: Number(row.orders ?? 0),
+    buyers: Number(row.buyers ?? 0),
+    collected: Number(row.collected ?? 0),
+    refunded: Number(row.refunded ?? 0),
+    net: Number(row.net ?? 0),
+  }));
 }
 
 export type MeetTestSpecialist = { id: string; displayName: string; hasEmail: boolean };

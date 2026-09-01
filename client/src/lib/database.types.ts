@@ -2375,6 +2375,19 @@ export type Database = {
           visits: number
         }[]
       }
+      admin_revenue_breakdown: {
+        Args: never
+        Returns: {
+          buyers: number
+          collected: number
+          item_id: string
+          item_name: string
+          kind: string
+          net: number
+          orders: number
+          refunded: number
+        }[]
+      }
       admin_set_course_offer: {
         Args: { p_course_id: string; p_enabled: boolean }
         Returns: {

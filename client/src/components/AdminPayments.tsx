@@ -16,13 +16,12 @@ const REFUNDABLE = new Set(["succeeded", "partially_refunded"]);
  *
  * Two presses, like the other destructive actions on this dashboard, and for a
  * stronger reason: this one moves real money and cannot be taken back from
- * here. The amount defaults to the whole remaining balance, which is what
- * «wrong payment» almost always means — a partial figure is available for the
- * cases where only part of it was wrong.
+ * here.
  *
- * The figure typed here is a *request*. The server recomputes what is actually
- * refundable from its own `payments` row and refuses anything larger, so this
- * box can ask for less than was charged but never for more.
+ * It is all-or-nothing. There is no amount to enter — the figure is whatever
+ * remains on the order, shown on the button before anything is pressed and
+ * recomputed server-side from its own row. An operator cannot name a number, so
+ * they cannot name the wrong one.
  */
 function RefundPayment({ payment, onDone, onError }: {
   payment: AdminPayment;
@@ -97,6 +96,10 @@ function RefundPayment({ payment, onDone, onError }: {
  * since the gateway was integrated and was never wired to anything, so a
  * payment taken by mistake could only be settled outside the platform and then
  * reconciled by hand.
+ *
+ * It also never said *what* a payment bought — only «جلسة» or «دورة», which is
+ * the category, not the answer. `itemName` on each row now names the course or
+ * the service, and the search reaches it.
  */
 /** The filter tabs, in the order an administrator actually reaches for them. */
 const FILTERS: Array<[string, string]> = [
@@ -148,7 +151,7 @@ export default function AdminPayments({ payments, onError, reload }: {
     return payments.filter((item) => {
       if (!FILTER_MATCH[filter](item.status)) return false;
       if (!needle) return true;
-      const text = [item.userName, item.userEmail, item.orderNumber]
+      const text = [item.userName, item.userEmail, item.orderNumber, item.itemName]
         .some((field) => field?.toLowerCase().includes(needle));
       const phone = digits.length >= 3
         && (item.userPhone ?? "").replace(/\D/g, "").includes(digits);
@@ -166,7 +169,7 @@ export default function AdminPayments({ payments, onError, reload }: {
       <label className="promo-search">
         <Search />
         <input value={query} onChange={(event) => setQuery(event.target.value)}
-          placeholder="ابحث بالاسم أو البريد أو الجوال أو رقم الطلب"
+          placeholder="ابحث بالاسم أو البريد أو الجوال أو رقم الطلب أو اسم الدورة/الخدمة"
           aria-label="بحث في المدفوعات" />
       </label>
       <div className="promo-filters" role="tablist">
@@ -182,8 +185,10 @@ export default function AdminPayments({ payments, onError, reload }: {
       {shown.map((item) => <article key={item.id} className={`admin-row status-${item.status}`}>
         <div className="admin-row-main">
           <div>
-            <strong>{formatCurrency(item.amount)} · {item.kind === "booking" ? "جلسة" : "دورة"}</strong>
-            <small>{item.userName}</small>
+            {/* What it bought, named. The ledger used to say only «دورة»,
+                which is the category, not the answer to «paid for what». */}
+            <strong>{formatCurrency(item.amount)} · {item.itemName ?? (item.kind === "booking" ? "جلسة" : "دورة")}</strong>
+            <small>{item.kind === "booking" ? "جلسة علاجية" : "دورة تدريبية"} · {item.userName}</small>
             {/* Contact details on the row itself: the person searching by phone
                 needs to see the phone to be sure they found the right payment. */}
             {(item.userEmail || item.userPhone) && <small dir="ltr" className="payment-contact">
