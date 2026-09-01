@@ -1,9 +1,11 @@
-import { BadgePercent, CheckCircle2, LoaderCircle, Plus, Save, XCircle } from "lucide-react";
+import { BadgePercent, CheckCircle2, LoaderCircle, Plus, Save, Trash2, TriangleAlert, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { countLabel, formatCurrency, isOnOffer } from "../lib/format";
 import {
   assignCourseTrainer,
   createCourse,
+  deleteCourse,
+  loadCoursePresenters,
   reviewCourse,
   saveService,
   setCourseOffer,
@@ -11,9 +13,12 @@ import {
   updateCourse,
   type AdminCourse,
   type AdminService,
+  type CoursePresenter,
   type CourseEditPatch,
 } from "../lib/admin";
 import { CoverField, type AdminTabActions } from "./AdminShared";
+import { uploadContentCover } from "../lib/admin";
+import { useAsync } from "../lib/use-async";
 import OfferBadge from "./OfferBadge";
 
 const COURSE_REVIEW: Record<string, string> = {
@@ -83,6 +88,43 @@ const COURSE_MODES: Array<[string, string]> = [
 ];
 
 /**
+ * Deleting a course, asked for twice — the same two-press shape the content
+ * panel uses, for the same reason.
+ *
+ * The database refuses outright once anyone has enrolled, paid or reviewed;
+ * that history has to outlive the course. Rather than let an administrator
+ * discover the refusal by pressing, the confirmation says which way it will go
+ * and names unpublishing as what they probably want instead.
+ */
+function DeleteCourse({ course, busy, onDelete }: {
+  course: AdminCourse; busy: boolean; onDelete: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+
+  if (!armed) {
+    return <button type="button" className="link-button is-danger" disabled={busy}
+      onClick={() => setArmed(true)}><Trash2 /> حذف الدورة</button>;
+  }
+
+  return <span className="delete-confirm" role="alert">
+    <TriangleAlert />
+    <span>
+      <b>حذف «{course.title}» نهائياً؟</b>
+      <small>
+        تُحذف معها الوحدات والدروس وفئات الأسعار. إن كان لها أي تسجيل أو دفعة أو تقييم فسيرفض النظام الحذف —
+        استخدم «إيقاف النشر» بدلاً منه.
+      </small>
+    </span>
+    <button type="button" className="button button-small button-secondary" disabled={busy}
+      onClick={() => setArmed(false)}>إلغاء</button>
+    <button type="button" className="button button-small is-danger" disabled={busy}
+      onClick={onDelete}>
+      {busy ? <LoaderCircle className="spin" /> : <Trash2 />} نعم، احذف
+    </button>
+  </span>;
+}
+
+/**
  * Start a course.
  *
  * Courses could previously only begin in a trainer's dashboard, so the platform
@@ -94,23 +136,39 @@ const COURSE_MODES: Array<[string, string]> = [
  *
  * What it creates is a draft: nothing is public until «نشر الدورة» is pressed.
  */
-function CourseComposer({ trainers, onCreated }: {
-  trainers: Array<{ id: string; fullName: string }>;
+function CourseComposer({ onCreated, onError }: {
   onCreated: () => void;
+  onError: (message: string) => void;
 }) {
   const [form, setForm] = useState({
     title: "", summary: "", price: "0", durationHours: "1",
-    mode: "onsite", level: "مبتدئ", trainerId: "",
+    mode: "onsite", level: "مبتدئ", presenterName: "", trainerId: "",
   });
+  const [cover, setCover] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = (key: keyof typeof form, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  // Trainers and specialists together, plus whether choosing one also hands
+  // them the trainer dashboard. Loaded here rather than through the shared
+  // snapshot because only this form asks the question.
+  const { data: presenters } = useAsync(loadCoursePresenters, []);
+
+  /** Picking somebody fills the name box and, where they can manage, the id. */
+  function choose(person: CoursePresenter) {
+    const already = form.presenterName === person.displayName;
+    setForm((prev) => ({
+      ...prev,
+      presenterName: already ? "" : person.displayName,
+      trainerId: already || !person.canManage || !person.profileId ? "" : person.profileId,
+    }));
+  }
 
   async function submit() {
     setBusy(true);
     setError("");
     try {
-      await createCourse({
+      const courseId = await createCourse({
         title: form.title,
         mode: form.mode,
         level: form.level,
@@ -118,8 +176,24 @@ function CourseComposer({ trainers, onCreated }: {
         durationHours: Number(form.durationHours || 1),
         summary: form.summary,
         trainerId: form.trainerId || null,
+        presenterName: form.presenterName || null,
       });
-      setForm({ title: "", summary: "", price: "0", durationHours: "1", mode: "onsite", level: "مبتدئ", trainerId: "" });
+
+      // The cover can only be attached once the row exists — the storage path
+      // is keyed by the course id. A failure here leaves a created course
+      // without artwork, which is worth saying rather than rolling back a
+      // course somebody has just filled in a form for.
+      if (cover) {
+        try { await uploadContentCover("courses", courseId, cover); }
+        catch (reason) {
+          onError(reason instanceof Error
+            ? `أُنشئت الدورة، لكن تعذّر رفع صورة الغلاف: ${reason.message}`
+            : "أُنشئت الدورة، لكن تعذّر رفع صورة الغلاف.");
+        }
+      }
+
+      setForm({ title: "", summary: "", price: "0", durationHours: "1", mode: "onsite", level: "مبتدئ", presenterName: "", trainerId: "" });
+      setCover(null);
       onCreated();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر إنشاء الدورة");
@@ -151,13 +225,41 @@ function CourseComposer({ trainers, onCreated }: {
           onChange={(event) => set("durationHours", event.target.value)} /></label>
     </div>
 
-    {trainers.length > 0 && <div className="admin-row-actions role-picker">
-      <small className="application-hint">المدرب (اختياري):</small>
-      {trainers.map((trainer) => <button key={trainer.id} type="button"
-        className={form.trainerId === trainer.id ? "chip selected" : "chip"}
-        onClick={() => set("trainerId", form.trainerId === trainer.id ? "" : trainer.id)}
-      >{trainer.fullName}</button>)}
-    </div>}
+    {/* One question — who presents this course — answered either by picking
+        somebody the platform already knows, or by typing a name. A visiting
+        presenter booked for one Saturday has no account and does not need one,
+        and the old picker had no way to say that. */}
+    <fieldset>
+      <legend>مقدّم الدورة (اختياري)</legend>
+      {presenters && presenters.length > 0 && <div className="chip-grid">
+        {presenters.map((person) => <button key={`${person.kind}-${person.profileId ?? person.displayName}`} type="button"
+          className={form.presenterName === person.displayName ? "chip selected" : "chip"}
+          onClick={() => choose(person)}
+        >{person.displayName}<small> · {person.kind === "trainer" ? "مدرب" : "مختص"}</small></button>)}
+      </div>}
+      <label><span>أو اكتب الاسم مباشرة</span>
+        <input value={form.presenterName} placeholder="د. جمال أبو النجا"
+          onChange={(event) => setForm((prev) => ({ ...prev, presenterName: event.target.value, trainerId: "" }))} /></label>
+      {/* The difference between crediting and granting, said out loud rather
+          than discovered when somebody cannot find the course in their panel. */}
+      <p className="application-hint">
+        {form.trainerId
+          ? "هذا الحساب مدرب معتمد — سيظهر اسمه على الدورة، وستتاح له إضافة الوحدات والدروس من لوحة المدرب."
+          : form.presenterName
+            ? "سيظهر الاسم على صفحة الدورة فقط. لإتاحة تعديل المحتوى لصاحبه، يلزم أن يكون حسابه مدرباً معتمداً."
+            : "اختر من القائمة أو اكتب اسماً. يمكن تركه فارغاً وتعبئته لاحقاً."}
+      </p>
+    </fieldset>
+
+    {/* Optional, and offered here rather than only after creation: a course
+        with no artwork does not appear on the landing page at all, so the
+        moment it is created is the right moment to ask. */}
+    <label><span>صورة الغلاف (اختيارية)</span>
+      <input type="file" accept="image/jpeg,image/png,image/webp,image/avif"
+        onChange={(event) => setCover(event.target.files?.[0] ?? null)} />
+      <small className="field-hint">
+        {cover ? `المُختارة: ${cover.name}` : "بدون غلاف لن تظهر الدورة في الصفحة الرئيسية. يمكن إضافتها لاحقاً."}
+      </small></label>
 
     {/* Said before the button, not after the fact: a price under one riyal is
         accepted here and refused by the gateway at checkout, so the number is
@@ -419,7 +521,7 @@ export default function AdminCatalogue({ services, courses, trainers, note, setN
 <h3 className="trainer-section-title">الدورات — الإنشاء والمراجعة والإسناد</h3>
     <details className="specialist-new-plan">
       <summary><Plus /> دورة جديدة</summary>
-      <CourseComposer trainers={trainers} onCreated={() => void reload()} />
+      <CourseComposer onCreated={() => void reload()} onError={onError} />
     </details>
     <div className="admin-list">
       {courses.map((course) => <article key={course.id} className={`admin-row status-${course.reviewStatus}`}>
@@ -493,6 +595,11 @@ export default function AdminCatalogue({ services, courses, trainers, note, setN
             className={course.trainerId === trainer.id ? "chip selected" : "chip"} disabled={busy === course.id}
             onClick={() => void run(course.id, () => assignCourseTrainer(course.id, course.trainerId === trainer.id ? null : trainer.id))}
           >{trainer.fullName}</button>)}
+        </div>
+
+        <div className="admin-row-danger">
+          <DeleteCourse course={course} busy={busy === course.id}
+            onDelete={() => void run(course.id, () => deleteCourse(course.id))} />
         </div>
       </article>)}
     </div>

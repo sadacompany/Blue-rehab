@@ -330,6 +330,10 @@ const ADMIN_ERRORS: Record<string, string> = {
   // Deleting content and creating a course (20260901140000).
   TABLE_NOT_ALLOWED: "لا يمكن الحذف من هذا الجدول.",
   CONTENT_NOT_FOUND: "لم نجد هذا المحتوى — ربما حُذف بالفعل.",
+  // Deleting a course is refused where money or history depends on it —
+  // 20260901150000. Unpublishing is what is actually wanted in that case.
+  COURSE_HAS_HISTORY: "لا يمكن حذف دورة لها تسجيلات أو مدفوعات أو تقييمات. أوقف نشرها بدلاً من ذلك.",
+  PRESENTER_NAME_TOO_LONG: "اسم المقدّم طويل جداً.",
 };
 
 function translate(message: string): string {
@@ -565,6 +569,66 @@ export async function setCourseOffer(courseId: string, enabled: boolean) {
  * action that already existed; this only supplies the beginning, which was the
  * one part of a course's life administration could not reach.
  */
+/**
+ * Everyone administration can credit on a course.
+ *
+ * Trainers and specialists in one list, because at this centre most of the
+ * people who actually teach are specialists, and the old picker offered only
+ * accounts holding the `trainer` role.
+ *
+ * `canManage` is the honest part of it. Pointing `trainer_id` at somebody
+ * gives them the trainer dashboard for that course only if they hold the
+ * trainer role — `courses_trainer_all` decides that, not this list — so a
+ * specialist who is not also a trainer is credited without being granted
+ * anything. `profileId` is null for a specialist with no account at all, who
+ * can only be credited by name.
+ */
+export type CoursePresenter = {
+  profileId: string | null;
+  displayName: string;
+  kind: "trainer" | "specialist";
+  canManage: boolean;
+};
+
+export async function loadCoursePresenters(): Promise<CoursePresenter[]> {
+  const { data, error } = await supabase.rpc("admin_course_presenters");
+  if (error) throw new Error(translate(error.message));
+  return (data ?? []).map((row) => ({
+    profileId: row.profile_id ?? null,
+    displayName: row.display_name ?? "—",
+    kind: (row.kind === "trainer" ? "trainer" : "specialist") as CoursePresenter["kind"],
+    canManage: Boolean(row.can_manage),
+  }));
+}
+
+/**
+ * Delete a course permanently.
+ *
+ * Refused by the database when anyone has enrolled, paid or reviewed — that
+ * history has to outlive the course, and unpublishing is what the
+ * administrator actually wants in that case. Modules, lessons, price tiers and
+ * unpaid registrations cascade away with it; those are course structure.
+ */
+export async function deleteCourse(courseId: string): Promise<void> {
+  const { data, error } = await supabase.rpc("admin_delete_course", { p_course_id: courseId });
+  if (error) throw new Error(translate(error.message));
+
+  const coverUrl = (data as unknown as { cover_url?: string | null } | null)?.cover_url;
+  if (!coverUrl) return;
+  const marker = "/content-covers/";
+  const start = coverUrl.indexOf(marker);
+  if (start === -1) return;
+  await supabase.storage.from("content-covers")
+    .remove([coverUrl.slice(start + marker.length).split("?")[0]])
+    .catch(() => undefined);
+}
+
+/**
+ * Returns the new course's id so the caller can attach a cover straight after
+ * — `uploadContentCover` is keyed by row id, which does not exist until the
+ * insert has happened, so a cover chosen on the creation form has to be
+ * uploaded as a second step rather than sent with it.
+ */
 export async function createCourse(input: {
   title: string;
   mode: string;
@@ -573,7 +637,8 @@ export async function createCourse(input: {
   durationHours: number;
   summary?: string;
   trainerId?: string | null;
-}): Promise<void> {
+  presenterName?: string | null;
+}): Promise<string> {
   /*
    * Every argument explicitly, including the defaulted ones: omitting one is
    * unreliable in PostgREST and fails as «could not find the function» — the
@@ -596,12 +661,14 @@ export async function createCourse(input: {
     p_summary: input.summary?.trim() || null,
     p_language: "العربية",
     p_trainer_id: input.trainerId || null,
+    p_presenter_name: input.presenterName?.trim() || null,
   };
-  const { error } = await supabase.rpc(
+  const { data, error } = await supabase.rpc(
     "admin_create_course",
     args as unknown as Database["public"]["Functions"]["admin_create_course"]["Args"],
   );
   if (error) throw new Error(translate(error.message));
+  return (data as unknown as { id: string }).id;
 }
 
 export async function assignCourseTrainer(courseId: string, trainerId: string | null) {

@@ -2224,12 +2224,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_course_presenters: {
+        Args: never
+        Returns: {
+          can_manage: boolean
+          display_name: string
+          kind: string
+          profile_id: string
+        }[]
+      }
       admin_create_course: {
         Args: {
           p_duration_hours?: number
           p_language?: string
           p_level: string
           p_mode: string
+          p_presenter_name?: string
           p_price?: number
           p_summary?: string
           p_title: string
@@ -2311,6 +2321,7 @@ export type Database = {
         Args: { p_id: string; p_table: string }
         Returns: Json
       }
+      admin_delete_course: { Args: { p_course_id: string }; Returns: Json }
       admin_overview: { Args: never; Returns: Json }
       admin_promo_code_redemptions: {
         Args: { p_id: string; p_limit?: number }
