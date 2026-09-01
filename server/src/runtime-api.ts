@@ -182,7 +182,14 @@ export async function getCatalog(): Promise<ApiResult> {
 }
 
 export async function getCourseDetail(slugValue: string): Promise<ApiResult> {
-  const slug = z.string().min(2).max(160).parse(slugValue);
+  // A course slug is a DB-generated kebab token (e.g. "acl-diagnosis-and-treatment").
+  // Anything outside that shape cannot name a real course, so it is a miss — not a
+  // 500. Guarding here also keeps quotes/semicolons/spaces out of the PostgREST
+  // filter value, where certain combinations otherwise raise a parse error that
+  // surfaced to the caller as an "Unexpected server error".
+  const parsed = z.string().min(2).max(160).regex(/^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$/).safeParse(slugValue);
+  if (!parsed.success) return { status: 404, body: { error: "Course not found" }, cacheControl: noStore };
+  const slug = parsed.data;
   const courseResult = await catalog.from("courses").select("id,slug,title,summary,description,duration_hours,price,mode,level,starts_at,learning_outcomes,prerequisites,language,certificate_available,is_demo,cover_url,compare_at_price,presenter_name").eq("slug", slug).eq("is_published", true).maybeSingle();
   if (courseResult.error) throw courseResult.error;
   if (!courseResult.data) return { status: 404, body: { error: "Course not found" }, cacheControl: noStore };

@@ -48,7 +48,7 @@ supabase db push
 | `MOYASAR_SECRET_KEY` | `sk_test_…` | إنشاء الفواتير والتحقق. **سري** |
 | `MOYASAR_PUBLISHABLE_KEY` | `pk_test_…` | مفتاح عام |
 | `SUPABASE_SERVICE_ROLE_KEY` | من Supabase → API | لتسجيل نتيجة الدفع |
-| `PUBLIC_SITE_URL` | `https://blue-rehab.netlify.app` | لبناء رابط العودة بعد الدفع |
+| `PUBLIC_SITE_URL` | `https://blorehab.com` | لبناء رابط العودة بعد الدفع |
 | `VITE_AUTH_MODE` | `mock` | الوضع التجريبي للتحقق |
 
 > ⚠️ **استخدم مفاتيح الاختبار.** المفاتيح التي تبدأ بـ `sk_live_` / `pk_live_` تخصم
