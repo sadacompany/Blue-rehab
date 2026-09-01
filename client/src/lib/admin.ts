@@ -622,6 +622,55 @@ export async function loadCoursePresenters(): Promise<CoursePresenter[]> {
  * administrator actually wants in that case. Modules, lessons, price tiers and
  * unpaid registrations cascade away with it; those are course structure.
  */
+/**
+ * What deleting this course would cost, for the second confirmation screen.
+ *
+ * Asked for and shown before anything happens, so the total in riyals and the
+ * number of people are stated rather than taken on faith.
+ */
+export type CourseDeleteImpact = {
+  courseTitle: string;
+  refundableTotal: number;
+  payerCount: number;
+  paidPaymentCount: number;
+  activeEnrollments: number;
+  registrationCount: number;
+  reviewCount: number;
+};
+
+export async function loadCourseDeleteImpact(courseId: string): Promise<CourseDeleteImpact> {
+  const { data, error } = await supabase.rpc("admin_course_delete_impact", { p_course_id: courseId });
+  if (error) throw new Error(translate(error.message));
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+  return {
+    courseTitle: String(row?.course_title ?? ""),
+    refundableTotal: Number(row?.refundable_total ?? 0),
+    payerCount: Number(row?.payer_count ?? 0),
+    paidPaymentCount: Number(row?.paid_payment_count ?? 0),
+    activeEnrollments: Number(row?.active_enrollments ?? 0),
+    registrationCount: Number(row?.registration_count ?? 0),
+    reviewCount: Number(row?.review_count ?? 0),
+  };
+}
+
+/**
+ * Delete a course *and refund everyone who paid for it*.
+ *
+ * The plain `deleteCourse` below refuses the moment a course has any history.
+ * This is the deliberate other path, for a course that should never have been
+ * sold. It goes through the Node API because the refunds run against Moyasar
+ * with the secret key; the course is deleted only if every one of them came
+ * back, and the response names any that did not.
+ */
+export type CourseDeleteResult = { deleted: boolean; refundedOrders: number; refundedTotal: number };
+
+export async function deleteCourseWithRefunds(courseId: string): Promise<CourseDeleteResult> {
+  return authorizedFetch("/admin/courses/delete", {
+    method: "POST",
+    body: JSON.stringify({ courseId }),
+  });
+}
+
 export async function deleteCourse(courseId: string): Promise<void> {
   const { data, error } = await supabase.rpc("admin_delete_course", { p_course_id: courseId });
   if (error) throw new Error(translate(error.message));

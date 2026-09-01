@@ -1086,6 +1086,128 @@ export async function refundPaymentByOrder(authorization: string | null, payload
   };
 }
 
+const deleteCourseSchema = z.object({ courseId: z.string().uuid() });
+
+/**
+ * Delete a course that people have paid for, refunding all of them first.
+ *
+ * The ordinary delete (`admin_delete_course`) refuses the moment a course has
+ * any history, and stays that way. This is the deliberate other path, for a
+ * course that should never have been sold — and the sequence is the safety:
+ *
+ *   1. Confirm the caller is an administrator.
+ *   2. Read every payment still holding money for this course.
+ *   3. Refund each one at the gateway, recording it as it succeeds.
+ *   4. Only if every one came back, delete the course.
+ *
+ * Step 4 is conditional, and the SQL re-checks the same condition rather than
+ * trusting this loop — so a refund that fails half way leaves the course
+ * standing, the successful refunds recorded, and nobody out of pocket. The
+ * response names exactly which orders failed so the operator can act on them
+ * instead of guessing.
+ *
+ * Refunds run one at a time, not in parallel. Moyasar is being asked to move
+ * real money for several people; a burst of concurrent calls buys a second or
+ * two and costs the ability to say exactly where a partial failure stopped.
+ */
+export async function deleteCourseWithRefunds(authorization: string | null, payload: unknown): Promise<ApiResult> {
+  const auth = await requireAdmin(authorization);
+  if (!auth.ok) return auth.result;
+  const body = deleteCourseSchema.parse(payload);
+
+  const admin = adminClient();
+  if (!admin) {
+    return { status: 503, body: { error: "لا يمكن تنفيذ العملية — مفتاح الخدمة غير مهيأ." }, cacheControl: noStore };
+  }
+
+  const { data: outstanding, error: readError } = await admin
+    .from("payments")
+    .select("id,order_number,amount,tax,fees,refunded_amount,status,provider_payment_id")
+    .eq("intent_course_id", body.courseId)
+    .in("status", ["succeeded", "partially_refunded"]);
+  if (readError) throw readError;
+
+  const owed = (outstanding ?? [])
+    .map((row) => ({
+      orderNumber: row.order_number,
+      providerPaymentId: row.provider_payment_id,
+      remaining: Math.round(
+        (Number(row.amount) + Number(row.tax ?? 0) + Number(row.fees ?? 0) - Number(row.refunded_amount ?? 0)) * 100,
+      ) / 100,
+    }))
+    .filter((row) => row.remaining > 0);
+
+  if (owed.length > 0 && !isMoyasarConfigured()) {
+    return { status: 503, body: { error: "بوابة الدفع غير مهيأة — لا يمكن تنفيذ الاستردادات." }, cacheControl: noStore };
+  }
+
+  const refunded: string[] = [];
+  const failed: Array<{ orderNumber: string; reason: string }> = [];
+
+  for (const item of owed) {
+    if (!item.providerPaymentId) {
+      failed.push({ orderNumber: item.orderNumber, reason: "لا يوجد مرجع دفع لدى البوابة." });
+      continue;
+    }
+    try {
+      await refundPayment(item.providerPaymentId, item.remaining);
+      const { error: recordError } = await admin.rpc("record_payment_refund", {
+        p_order_number: item.orderNumber,
+        p_amount: item.remaining,
+        p_reason: "حذف الدورة وإعادة الرسوم",
+        p_actor: auth.user.id,
+      });
+      if (recordError) {
+        // Refunded at the gateway, not written down. Reported as a failure so
+        // the course is not deleted while our own record disagrees with
+        // Moyasar's — and flagged loudly, because retrying would double-refund.
+        console.error("course_refund_recorded_failed", item.orderNumber, recordError.message);
+        failed.push({ orderNumber: item.orderNumber, reason: "نُفِّذ الاسترداد لدى البوابة ولم يُسجَّل — لا تُعد المحاولة." });
+        continue;
+      }
+      refunded.push(item.orderNumber);
+    } catch (reason) {
+      if (!(reason instanceof MoyasarError)) throw reason;
+      console.error("course_refund_rejected", item.orderNumber, reason.message);
+      failed.push({ orderNumber: item.orderNumber, reason: "رفضت البوابة الاسترداد." });
+    }
+  }
+
+  if (failed.length > 0) {
+    return {
+      status: 409,
+      cacheControl: noStore,
+      body: {
+        error: `تعذّر استرداد ${failed.length} من ${owed.length} عملية. لم تُحذف الدورة.`,
+        refunded,
+        failed,
+      },
+    };
+  }
+
+  const { error: deleteError } = await admin.rpc("admin_delete_course_with_refunds", {
+    p_course_id: body.courseId,
+    p_actor: auth.user.id,
+  });
+  if (deleteError) {
+    const mapped = mapDomainError(deleteError.message);
+    return {
+      status: mapped?.status ?? 409,
+      cacheControl: noStore,
+      body: {
+        error: mapped?.message ?? "أُعيدت الرسوم، لكن تعذّر حذف الدورة. راجع الدعم الفني.",
+        refunded,
+      },
+    };
+  }
+
+  return {
+    status: 200,
+    cacheControl: noStore,
+    body: { deleted: true, refundedOrders: refunded.length, refundedTotal: owed.reduce((sum, item) => sum + item.remaining, 0) },
+  };
+}
+
 export async function settlePendingPayments(authorization: string | null): Promise<ApiResult> {
   const auth = await authenticate(authorization);
   if (!auth.ok) return auth.result;

@@ -2224,6 +2224,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_course_delete_impact: {
+        Args: { p_course_id: string }
+        Returns: {
+          active_enrollments: number
+          course_title: string
+          paid_payment_count: number
+          payer_count: number
+          refundable_total: number
+          registration_count: number
+          review_count: number
+        }[]
+      }
       admin_course_presenters: {
         Args: never
         Returns: {
@@ -2322,6 +2334,10 @@ export type Database = {
         Returns: Json
       }
       admin_delete_course: { Args: { p_course_id: string }; Returns: Json }
+      admin_delete_course_with_refunds: {
+        Args: { p_actor: string; p_course_id: string }
+        Returns: Json
+      }
       admin_overview: { Args: never; Returns: Json }
       admin_promo_code_redemptions: {
         Args: { p_id: string; p_limit?: number }
@@ -2713,6 +2729,15 @@ export type Database = {
           p_table: string
         }
         Returns: undefined
+      }
+      record_payment_refund: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_order_number: string
+          p_reason: string
+        }
+        Returns: Json
       }
       record_promo_visit: {
         Args: { p_code: string; p_visitor_key: string }

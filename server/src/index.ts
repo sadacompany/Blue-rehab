@@ -15,6 +15,7 @@ import {
   getPaymentConfig,
   listMeetTestSpecialists,
   repairBookingMeetingAttendees,
+  deleteCourseWithRefunds,
   refundPaymentByOrder,
   settlePendingPayments,
   verifyPayment,
@@ -46,6 +47,7 @@ app.post("/api/enrollments", async (request, response, next) => { try { return s
 app.get("/api/payments/config", (_request, response) => sendResult(response, getPaymentConfig()));
 app.post("/api/payments/checkout", async (request, response, next) => { try { return sendResult(response, await createPaymentCheckout(request.headers.authorization ?? null, request.body)); } catch (error) { return next(error); } });
 app.post("/api/payments/verify", async (request, response, next) => { try { return sendResult(response, await verifyPayment(request.headers.authorization ?? null, request.body)); } catch (error) { return next(error); } });
+app.post("/api/admin/courses/delete", async (request, response, next) => { try { return sendResult(response, await deleteCourseWithRefunds(request.headers.authorization ?? null, request.body)); } catch (error) { return next(error); } });
 app.post("/api/payments/refund", async (request, response, next) => { try { return sendResult(response, await refundPaymentByOrder(request.headers.authorization ?? null, request.body)); } catch (error) { return next(error); } });
 app.post("/api/payments/settle", async (request, response, next) => { try { return sendResult(response, await settlePendingPayments(request.headers.authorization ?? null)); } catch (error) { return next(error); } });
 app.use((_request, response) => response.status(404).json({ error: "Route not found" }));

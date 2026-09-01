@@ -5,6 +5,8 @@ import {
   assignCourseTrainer,
   createCourse,
   deleteCourse,
+  deleteCourseWithRefunds,
+  loadCourseDeleteImpact,
   loadCoursePresenters,
   reviewCourse,
   saveService,
@@ -13,6 +15,7 @@ import {
   updateCourse,
   type AdminCourse,
   type AdminService,
+  type CourseDeleteImpact,
   type CoursePresenter,
   type CourseEditPatch,
 } from "../lib/admin";
@@ -96,32 +99,112 @@ const COURSE_MODES: Array<[string, string]> = [
  * discover the refusal by pressing, the confirmation says which way it will go
  * and names unpublishing as what they probably want instead.
  */
-function DeleteCourse({ course, busy, onDelete }: {
-  course: AdminCourse; busy: boolean; onDelete: () => void;
+function DeleteCourse({ course, busy, onDelete, onError, onDeleted }: {
+  course: AdminCourse;
+  busy: boolean;
+  onDelete: () => void;
+  onError: (message: string) => void;
+  onDeleted: () => void;
 }) {
-  const [armed, setArmed] = useState(false);
+  // "idle" -> "confirm" -> (only when money is involved) "money".
+  const [stage, setStage] = useState<"idle" | "confirm" | "money">("idle");
+  const [impact, setImpact] = useState<CourseDeleteImpact | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [working, setWorking] = useState(false);
 
-  if (!armed) {
-    return <button type="button" className="link-button is-danger" disabled={busy}
-      onClick={() => setArmed(true)}><Trash2 /> حذف الدورة</button>;
+  /*
+   * The first confirmation asks the plain question. Answering it does not
+   * delete anything — it goes and finds out what deleting would cost, and if
+   * anyone has paid, the second screen states that in riyals and in people
+   * before the destructive button exists at all.
+   *
+   * A course nobody has paid for skips straight through to the ordinary
+   * delete: there is no second question to ask.
+   */
+  async function confirmFirst() {
+    setChecking(true);
+    try {
+      const found = await loadCourseDeleteImpact(course.id);
+      setImpact(found);
+      if (found.refundableTotal > 0 || found.activeEnrollments > 0) setStage("money");
+      else onDelete();
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "تعذر حساب أثر الحذف");
+    } finally { setChecking(false); }
   }
 
-  return <span className="delete-confirm" role="alert">
-    <TriangleAlert />
-    <span>
-      <b>حذف «{course.title}» نهائياً؟</b>
-      <small>
-        تُحذف معها الوحدات والدروس وفئات الأسعار. إن كان لها أي تسجيل أو دفعة أو تقييم فسيرفض النظام الحذف —
-        استخدم «إيقاف النشر» بدلاً منه.
-      </small>
-    </span>
-    <button type="button" className="button button-small button-secondary" disabled={busy}
-      onClick={() => setArmed(false)}>إلغاء</button>
-    <button type="button" className="button button-small is-danger" disabled={busy}
-      onClick={onDelete}>
-      {busy ? <LoaderCircle className="spin" /> : <Trash2 />} نعم، احذف
-    </button>
-  </span>;
+  /** Refund everyone, then delete. The server does both, in that order. */
+  async function confirmMoney() {
+    setWorking(true);
+    try {
+      const result = await deleteCourseWithRefunds(course.id);
+      onError(`حُذفت الدورة، وأُعيد ${formatCurrency(result.refundedTotal)} إلى ${result.refundedOrders} عملية دفع.`);
+      setStage("idle");
+      onDeleted();
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "تعذر حذف الدورة");
+    } finally { setWorking(false); }
+  }
+
+  if (stage === "idle") {
+    return <button type="button" className="button button-small button-danger-ghost" disabled={busy || checking}
+      onClick={() => setStage("confirm")}><Trash2 /> حذف الدورة</button>;
+  }
+
+  if (stage === "confirm") {
+    return <span className="delete-confirm" role="alert">
+      <TriangleAlert />
+      <span>
+        <b>حذف «{course.title}» نهائياً؟</b>
+        <small>تُحذف معها الوحدات والدروس وفئات الأسعار. سنتحقق أولاً مما إذا كان أحد قد دفع.</small>
+      </span>
+      <button type="button" className="button button-small button-secondary" disabled={checking}
+        onClick={() => setStage("idle")}>إلغاء</button>
+      <button type="button" className="button button-small is-danger" disabled={checking}
+        onClick={() => void confirmFirst()}>
+        {checking ? <LoaderCircle className="spin" /> : <Trash2 />} متابعة
+      </button>
+    </span>;
+  }
+
+  // Money is involved. This screen exists to be read, not clicked through.
+  return <div className="refund-confirm" role="alert">
+    <div className="refund-confirm-head">
+      <TriangleAlert />
+      <div>
+        <b>هذه الدورة مدفوعة — سيُعاد المال قبل الحذف</b>
+        <small>«{course.title}»</small>
+      </div>
+      <span className="refund-figure">{formatCurrency(impact?.refundableTotal ?? 0)}</span>
+    </div>
+
+    <ul className="refund-consequences">
+      <li>
+        سيُعاد مبلغ <b>{formatCurrency(impact?.refundableTotal ?? 0)}</b> بالكامل
+        إلى <b>{impact?.payerCount ?? 0}</b> {(impact?.payerCount ?? 0) === 1 ? "مشترك" : "مشتركين"}
+        عبر <b>{impact?.paidPaymentCount ?? 0}</b> عملية دفع.
+      </li>
+      <li>
+        سيُلغى تسجيل <b>{impact?.activeEnrollments ?? 0}</b> {(impact?.activeEnrollments ?? 0) === 1 ? "مشترك مؤكد" : "مشتركاً مؤكداً"} في الدورة،
+        ويصلهم إشعار بالإلغاء وإعادة الرسوم.
+      </li>
+      {(impact?.registrationCount ?? 0) > 0 && <li>
+        وتُحذف <b>{impact?.registrationCount}</b> استمارة تسجيل حضوري مرتبطة بها.
+      </li>}
+      <li>تبقى سجلات المدفوعات كما هي للمحاسبة، وتبقى التقييمات المكتوبة، لكن تُحذف الدورة ومحتواها.</li>
+      <li>يُنفَّذ كل هذا فوراً ولا يمكن التراجع عنه. إن فشل أي استرداد، تبقى الدورة كما هي ولن يُحذف شيء.</li>
+    </ul>
+
+    <div className="refund-actions">
+      <button type="button" className="button button-small button-secondary" disabled={working}
+        onClick={() => setStage("idle")}>إلغاء</button>
+      <button type="button" className="button button-small is-danger" disabled={working}
+        onClick={() => void confirmMoney()}>
+        {working ? <LoaderCircle className="spin" /> : <Trash2 />}
+        نعم، أعد {formatCurrency(impact?.refundableTotal ?? 0)} واحذف الدورة
+      </button>
+    </div>
+  </div>;
 }
 
 /**
@@ -642,7 +725,8 @@ export default function AdminCatalogue({ services, courses, trainers, note, setN
 
         <div className="admin-row-danger">
           <DeleteCourse course={course} busy={busy === course.id}
-            onDelete={() => void run(course.id, () => deleteCourse(course.id))} />
+            onDelete={() => void run(course.id, () => deleteCourse(course.id))}
+            onDeleted={() => void reload()} onError={onError} />
         </div>
       </article>)}
     </div>
