@@ -2224,6 +2224,56 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_create_course: {
+        Args: {
+          p_duration_hours?: number
+          p_language?: string
+          p_level: string
+          p_mode: string
+          p_price?: number
+          p_summary?: string
+          p_title: string
+          p_trainer_id?: string
+        }
+        Returns: {
+          capacity: number | null
+          certificate_available: boolean
+          compare_at_price: number | null
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          duration_hours: number
+          ends_at: string | null
+          id: string
+          is_demo: boolean
+          is_published: boolean
+          language: string
+          learning_outcomes: string[]
+          level: string
+          membership_discount_percent: number | null
+          mode: Database["public"]["Enums"]["course_mode"]
+          prerequisites: string[]
+          presenter_name: string | null
+          price: number
+          review_note: string | null
+          review_status: Database["public"]["Enums"]["content_status"]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          slug: string
+          starts_at: string | null
+          submitted_at: string | null
+          summary: string | null
+          title: string
+          trainer_id: string | null
+          venue: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "courses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_create_promo_code: {
         Args: {
           p_code: string
@@ -2256,6 +2306,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      admin_delete_content: {
+        Args: { p_id: string; p_table: string }
+        Returns: Json
       }
       admin_overview: { Args: never; Returns: Json }
       admin_promo_code_redemptions: {
@@ -2596,6 +2650,7 @@ export type Database = {
           registration_id: string
         }[]
       }
+      gateway_minimum_charge: { Args: never; Returns: number }
       has_role: {
         Args: { p_role: Database["public"]["Enums"]["user_role"] }
         Returns: boolean
@@ -2607,7 +2662,7 @@ export type Database = {
           p_course_id: string
           p_is_member?: boolean
           p_promo_code?: string
-          p_tier_key: string
+          p_tier_key?: string
         }
         Returns: {
           discount_amount: number

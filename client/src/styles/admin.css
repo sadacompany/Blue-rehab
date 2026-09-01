@@ -141,7 +141,52 @@
    together and legible when the nav moves beside them. */
 .admin-page .specialist-head { flex-wrap: wrap; gap: 14px; }
 
+/* ------------------------------------------------------ destructive actions */
+
+/*
+ * Deleting is separated from the row's other controls by a rule, not just by
+ * spacing. Everything above a row's danger strip changes where something sits;
+ * everything in it ends something. Putting «حذف نهائي» among the status chips
+ * would make an irreversible act look like one more state to try.
+ */
+.admin-row-danger {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-line);
+}
+
+.link-button.is-danger { color: var(--color-danger); }
+.link-button.is-danger svg { width: 15px; height: 15px; vertical-align: -2px; margin-inline-end: 4px; }
+
+.button.is-danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+}
+.button.is-danger:hover:not(:disabled) { background: var(--color-danger-ink); border-color: var(--color-danger-ink); }
+
+/* The armed state replaces the button rather than sitting beside it, so the
+   confirming press is never in the same place as the arming one. */
+.delete-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e3b3ac;
+  border-radius: var(--radius-xs);
+  background: var(--color-danger-soft);
+}
+.delete-confirm > svg { width: 20px; height: 20px; flex: none; color: var(--color-danger); }
+.delete-confirm > span { flex: 1; min-width: 180px; }
+.delete-confirm b { display: block; color: var(--color-danger-ink); font-size: var(--fs-fine); overflow-wrap: anywhere; }
+.delete-confirm small { display: block; margin-top: 2px; color: var(--color-ink-900); font-size: var(--fs-micro); }
+
 @media (max-width: 640px) {
   .admin-nav { grid-template-columns: 1fr; }
   .admin-main .specialist-panel { padding: 16px; }
+  .delete-confirm .button { flex: 1; }
 }

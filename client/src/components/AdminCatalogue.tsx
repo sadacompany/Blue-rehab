@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { countLabel, formatCurrency, isOnOffer } from "../lib/format";
 import {
   assignCourseTrainer,
+  createCourse,
   reviewCourse,
   saveService,
   setCourseOffer,
@@ -16,7 +17,7 @@ import { CoverField, type AdminTabActions } from "./AdminShared";
 import OfferBadge from "./OfferBadge";
 
 const COURSE_REVIEW: Record<string, string> = {
-  draft: "مسودة لدى المدرب", in_review: "بانتظار المراجعة",
+  draft: "مسودة", in_review: "بانتظار المراجعة",
   published: "معتمدة ومنشورة", archived: "موقوفة",
 };
 
@@ -80,6 +81,99 @@ function ServiceEditor({ service, onSaved }: { service?: AdminService; onSaved: 
 const COURSE_MODES: Array<[string, string]> = [
   ["onsite", "حضوري"], ["remote", "عن بُعد"], ["recorded", "مسجل"], ["hybrid", "هجين"],
 ];
+
+/**
+ * Start a course.
+ *
+ * Courses could previously only begin in a trainer's dashboard, so the platform
+ * could not offer one of its own without borrowing a trainer account. This asks
+ * for the six fields a course cannot exist without and leaves the rest —
+ * description, outcomes, capacity, cover, start date — to the editor below,
+ * which already handles them. A short form that opens the real one beats a long
+ * form that duplicates it.
+ *
+ * What it creates is a draft: nothing is public until «نشر الدورة» is pressed.
+ */
+function CourseComposer({ trainers, onCreated }: {
+  trainers: Array<{ id: string; fullName: string }>;
+  onCreated: () => void;
+}) {
+  const [form, setForm] = useState({
+    title: "", summary: "", price: "0", durationHours: "1",
+    mode: "onsite", level: "مبتدئ", trainerId: "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const set = (key: keyof typeof form, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  async function submit() {
+    setBusy(true);
+    setError("");
+    try {
+      await createCourse({
+        title: form.title,
+        mode: form.mode,
+        level: form.level,
+        price: Number(form.price || 0),
+        durationHours: Number(form.durationHours || 1),
+        summary: form.summary,
+        trainerId: form.trainerId || null,
+      });
+      setForm({ title: "", summary: "", price: "0", durationHours: "1", mode: "onsite", level: "مبتدئ", trainerId: "" });
+      onCreated();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر إنشاء الدورة");
+    } finally { setBusy(false); }
+  }
+
+  return <div className="specialist-plan-composer">
+    <label><span>عنوان الدورة<b className="req" aria-hidden="true">*</b></span>
+      <input value={form.title} onChange={(event) => set("title", event.target.value)}
+        placeholder="الكتف المؤلم: تعقيد لا يعني صعوبة" /></label>
+
+    <label><span>نبذة مختصرة</span>
+      <input value={form.summary} onChange={(event) => set("summary", event.target.value)}
+        placeholder="سطر واحد يظهر في بطاقة الدورة" /></label>
+
+    <div className="specialist-plan-composer-row">
+      <label><span>طريقة التقديم<b className="req" aria-hidden="true">*</b></span>
+        <select value={form.mode} onChange={(event) => set("mode", event.target.value)}>
+          {COURSE_MODES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select></label>
+      <label><span>المستوى<b className="req" aria-hidden="true">*</b></span>
+        <input list="admin-course-levels" value={form.level}
+          onChange={(event) => set("level", event.target.value)} /></label>
+      <label><span>السعر (ر.س)</span>
+        <input type="number" min={0} step="0.01" dir="ltr" value={form.price}
+          onChange={(event) => set("price", event.target.value)} /></label>
+      <label><span>عدد الساعات<b className="req" aria-hidden="true">*</b></span>
+        <input type="number" min={1} dir="ltr" value={form.durationHours}
+          onChange={(event) => set("durationHours", event.target.value)} /></label>
+    </div>
+
+    {trainers.length > 0 && <div className="admin-row-actions role-picker">
+      <small className="application-hint">المدرب (اختياري):</small>
+      {trainers.map((trainer) => <button key={trainer.id} type="button"
+        className={form.trainerId === trainer.id ? "chip selected" : "chip"}
+        onClick={() => set("trainerId", form.trainerId === trainer.id ? "" : trainer.id)}
+      >{trainer.fullName}</button>)}
+    </div>}
+
+    {/* Said before the button, not after the fact: a price under one riyal is
+        accepted here and refused by the gateway at checkout, so the number is
+        worth getting right while the course is still a draft. */}
+    <p className="application-hint">
+      تُنشأ الدورة كمسودة غير منشورة. أكمل الوصف والوحدات من «تعديل بيانات الدورة»، ثم انشرها.
+      السعر إما صفر (مجانية) أو ١ ر.س فأكثر — بوابة الدفع لا تقبل أقل من ريال.
+    </p>
+
+    {error && <p className="specialist-error">{error}</p>}
+    <button className="button button-small" type="button" disabled={busy || !form.title.trim()}
+      onClick={() => void submit()}>
+      {busy ? <LoaderCircle className="spin" /> : <Plus />} إنشاء الدورة
+    </button>
+  </div>;
+}
 
 /**
  * `starts_at` is an instant in the database and a local wall-clock reading in
@@ -322,7 +416,11 @@ export default function AdminCatalogue({ services, courses, trainers, note, setN
       <div className="specialist-plan-composer"><ServiceEditor onSaved={() => void reload()} /></div>
     </details>
 
-<h3 className="trainer-section-title">الدورات — المراجعة والإسناد</h3>
+<h3 className="trainer-section-title">الدورات — الإنشاء والمراجعة والإسناد</h3>
+    <details className="specialist-new-plan">
+      <summary><Plus /> دورة جديدة</summary>
+      <CourseComposer trainers={trainers} onCreated={() => void reload()} />
+    </details>
     <div className="admin-list">
       {courses.map((course) => <article key={course.id} className={`admin-row status-${course.reviewStatus}`}>
         <div className="admin-row-main">
@@ -371,6 +469,18 @@ export default function AdminCatalogue({ services, courses, trainers, note, setN
             onClick={() => void run(course.id, () => reviewCourse(course.id, false, note[course.id] ?? ""))}>
             <XCircle /> إعادة للمدرب
           </button>
+        </div>}
+        {/* A draft had no way forward at all: «اعتماد ونشر» only appeared for a
+            course a trainer had submitted, so a course created here — or one
+            returned to draft — could be edited forever and never published.
+            Same function, stated as what it is when there is no trainer waiting
+            on a verdict. */}
+        {(course.reviewStatus === "draft" || course.reviewStatus === "archived") && <div className="admin-row-actions">
+          <button className="button button-small" disabled={busy === course.id}
+            onClick={() => void run(course.id, () => reviewCourse(course.id, true, ""))}>
+            {busy === course.id ? <LoaderCircle className="spin" /> : <CheckCircle2 />} نشر الدورة
+          </button>
+          <small className="application-hint">تظهر للزوار فور النشر.</small>
         </div>}
         {course.reviewStatus === "published" && <div className="admin-row-actions">
           <button className="button button-small button-ghost" disabled={busy === course.id}

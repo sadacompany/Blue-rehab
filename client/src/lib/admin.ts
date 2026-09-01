@@ -327,6 +327,9 @@ const ADMIN_ERRORS: Record<string, string> = {
   COURSE_IS_FREE: "لا يمكن تفعيل عرض على دورة مجانية — حدّد سعراً أولاً.",
   PRICE_TOO_SMALL: "سعر الدورة أقل من أن يُنصَّف.",
   OFFER_STATE_REQUIRED: "لم تحدد تفعيل العرض أو إلغاءه.",
+  // Deleting content and creating a course (20260901140000).
+  TABLE_NOT_ALLOWED: "لا يمكن الحذف من هذا الجدول.",
+  CONTENT_NOT_FOUND: "لم نجد هذا المحتوى — ربما حُذف بالفعل.",
 };
 
 function translate(message: string): string {
@@ -429,6 +432,42 @@ export async function clearContentCover(
   if (error) throw new Error(translate(error.message));
 }
 
+/**
+ * Delete a piece of content permanently.
+ *
+ * The row is gone from the site and cannot be restored from the interface —
+ * that is what «حذف تماماً» was asked for. It is not gone without trace: the
+ * function copies the whole row into `audit_logs.old_values` before deleting,
+ * so an administrator with database access can still see what was removed and
+ * by whom.
+ *
+ * The cover is removed here rather than in SQL because storage is not reachable
+ * from a database function. Best-effort on purpose: the row is already gone by
+ * the time this runs, and failing the whole operation over an orphaned image
+ * would report a successful delete as a failure. The bucket keeps a file nobody
+ * links to, which is waste, not a fault.
+ */
+export async function deleteContent(
+  table: "articles" | "research_reviews" | "rehab_programs",
+  id: string,
+): Promise<void> {
+  const { data, error } = await supabase.rpc("admin_delete_content", { p_table: table, p_id: id });
+  if (error) throw new Error(translate(error.message));
+
+  const coverUrl = (data as { cover_url?: string | null } | null)?.cover_url;
+  if (!coverUrl) return;
+
+  // `content-covers/<table>/<id>/cover.<ext>` — the path uploadContentCover
+  // built. Derived from the stored URL rather than guessed at, so a cover
+  // uploaded under an older naming scheme is left alone instead of a wrong
+  // path being deleted.
+  const marker = "/content-covers/";
+  const start = coverUrl.indexOf(marker);
+  if (start === -1) return;
+  const path = coverUrl.slice(start + marker.length).split("?")[0];
+  await supabase.storage.from("content-covers").remove([path]).catch(() => undefined);
+}
+
 /** Publication runs through a checked function so the timestamp is never missed. */
 export async function setContentStatus(table: string, id: string, status: string) {
   const { error } = await supabase.rpc("publish_content", {
@@ -515,6 +554,53 @@ export async function setCourseOffer(courseId: string, enabled: boolean) {
     p_course_id: courseId,
     p_enabled: enabled,
   });
+  if (error) throw new Error(translate(error.message));
+}
+
+/**
+ * Start a course as an administrator.
+ *
+ * Creates a draft — unpublished, `review_status = 'draft'`, slug generated from
+ * the title. Everything after this point is the course editor and the publish
+ * action that already existed; this only supplies the beginning, which was the
+ * one part of a course's life administration could not reach.
+ */
+export async function createCourse(input: {
+  title: string;
+  mode: string;
+  level: string;
+  price: number;
+  durationHours: number;
+  summary?: string;
+  trainerId?: string | null;
+}): Promise<void> {
+  /*
+   * Every argument explicitly, including the defaulted ones: omitting one is
+   * unreliable in PostgREST and fails as «could not find the function» — the
+   * evidence is in lib/registration.ts.
+   *
+   * Cast because those two constraints disagree. At runtime the absent
+   * arguments must be sent as `null`; in the generated types an optional RPC
+   * parameter is `string | undefined`, because `supabase gen types` does not
+   * carry `| null` for function parameters the way it does for table columns
+   * (the same limitation supabase.ts documents). The cast is confined to this
+   * one call rather than resolved by sending `undefined`, which would typecheck
+   * and then fail in production.
+   */
+  const args = {
+    p_title: input.title,
+    p_mode: input.mode,
+    p_level: input.level,
+    p_price: input.price,
+    p_duration_hours: input.durationHours,
+    p_summary: input.summary?.trim() || null,
+    p_language: "العربية",
+    p_trainer_id: input.trainerId || null,
+  };
+  const { error } = await supabase.rpc(
+    "admin_create_course",
+    args as unknown as Database["public"]["Functions"]["admin_create_course"]["Args"],
+  );
   if (error) throw new Error(translate(error.message));
 }
 
