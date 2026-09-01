@@ -25,3 +25,5 @@ supabase/functions/api/dotenv-stub.mjs
 
 .vercel
 .env*
+.qa
+.qa_tok
