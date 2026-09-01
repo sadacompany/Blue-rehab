@@ -1,5 +1,5 @@
-import { BadgePercent, CheckCircle2, LoaderCircle, Plus, Save, Trash2, TriangleAlert, XCircle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { BadgePercent, CheckCircle2, ImagePlus, LoaderCircle, Plus, Save, Trash2, TriangleAlert, XCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { countLabel, formatCurrency, isOnOffer } from "../lib/format";
 import {
   assignCourseTrainer,
@@ -122,6 +122,54 @@ function DeleteCourse({ course, busy, onDelete }: {
       {busy ? <LoaderCircle className="spin" /> : <Trash2 />} نعم، احذف
     </button>
   </span>;
+}
+
+/**
+ * Choosing the cover before the course exists.
+ *
+ * The browser's own `<input type=file>` renders as «Choose file / No file
+ * chosen» in the interface language of the browser, not the page — an English
+ * control, left-aligned, in the middle of an Arabic RTL form. It also cannot
+ * show what was chosen.
+ *
+ * So the real input is taken off-screen (still focusable, still labelled) and
+ * the visible control is the same empty-poster shape `CoverField` already uses
+ * on existing rows, which means a cover looks the same whether it is being
+ * added now or replaced later. Once a file is chosen it is previewed from an
+ * object URL rather than described in text — the point of a poster is what it
+ * looks like.
+ */
+function CoverPicker({ file, onPick }: { file: File | null; onPick: (file: File | null) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  // Revoked on replacement and on unmount: an object URL pins the whole file in
+  // memory until it is released, and a composer that is used a few times in a
+  // sitting would otherwise hold every image ever picked.
+  useEffect(() => {
+    if (!file) { setPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  return <div className="cover-picker">
+    <span>صورة الغلاف (اختيارية)</span>
+    <div className="cover-field">
+      <button type="button" className={`cover-thumb${preview ? "" : " is-empty"}`}
+        onClick={() => input.current?.click()}
+        aria-label={file ? `استبدال صورة الغلاف — المختارة ${file.name}` : "اختيار صورة غلاف"}>
+        {preview ? <img src={preview} alt="" /> : <><ImagePlus /><small>غلاف</small></>}
+      </button>
+      {file
+        ? <button type="button" className="cover-clear" onClick={() => { onPick(null); if (input.current) input.current.value = ""; }}>إزالة</button>
+        : <small className="cover-hint">بدون غلاف لن تظهر الدورة في الصفحة الرئيسية. يمكن إضافتها لاحقاً.</small>}
+      <input ref={input} type="file" className="file-field-input"
+        accept="image/jpeg,image/png,image/webp,image/avif"
+        tabIndex={-1} aria-hidden="true"
+        onChange={(event) => onPick(event.target.files?.[0] ?? null)} />
+    </div>
+  </div>;
 }
 
 /**
@@ -254,12 +302,7 @@ function CourseComposer({ onCreated, onError }: {
     {/* Optional, and offered here rather than only after creation: a course
         with no artwork does not appear on the landing page at all, so the
         moment it is created is the right moment to ask. */}
-    <label><span>صورة الغلاف (اختيارية)</span>
-      <input type="file" accept="image/jpeg,image/png,image/webp,image/avif"
-        onChange={(event) => setCover(event.target.files?.[0] ?? null)} />
-      <small className="field-hint">
-        {cover ? `المُختارة: ${cover.name}` : "بدون غلاف لن تظهر الدورة في الصفحة الرئيسية. يمكن إضافتها لاحقاً."}
-      </small></label>
+    <CoverPicker file={cover} onPick={setCover} />
 
     {/* Said before the button, not after the fact: a price under one riyal is
         accepted here and refused by the gateway at checkout, so the number is

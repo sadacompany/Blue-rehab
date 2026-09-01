@@ -185,8 +185,37 @@
 .delete-confirm b { display: block; color: var(--color-danger-ink); font-size: var(--fs-fine); overflow-wrap: anywhere; }
 .delete-confirm small { display: block; margin-top: 2px; color: var(--color-ink-900); font-size: var(--fs-micro); }
 
+/* The refund box carries two inputs as well as the two buttons, so they get a
+   floor wide enough to type a figure into and are allowed to wrap onto their
+   own line on a narrow panel. */
+.refund-amount, .refund-reason { flex: 1 1 130px; min-width: 120px; }
+.refund-reason { flex-basis: 200px; }
+.delete-confirm label > span { font-size: var(--fs-micro); }
+.delete-confirm input { min-height: 40px; }
+
 @media (max-width: 640px) {
   .admin-nav { grid-template-columns: 1fr; }
   .admin-main .specialist-panel { padding: 16px; }
   .delete-confirm .button { flex: 1; }
 }
+
+/* ------------------------------------------------------- the cover picker */
+
+/*
+ * The browser's own file input renders «Choose file / No file chosen» in the
+ * browser's language, left-aligned, inside an Arabic RTL form — and cannot show
+ * what was picked. The real input goes off-screen (`.file-field-input`, which
+ * already exists for the same reason elsewhere) and this is what is seen: the
+ * same empty-poster shape `CoverField` uses on saved rows, so artwork looks the
+ * same whether it is being added now or replaced later.
+ */
+.cover-picker { display: grid; gap: 7px; }
+.cover-picker > span {
+  color: var(--color-ink-900);
+  font-size: var(--fs-fine);
+  font-weight: var(--weight-bold);
+}
+
+/* A contact line on a payment row: latin digits and an address, kept quiet
+   against the name above it but selectable for copying. */
+.payment-contact { color: var(--color-muted); user-select: all; }

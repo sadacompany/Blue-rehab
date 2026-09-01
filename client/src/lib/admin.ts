@@ -62,6 +62,15 @@ export type AdminPayment = {
   failureReason: string | null;
   createdAt: string;
   userName: string;
+  /* Contact details, so the payments page can be searched the way an
+     administrator is actually asked about a payment — «a man called about a
+     charge, his number ends 725». Readable here because `profiles_admin_read`
+     (20260805100000) grants an administrator the whole row; nothing widens for
+     anyone else. */
+  userEmail: string | null;
+  userPhone: string | null;
+  /** What was refunded so far, so partial refunds are visible in the list. */
+  refundedAmount: number;
   kind: "booking" | "course";
 };
 
@@ -163,6 +172,7 @@ const one = <T,>(value: T | T[] | null | undefined): T | undefined =>
 type ContentRowSlim = { id: string; title: string; slug: string; status: string; cover_url: string | null; excerpt: string | null; body: string | null };
 
 type ProfileNameEmbed = Pick<Database["public"]["Tables"]["profiles"]["Row"], "full_name">;
+type ProfileContactEmbed = Pick<Database["public"]["Tables"]["profiles"]["Row"], "full_name" | "email" | "phone">;
 type SpecialistNameEmbed = Pick<Database["public"]["Tables"]["specialists"]["Row"], "display_name">;
 type ServiceNameEmbed = Pick<Database["public"]["Tables"]["services"]["Row"], "name">;
 
@@ -174,8 +184,8 @@ type AdminBookingRow = Pick<Database["public"]["Tables"]["bookings"]["Row"], "id
 
 type AdminPaymentRow = Pick<
   Database["public"]["Tables"]["payments"]["Row"],
-  "id" | "order_number" | "status" | "amount" | "currency" | "paid_at" | "failure_reason" | "created_at" | "booking_id" | "enrollment_id"
-> & { user: ProfileNameEmbed | ProfileNameEmbed[] | null };
+  "id" | "order_number" | "status" | "amount" | "currency" | "paid_at" | "failure_reason" | "created_at" | "booking_id" | "enrollment_id" | "refunded_amount"
+> & { user: ProfileContactEmbed | ProfileContactEmbed[] | null };
 
 /** `course_modules(count)` comes back as a one-element array holding the tally. */
 type AdminCourseRow = Pick<
@@ -203,8 +213,8 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       .select("id,status,starts_at,mode,total,patient:profiles!bookings_patient_id_fkey(full_name),specialist:specialists(display_name),service:services(name)")
       .order("starts_at", { ascending: false }).limit(100),
     supabase.from("payments")
-      .select("id,order_number,status,amount,currency,paid_at,failure_reason,created_at,booking_id,enrollment_id,user:profiles(full_name)")
-      .order("created_at", { ascending: false }).limit(100),
+      .select("id,order_number,status,amount,currency,paid_at,failure_reason,created_at,booking_id,enrollment_id,refunded_amount,user:profiles(full_name,email,phone)")
+      .order("created_at", { ascending: false }).limit(400),
     supabase.from("support_requests").select("*").order("created_at", { ascending: false }).limit(100),
     supabase.from("services").select("id,name,price,duration_minutes,allowed_modes,is_active,is_coming_soon").order("name"),
     // excerpt/body were missing entirely — a reviewer saw a title, a slug and
@@ -290,6 +300,9 @@ export async function loadAdminSnapshot(): Promise<AdminSnapshot> {
       amount: Number(row.amount), currency: row.currency, paidAt: row.paid_at,
       failureReason: row.failure_reason, createdAt: row.created_at,
       userName: one(row.user)?.full_name ?? "—",
+      userEmail: one(row.user)?.email ?? null,
+      userPhone: one(row.user)?.phone ?? null,
+      refundedAmount: Number(row.refunded_amount ?? 0),
       kind: row.booking_id ? "booking" as const : "course" as const,
     })),
     support: (support.data ?? []).map((row) => ({
@@ -688,6 +701,33 @@ export async function setSupportStatus(requestId: string, status: string) {
 // every call here goes through the Node API (server/src/runtime-api.ts),
 // which reads it with the service-role client and never sends the raw
 // address back down, only whether one is on file.
+
+/**
+ * Refund a payment.
+ *
+ * Goes through the Node API, not Supabase: the refund is executed against
+ * Moyasar with the secret key, and only recorded once the gateway confirms.
+ * Omitting `amount` refunds the whole remaining balance — the server recomputes
+ * what that is from its own row, so this can ask for less than was charged but
+ * never for more.
+ */
+export type RefundResult = {
+  orderNumber: string;
+  refunded: number;
+  totalRefunded: number;
+  status: string;
+};
+
+export async function refundPayment(
+  orderNumber: string,
+  amount?: number,
+  reason?: string,
+): Promise<RefundResult> {
+  return authorizedFetch("/payments/refund", {
+    method: "POST",
+    body: JSON.stringify({ orderNumber, amount, reason: reason?.trim() || undefined }),
+  });
+}
 
 export type MeetTestSpecialist = { id: string; displayName: string; hasEmail: boolean };
 

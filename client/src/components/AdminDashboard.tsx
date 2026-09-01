@@ -235,7 +235,7 @@ export default function AdminDashboard() {
 
     {tab === "bookings" && <AdminBookings bookings={data.bookings} />}
 
-    {tab === "payments" && <AdminPayments payments={data.payments} />}
+    {tab === "payments" && <AdminPayments payments={data.payments} onError={setActionError} reload={reload} />}
 
     {tab === "promotions" && <AdminPromotions />}
 

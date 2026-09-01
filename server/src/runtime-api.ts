@@ -965,6 +965,127 @@ export async function verifyPayment(authorization: string | null, payload: unkno
  * Still worth adding a Moyasar webhook eventually — this closes the gap for
  * anyone who reopens the site, not for someone who never returns.
  */
+const refundSchema = z.object({
+  orderNumber: z.string().min(4).max(64),
+  /**
+   * Omitted means the whole remaining balance. A number means a partial
+   * refund — but it is a *ceiling request*, not an instruction: the amount
+   * actually refundable is recomputed from our own row below, so this can only
+   * ever ask for less than what was charged, never more.
+   */
+  amount: z.number().positive().optional(),
+  reason: z.string().max(300).optional(),
+});
+
+/**
+ * Refund a payment that should not have been taken.
+ *
+ * Administration only, and the one endpoint here that sends money back rather
+ * than collecting it, so the order of operations is the whole design:
+ *
+ *   1. Confirm the caller is an administrator.
+ *   2. Read the payment with the service role and decide, from our own row,
+ *      how much is actually refundable. The request never sets the figure.
+ *   3. Ask Moyasar to refund that figure.
+ *   4. Only then record it, cancel what it bought, and tell the payer.
+ *
+ * Step 4 last is what matters. Recording first and refunding second would mean
+ * a gateway failure leaves a booking cancelled and a refund marked that never
+ * happened — the customer loses the appointment and the money. In this order
+ * the worst case is a refund Moyasar performed and we failed to write down,
+ * which is visible in the gateway, recoverable by hand, and does not take an
+ * appointment away from anyone.
+ */
+export async function refundPaymentByOrder(authorization: string | null, payload: unknown): Promise<ApiResult> {
+  const auth = await requireAdmin(authorization);
+  if (!auth.ok) return auth.result;
+  if (!isMoyasarConfigured()) {
+    return { status: 503, body: { error: "بوابة الدفع غير مهيأة بعد." }, cacheControl: noStore };
+  }
+  const body = refundSchema.parse(payload);
+
+  const admin = adminClient();
+  if (!admin) {
+    // Without the service role the outcome cannot be written down, and a
+    // refund we cannot record is worse than one we have not made yet.
+    return { status: 503, body: { error: "لا يمكن تسجيل الاسترداد — مفتاح الخدمة غير مهيأ." }, cacheControl: noStore };
+  }
+
+  const { data: payment, error } = await admin
+    .from("payments")
+    .select("id,order_number,amount,tax,fees,refunded_amount,status,provider_payment_id")
+    .eq("order_number", body.orderNumber)
+    .maybeSingle();
+  if (error) throw error;
+  if (!payment) return { status: 404, body: { error: "لم نجد عملية الدفع." }, cacheControl: noStore };
+
+  if (!["succeeded", "partially_refunded"].includes(payment.status)) {
+    return { status: 409, body: { error: "لا يمكن استرداد مبلغ لم يُحصَّل بعد." }, cacheControl: noStore };
+  }
+  if (!payment.provider_payment_id) {
+    // Settled without a gateway payment id — nothing to call a refund against.
+    return { status: 409, body: { error: "لا يوجد مرجع دفع لدى البوابة لهذه العملية." }, cacheControl: noStore };
+  }
+
+  const charged = Number(payment.amount) + Number(payment.tax ?? 0) + Number(payment.fees ?? 0);
+  const remaining = Math.round((charged - Number(payment.refunded_amount ?? 0)) * 100) / 100;
+  if (remaining <= 0) {
+    return { status: 409, body: { error: "تم استرداد كامل المبلغ مسبقاً." }, cacheControl: noStore };
+  }
+
+  const requested = body.amount === undefined ? remaining : Math.round(body.amount * 100) / 100;
+  if (requested > remaining) {
+    return {
+      status: 422,
+      cacheControl: noStore,
+      body: { error: `المبلغ المطلوب أكبر من المتبقي القابل للاسترداد (${remaining} ر.س).` },
+    };
+  }
+
+  try {
+    await refundPayment(payment.provider_payment_id, requested);
+  } catch (reason) {
+    if (!(reason instanceof MoyasarError)) throw reason;
+    console.error("moyasar_refund_rejected", payment.order_number, reason.message);
+    return {
+      status: 422,
+      cacheControl: noStore,
+      body: { error: "رفضت بوابة الدفع طلب الاسترداد. راجع لوحة مُيسّر ثم حاول مرة أخرى." },
+    };
+  }
+
+  const { data: updated, error: recordError } = await admin.rpc("record_payment_refund", {
+    p_order_number: payment.order_number,
+    p_amount: requested,
+    p_reason: body.reason ?? null,
+    p_actor: auth.user.id,
+  });
+  if (recordError) {
+    // The money is already back with the customer. Say so plainly rather than
+    // reporting a failure that would invite a second refund.
+    console.error("refund_recorded_failed", payment.order_number, recordError.message);
+    return {
+      status: 500,
+      cacheControl: noStore,
+      body: {
+        error: "تم تنفيذ الاسترداد لدى البوابة، لكن تعذّر تسجيله في المنصة. لا تُعد المحاولة — راجع الدعم الفني.",
+      },
+    };
+  }
+
+  const row = updated as unknown as { status?: string; refunded_amount?: number } | null;
+  return {
+    status: 200,
+    cacheControl: noStore,
+    body: {
+      orderNumber: payment.order_number,
+      refunded: requested,
+      totalRefunded: Number(row?.refunded_amount ?? requested),
+      status: row?.status ?? "refunded",
+    },
+  };
+}
+
 export async function settlePendingPayments(authorization: string | null): Promise<ApiResult> {
   const auth = await authenticate(authorization);
   if (!auth.ok) return auth.result;

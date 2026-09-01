@@ -12,6 +12,7 @@ import {
   getPaymentConfig,
   listMeetTestSpecialists,
   repairBookingMeetingAttendees,
+  refundPaymentByOrder,
   settlePendingPayments,
   verifyPayment,
   type ApiResult,
@@ -89,6 +90,7 @@ export async function handleApiRequest(request: Request): Promise<Response> {
       if (path === "/enrollments") return json(request, await createEnrollment(authorization, await readJson(request)));
       if (path === "/payments/checkout") return json(request, await createPaymentCheckout(authorization, await readJson(request)));
       if (path === "/payments/verify") return json(request, await verifyPayment(authorization, await readJson(request)));
+      if (path === "/payments/refund") return json(request, await refundPaymentByOrder(authorization, await readJson(request)));
       if (path === "/payments/settle") return json(request, await settlePendingPayments(authorization));
       const meetMatch = path.match(/^\/bookings\/([^/]+)\/meet$/);
       if (meetMatch) return json(request, await createBookingMeeting(authorization, { bookingId: decodeURIComponent(meetMatch[1]) }));
