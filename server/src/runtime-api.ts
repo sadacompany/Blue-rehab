@@ -965,15 +965,21 @@ export async function verifyPayment(authorization: string | null, payload: unkno
  * Still worth adding a Moyasar webhook eventually — this closes the gap for
  * anyone who reopens the site, not for someone who never returns.
  */
+/**
+ * A refund names an order and nothing else.
+ *
+ * There is deliberately no `amount` field. It used to accept one, validated
+ * against the remaining balance — which was safe, but safe in the wrong way:
+ * it left an operator typing a figure into a box next to a real card, where
+ * the only outcomes are the right number, a rejected number, or a smaller
+ * number nobody meant. Removing the field removes the whole class. The amount
+ * is what is left on the order, computed below from our own row.
+ *
+ * If a genuine partial refund is ever needed, it belongs here as a deliberate,
+ * separately-reasoned addition — not as a text box that happens to allow it.
+ */
 const refundSchema = z.object({
   orderNumber: z.string().min(4).max(64),
-  /**
-   * Omitted means the whole remaining balance. A number means a partial
-   * refund — but it is a *ceiling request*, not an instruction: the amount
-   * actually refundable is recomputed from our own row below, so this can only
-   * ever ask for less than what was charged, never more.
-   */
-  amount: z.number().positive().optional(),
   reason: z.string().max(300).optional(),
 });
 
@@ -1033,14 +1039,8 @@ export async function refundPaymentByOrder(authorization: string | null, payload
     return { status: 409, body: { error: "تم استرداد كامل المبلغ مسبقاً." }, cacheControl: noStore };
   }
 
-  const requested = body.amount === undefined ? remaining : Math.round(body.amount * 100) / 100;
-  if (requested > remaining) {
-    return {
-      status: 422,
-      cacheControl: noStore,
-      body: { error: `المبلغ المطلوب أكبر من المتبقي القابل للاسترداد (${remaining} ر.س).` },
-    };
-  }
+  // The whole remaining balance, always. Nothing in the request influences it.
+  const requested = remaining;
 
   try {
     await refundPayment(payment.provider_payment_id, requested);

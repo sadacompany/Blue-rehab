@@ -30,60 +30,64 @@ function RefundPayment({ payment, onDone, onError }: {
   onError: (message: string) => void;
 }) {
   const [armed, setArmed] = useState(false);
-  const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // What will actually go back. Shown, never typed — the server computes the
+  // same figure from its own row and the request cannot influence it.
+  const refundable = Math.round((payment.amount - payment.refundedAmount) * 100) / 100;
 
   async function submit() {
     setBusy(true);
     try {
-      const asked = amount.trim() ? Number(amount) : undefined;
-      if (asked !== undefined && (!Number.isFinite(asked) || asked <= 0)) {
-        onError("أدخل مبلغاً صحيحاً أكبر من صفر.");
-        return;
-      }
-      const result = await refundPayment(payment.orderNumber, asked, reason);
-      onError(result.status === "refunded"
-        ? `تم استرداد ${formatCurrency(result.refunded)} بالكامل، وأُلغي الحجز أو التسجيل المرتبط.`
-        : `تم استرداد ${formatCurrency(result.refunded)} جزئياً. إجمالي المسترد: ${formatCurrency(result.totalRefunded)}.`);
+      const result = await refundPayment(payment.orderNumber, reason);
+      onError(`تم استرداد ${formatCurrency(result.refunded)} بالكامل للطلب ${payment.orderNumber}، وأُلغي الحجز أو التسجيل المرتبط به.`);
       setArmed(false);
-      setAmount("");
       setReason("");
       onDone();
-    } catch (reason_) {
-      onError(reason_ instanceof Error ? reason_.message : "تعذر تنفيذ الاسترداد");
+    } catch (failure) {
+      onError(failure instanceof Error ? failure.message : "تعذر تنفيذ الاسترداد");
     } finally { setBusy(false); }
   }
 
   if (!armed) {
-    return <button type="button" className="link-button is-danger" disabled={busy}
-      onClick={() => setArmed(true)}><RotateCcw /> استرداد المبلغ</button>;
+    return <button type="button" className="button button-small button-danger-ghost" disabled={busy}
+      onClick={() => setArmed(true)}>
+      <RotateCcw /> استرداد {formatCurrency(refundable)}
+    </button>;
   }
 
-  return <span className="delete-confirm" role="alert">
-    <TriangleAlert />
-    <span>
-      <b>استرداد مبلغ الطلب {payment.orderNumber}؟</b>
-      <small>
-        يُنفَّذ الاسترداد لدى بوابة الدفع فوراً ولا يمكن التراجع عنه من هنا.
-        الاسترداد الكامل يُلغي الحجز أو التسجيل المرتبط ويعيد الموعد للتقويم.
-      </small>
-    </span>
-    <label className="refund-amount"><span>المبلغ</span>
-      <input type="number" min={0} step="0.01" dir="ltr" value={amount}
-        placeholder={String(payment.amount)}
-        onChange={(event) => setAmount(event.target.value)} />
-      <small className="field-hint">اتركه فارغاً لاسترداد كامل المتبقي.</small></label>
-    <label className="refund-reason"><span>السبب (اختياري)</span>
+  return <div className="refund-confirm" role="alert">
+    <div className="refund-confirm-head">
+      <TriangleAlert />
+      <div>
+        <b>تأكيد استرداد المبلغ كاملاً</b>
+        <small>الطلب <span dir="ltr">{payment.orderNumber}</span> — {payment.userName}</small>
+      </div>
+      {/* The figure gets its own place in the layout rather than a sentence:
+          it is the one thing that must be read before pressing. */}
+      <span className="refund-figure">{formatCurrency(refundable)}</span>
+    </div>
+
+    <ul className="refund-consequences">
+      <li>يُنفَّذ الاسترداد لدى بوابة الدفع فوراً، ولا يمكن التراجع عنه من هذه اللوحة.</li>
+      <li>يُلغى الحجز أو التسجيل المرتبط، ويعود الموعد متاحاً في التقويم.</li>
+      <li>يُسترد المبلغ كاملاً — لا يمكن تحديد مبلغ جزئي.</li>
+    </ul>
+
+    <label><span>سبب الاسترداد (اختياري — يُحفظ في السجل)</span>
       <input value={reason} placeholder="دفعة بالخطأ"
         onChange={(event) => setReason(event.target.value)} /></label>
-    <button type="button" className="button button-small button-secondary" disabled={busy}
-      onClick={() => setArmed(false)}>إلغاء</button>
-    <button type="button" className="button button-small is-danger" disabled={busy}
-      onClick={() => void submit()}>
-      {busy ? <LoaderCircle className="spin" /> : <RotateCcw />} نفّذ الاسترداد
-    </button>
-  </span>;
+
+    <div className="refund-actions">
+      <button type="button" className="button button-small button-secondary" disabled={busy}
+        onClick={() => { setArmed(false); setReason(""); }}>إلغاء</button>
+      <button type="button" className="button button-small is-danger" disabled={busy}
+        onClick={() => void submit()}>
+        {busy ? <LoaderCircle className="spin" /> : <RotateCcw />} نعم، استرد {formatCurrency(refundable)}
+      </button>
+    </div>
+  </div>;
 }
 
 /**

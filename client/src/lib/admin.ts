@@ -703,13 +703,15 @@ export async function setSupportStatus(requestId: string, status: string) {
 // address back down, only whether one is on file.
 
 /**
- * Refund a payment.
+ * Refund a payment, in full.
  *
  * Goes through the Node API, not Supabase: the refund is executed against
  * Moyasar with the secret key, and only recorded once the gateway confirms.
- * Omitting `amount` refunds the whole remaining balance — the server recomputes
- * what that is from its own row, so this can ask for less than was charged but
- * never for more.
+ *
+ * There is no amount parameter, by design. The figure is whatever remains on
+ * the order, computed on the server from its own row — an operator cannot
+ * name it, mistype it, or accidentally refund more than was taken. See the
+ * note on `refundSchema` in server/src/runtime-api.ts.
  */
 export type RefundResult = {
   orderNumber: string;
@@ -718,14 +720,10 @@ export type RefundResult = {
   status: string;
 };
 
-export async function refundPayment(
-  orderNumber: string,
-  amount?: number,
-  reason?: string,
-): Promise<RefundResult> {
+export async function refundPayment(orderNumber: string, reason?: string): Promise<RefundResult> {
   return authorizedFetch("/payments/refund", {
     method: "POST",
-    body: JSON.stringify({ orderNumber, amount, reason: reason?.trim() || undefined }),
+    body: JSON.stringify({ orderNumber, reason: reason?.trim() || undefined }),
   });
 }
 

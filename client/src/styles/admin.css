@@ -185,13 +185,60 @@
 .delete-confirm b { display: block; color: var(--color-danger-ink); font-size: var(--fs-fine); overflow-wrap: anywhere; }
 .delete-confirm small { display: block; margin-top: 2px; color: var(--color-ink-900); font-size: var(--fs-micro); }
 
-/* The refund box carries two inputs as well as the two buttons, so they get a
-   floor wide enough to type a figure into and are allowed to wrap onto their
-   own line on a narrow panel. */
-.refund-amount, .refund-reason { flex: 1 1 130px; min-width: 120px; }
-.refund-reason { flex-basis: 200px; }
-.delete-confirm label > span { font-size: var(--fs-micro); }
-.delete-confirm input { min-height: 40px; }
+/* ------------------------------------------------------------- the refund */
+
+/*
+ * A refund is the one action on this dashboard that moves real money outward,
+ * so it is given a panel rather than squeezed into the row of red text the
+ * delete confirmations use. The amount is displayed, never typed: an operator
+ * cannot name a figure at all, here or in the request the API accepts.
+ */
+.button-danger-ghost {
+  border: 1px solid var(--color-danger);
+  background: #fff;
+  color: var(--color-danger);
+  font-weight: var(--weight-bold);
+}
+.button-danger-ghost:hover:not(:disabled) { background: var(--color-danger-soft); }
+.button-danger-ghost svg { width: 15px; height: 15px; }
+
+.refund-confirm {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #e3b3ac;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-soft);
+}
+
+.refund-confirm-head { display: flex; align-items: center; gap: 11px; }
+.refund-confirm-head > svg { width: 22px; height: 22px; flex: none; color: var(--color-danger); }
+.refund-confirm-head > div { flex: 1; min-width: 0; }
+.refund-confirm-head b { display: block; color: var(--color-danger-ink); font-size: var(--fs-small); }
+.refund-confirm-head small { display: block; margin-top: 2px; color: var(--color-ink-900); font-size: var(--fs-micro); overflow-wrap: anywhere; }
+
+/* The figure reads as the subject of the panel, because it is the one thing
+   that must be taken in before pressing. */
+.refund-figure {
+  flex: none;
+  padding: 7px 13px;
+  border-radius: var(--radius-xs);
+  background: #fff;
+  color: var(--color-danger-ink);
+  font-size: var(--fs-body);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+/* What will happen, as a list rather than a paragraph — three separate
+   consequences, each of which someone might not have thought of. */
+.refund-consequences { margin: 0; padding-inline-start: 18px; display: grid; gap: 4px; }
+.refund-consequences li { color: var(--color-ink-900); font-size: var(--fs-micro); line-height: var(--leading-snug); }
+
+.refund-confirm label > span { color: var(--color-ink-900); font-size: var(--fs-micro); font-weight: var(--weight-bold); }
+.refund-confirm input { min-height: 42px; background: #fff; }
+.refund-actions { display: flex; flex-wrap: wrap; gap: 9px; justify-content: flex-end; }
 
 @media (max-width: 640px) {
   .admin-nav { grid-template-columns: 1fr; }
