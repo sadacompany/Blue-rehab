@@ -4,6 +4,27 @@ export const formatCurrency = (value: number) =>
   `${new Intl.NumberFormat("ar-SA", { maximumFractionDigits: 0 }).format(value)} ر.س`;
 
 /**
+ * Money, exactly as stored. Never rounded.
+ *
+ * `formatCurrency` above sets `maximumFractionDigits: 0`, which is right for a
+ * price on a card — «٣٠٠ ر.س» reads better than «٣٠٠٫٠٠ ر.س» — and wrong for
+ * anything that is a record of a transaction. It rounds: 0.99 renders as ١,
+ * 1.5 as ٢, and 99.50 as ١٠٠. On a refund button that is not a cosmetic
+ * difference, it is a figure that disagrees with what was actually taken.
+ *
+ * So every screen that shows what somebody paid, was refunded, or is about to
+ * be refunded uses this instead: two decimal places always, and Latin digits.
+ * The digits are deliberate — an amount being checked against a bank statement
+ * or a Moyasar dashboard should be readable in the same numerals those use,
+ * and «100.00» cannot be misread the way «١٠٠» beside «١٫٠٠» can.
+ */
+export const formatMoney = (value: number) =>
+  `${new Intl.NumberFormat("ar-SA-u-nu-latn", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value) || 0)} ر.س`;
+
+/**
  * A price a visitor decides by — a course, a programme — rather than a figure
  * on a receipt or an admin table. "٠ ر.س" reads as a broken field; a course
  * that is genuinely free should say so.

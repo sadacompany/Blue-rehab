@@ -1,6 +1,6 @@
 import { BadgePercent, CheckCircle2, ImagePlus, LoaderCircle, Plus, Save, Trash2, TriangleAlert, XCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { countLabel, formatCurrency, isOnOffer } from "../lib/format";
+import { countLabel, formatCurrency, formatMoney, isOnOffer } from "../lib/format";
 import {
   assignCourseTrainer,
   createCourse,
@@ -138,7 +138,7 @@ function DeleteCourse({ course, busy, onDelete, onError, onDeleted }: {
     setWorking(true);
     try {
       const result = await deleteCourseWithRefunds(course.id);
-      onError(`حُذفت الدورة، وأُعيد ${formatCurrency(result.refundedTotal)} إلى ${result.refundedOrders} عملية دفع.`);
+      onError(`حُذفت الدورة، وأُعيد ${formatMoney(result.refundedTotal)} إلى ${result.refundedOrders} عملية دفع.`);
       setStage("idle");
       onDeleted();
     } catch (reason) {
@@ -175,12 +175,12 @@ function DeleteCourse({ course, busy, onDelete, onError, onDeleted }: {
         <b>هذه الدورة مدفوعة — سيُعاد المال قبل الحذف</b>
         <small>«{course.title}»</small>
       </div>
-      <span className="refund-figure">{formatCurrency(impact?.refundableTotal ?? 0)}</span>
+      <span className="refund-figure">{formatMoney(impact?.refundableTotal ?? 0)}</span>
     </div>
 
     <ul className="refund-consequences">
       <li>
-        سيُعاد مبلغ <b>{formatCurrency(impact?.refundableTotal ?? 0)}</b> بالكامل
+        سيُعاد مبلغ <b>{formatMoney(impact?.refundableTotal ?? 0)}</b> بالكامل
         إلى <b>{impact?.payerCount ?? 0}</b> {(impact?.payerCount ?? 0) === 1 ? "مشترك" : "مشتركين"}
         عبر <b>{impact?.paidPaymentCount ?? 0}</b> عملية دفع.
       </li>
@@ -201,7 +201,7 @@ function DeleteCourse({ course, busy, onDelete, onError, onDeleted }: {
       <button type="button" className="button button-small is-danger" disabled={working}
         onClick={() => void confirmMoney()}>
         {working ? <LoaderCircle className="spin" /> : <Trash2 />}
-        نعم، أعد {formatCurrency(impact?.refundableTotal ?? 0)} واحذف الدورة
+        نعم، أعد {formatMoney(impact?.refundableTotal ?? 0)} واحذف الدورة
       </button>
     </div>
   </div>;

@@ -1,7 +1,7 @@
 import { BookOpen, RefreshCcw, Stethoscope, TrendingUp, Wallet } from "lucide-react";
 import { useMemo } from "react";
 import { loadRevenueBreakdown, type RevenueRow } from "../lib/admin";
-import { formatCurrency } from "../lib/format";
+import { formatMoney } from "../lib/format";
 import { useAsync } from "../lib/use-async";
 import { SkeletonLine } from "./Skeleton";
 
@@ -53,9 +53,9 @@ function RevenueTable({ title, icon, rows, emptyNote }: {
               <i style={{ width: `${Math.max(2, Math.round((row.net / top) * 100))}%` }} />
             </span>
           </td>
-          <td><b>{formatCurrency(row.net)}</b></td>
-          <td>{formatCurrency(row.collected)}</td>
-          <td>{row.refunded > 0 ? <span className="is-refunded">−{formatCurrency(row.refunded)}</span> : "—"}</td>
+          <td><b>{formatMoney(row.net)}</b></td>
+          <td>{formatMoney(row.collected)}</td>
+          <td>{row.refunded > 0 ? <span className="is-refunded">−{formatMoney(row.refunded)}</span> : "—"}</td>
           <td>{row.orders}</td>
           <td>{row.buyers}</td>
         </tr>)}
@@ -97,17 +97,17 @@ export default function AdminRevenue() {
 
     {!loading && data && <>
       <dl className="promo-stats revenue-totals">
-        <div><dt><Wallet /> المحصّل</dt><dd>{formatCurrency(totals.collected)}</dd></div>
-        <div><dt>المسترد</dt><dd>{formatCurrency(totals.refunded)}</dd></div>
-        <div><dt>الصافي</dt><dd>{formatCurrency(totals.net)}</dd></div>
+        <div><dt><Wallet /> المحصّل</dt><dd>{formatMoney(totals.collected)}</dd></div>
+        <div><dt>المسترد</dt><dd>{formatMoney(totals.refunded)}</dd></div>
+        <div><dt>الصافي</dt><dd>{formatMoney(totals.net)}</dd></div>
       </dl>
 
       {/* The headline answer, stated rather than left to be read off a table. */}
       {(bestCourse || bestService) && <p className="revenue-headline">
         <TrendingUp />
         <span>
-          {bestService && <>الأكثر دخلاً بين الخدمات: <b>{bestService.itemName}</b> بصافي {formatCurrency(bestService.net)}. </>}
-          {bestCourse && <>وأعلى الدورات: <b>{bestCourse.itemName}</b> بصافي {formatCurrency(bestCourse.net)}.</>}
+          {bestService && <>الأكثر دخلاً بين الخدمات: <b>{bestService.itemName}</b> بصافي {formatMoney(bestService.net)}. </>}
+          {bestCourse && <>وأعلى الدورات: <b>{bestCourse.itemName}</b> بصافي {formatMoney(bestCourse.net)}.</>}
         </span>
       </p>}
 

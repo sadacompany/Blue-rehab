@@ -966,6 +966,34 @@ export async function verifyPayment(authorization: string | null, payload: unkno
  * anyone who reopens the site, not for someone who never returns.
  */
 /**
+ * Why the gateway refused a refund, in words the operator can act on.
+ *
+ * Everything used to collapse into «راجع لوحة مُيسّر ثم حاول مرة أخرى», which
+ * is advice, not a reason — and it sent somebody to retry a refund eight times
+ * against an account that could not pay it. Moyasar states the cause in the
+ * response every time; the useful ones are named here.
+ *
+ * `insufficient_balance` is the one that matters most, and it is not a fault in
+ * this platform at all: a refund is paid out of the Moyasar account's own
+ * balance, so an account that has not been funded or settled cannot return
+ * money it no longer holds. Retrying will never fix it; adding balance will.
+ */
+function refundRejectionMessage(raw: string): string {
+  const type = /"type"\s*:\s*"([a-z_]+)"/.exec(raw)?.[1];
+  switch (type) {
+    case "insufficient_balance":
+      return "رصيد حساب مُيسّر لا يكفي لتنفيذ الاسترداد. الاسترداد يُخصم من رصيد الحساب لدى البوابة — أضف رصيداً أو انتظر تسوية المدفوعات، ثم أعد المحاولة. إعادة المحاولة الآن ستفشل مرة أخرى.";
+    case "amount_exceeds_refundable":
+    case "invalid_amount":
+      return "المبلغ المطلوب أكبر مما يمكن استرداده لهذه العملية لدى البوابة.";
+    case "payment_not_refundable":
+      return "هذه العملية غير قابلة للاسترداد لدى البوابة — قد تكون مستردة مسبقاً أو لم تُسوَّ بعد.";
+    default:
+      return "رفضت بوابة الدفع طلب الاسترداد. راجع لوحة مُيسّر لمعرفة السبب.";
+  }
+}
+
+/**
  * A refund names an order and nothing else.
  *
  * There is deliberately no `amount` field. It used to accept one, validated
@@ -1050,7 +1078,7 @@ export async function refundPaymentByOrder(authorization: string | null, payload
     return {
       status: 422,
       cacheControl: noStore,
-      body: { error: "رفضت بوابة الدفع طلب الاسترداد. راجع لوحة مُيسّر ثم حاول مرة أخرى." },
+      body: { error: refundRejectionMessage(reason.message) },
     };
   }
 
@@ -1169,7 +1197,7 @@ export async function deleteCourseWithRefunds(authorization: string | null, payl
     } catch (reason) {
       if (!(reason instanceof MoyasarError)) throw reason;
       console.error("course_refund_rejected", item.orderNumber, reason.message);
-      failed.push({ orderNumber: item.orderNumber, reason: "رفضت البوابة الاسترداد." });
+      failed.push({ orderNumber: item.orderNumber, reason: refundRejectionMessage(reason.message) });
     }
   }
 

@@ -788,6 +788,41 @@ export type RefundResult = {
   status: string;
 };
 
+/**
+ * Exactly what a refund would return, read from the payment row itself.
+ *
+ * Asked for at the moment the confirmation opens rather than derived from the
+ * list the panel was rendered with. The figure an administrator reads before
+ * moving real money should come from the same place the charge will be
+ * computed from, so the two cannot disagree — see the migration for the fuller
+ * reasoning.
+ */
+export type RefundPreview = {
+  orderNumber: string;
+  charged: number;
+  refunded: number;
+  refundable: number;
+  status: string;
+  canRefund: boolean;
+  reason: string | null;
+};
+
+export async function loadRefundPreview(orderNumber: string): Promise<RefundPreview> {
+  const { data, error } = await supabase.rpc("admin_payment_refund_preview", { p_order_number: orderNumber });
+  if (error) throw new Error(translate(error.message));
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+  if (!row) throw new Error("لم نجد عملية الدفع.");
+  return {
+    orderNumber: String(row.order_number ?? orderNumber),
+    charged: Number(row.charged ?? 0),
+    refunded: Number(row.refunded ?? 0),
+    refundable: Number(row.refundable ?? 0),
+    status: String(row.status ?? ""),
+    canRefund: Boolean(row.can_refund),
+    reason: (row.reason as string | null) ?? null,
+  };
+}
+
 export async function refundPayment(orderNumber: string, reason?: string): Promise<RefundResult> {
   return authorizedFetch("/payments/refund", {
     method: "POST",

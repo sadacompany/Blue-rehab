@@ -2339,6 +2339,19 @@ export type Database = {
         Returns: Json
       }
       admin_overview: { Args: never; Returns: Json }
+      admin_payment_refund_preview: {
+        Args: { p_order_number: string }
+        Returns: {
+          can_refund: boolean
+          charged: number
+          currency: string
+          order_number: string
+          reason: string
+          refundable: number
+          refunded: number
+          status: string
+        }[]
+      }
       admin_promo_code_redemptions: {
         Args: { p_id: string; p_limit?: number }
         Returns: {

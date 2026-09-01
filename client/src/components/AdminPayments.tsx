@@ -1,7 +1,7 @@
 import { CreditCard, LoaderCircle, RotateCcw, Search, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
-import { formatCurrency, formatDateTime } from "../lib/format";
-import { refundPayment, type AdminPayment } from "../lib/admin";
+import { formatDateTime, formatMoney } from "../lib/format";
+import { loadRefundPreview, refundPayment, type AdminPayment, type RefundPreview } from "../lib/admin";
 
 const PAYMENT_STATUS: Record<string, string> = {
   pending: "معلق", processing: "قيد التنفيذ", succeeded: "مدفوع",
@@ -31,18 +31,37 @@ function RefundPayment({ payment, onDone, onError }: {
   const [armed, setArmed] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<RefundPreview | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
-  // What will actually go back. Shown, never typed — the server computes the
-  // same figure from its own row and the request cannot influence it.
-  const refundable = Math.round((payment.amount - payment.refundedAmount) * 100) / 100;
+  /*
+   * The figure is fetched, not calculated here.
+   *
+   * It used to be `payment.amount - payment.refundedAmount`, worked out in the
+   * browser from a list that may have been loaded minutes ago. That is the one
+   * number an administrator reads before moving real money, so it is read from
+   * the payment row at the moment of asking — by the same expression the API
+   * uses to compute the charge and the database uses to validate it.
+   */
+  async function arm() {
+    setArmed(true);
+    setLoadingPreview(true);
+    try {
+      setPreview(await loadRefundPreview(payment.orderNumber));
+    } catch (failure) {
+      onError(failure instanceof Error ? failure.message : "تعذر قراءة قيمة الاسترداد");
+      setArmed(false);
+    } finally { setLoadingPreview(false); }
+  }
 
   async function submit() {
     setBusy(true);
     try {
       const result = await refundPayment(payment.orderNumber, reason);
-      onError(`تم استرداد ${formatCurrency(result.refunded)} بالكامل للطلب ${payment.orderNumber}، وأُلغي الحجز أو التسجيل المرتبط به.`);
+      onError(`تم استرداد ${formatMoney(result.refunded)} بالكامل للطلب ${payment.orderNumber}، وأُلغي الحجز أو التسجيل المرتبط به.`);
       setArmed(false);
       setReason("");
+      setPreview(null);
       onDone();
     } catch (failure) {
       onError(failure instanceof Error ? failure.message : "تعذر تنفيذ الاسترداد");
@@ -51,9 +70,24 @@ function RefundPayment({ payment, onDone, onError }: {
 
   if (!armed) {
     return <button type="button" className="button button-small button-danger-ghost" disabled={busy}
-      onClick={() => setArmed(true)}>
-      <RotateCcw /> استرداد {formatCurrency(refundable)}
+      onClick={() => void arm()}>
+      <RotateCcw /> استرداد المبلغ
     </button>;
+  }
+
+  if (loadingPreview || !preview) {
+    return <span className="delete-confirm"><LoaderCircle className="spin" /> <span>جارٍ قراءة قيمة الاسترداد من سجل الدفع…</span></span>;
+  }
+
+  // The row says it is refundable; the payment row itself may disagree — it is
+  // the one that counts.
+  if (!preview.canRefund) {
+    return <span className="delete-confirm" role="alert">
+      <TriangleAlert />
+      <span><b>لا يمكن الاسترداد</b><small>{preview.reason ?? "هذه العملية غير قابلة للاسترداد."}</small></span>
+      <button type="button" className="button button-small button-secondary"
+        onClick={() => { setArmed(false); setPreview(null); }}>إغلاق</button>
+    </span>;
   }
 
   return <div className="refund-confirm" role="alert">
@@ -65,13 +99,16 @@ function RefundPayment({ payment, onDone, onError }: {
       </div>
       {/* The figure gets its own place in the layout rather than a sentence:
           it is the one thing that must be read before pressing. */}
-      <span className="refund-figure">{formatCurrency(refundable)}</span>
+      <span className="refund-figure">{formatMoney(preview.refundable)}</span>
     </div>
 
     <ul className="refund-consequences">
+      {/* The stored figures, spelled out, so the number on the button can be
+          checked against the record rather than trusted. */}
+      <li>المبلغ المحصّل في السجل: <b>{formatMoney(preview.charged)}</b>{preview.refunded > 0 && <> — سبق استرداد <b>{formatMoney(preview.refunded)}</b></>}.</li>
+      <li>سيُعاد <b>{formatMoney(preview.refundable)}</b> بالضبط — المبلغ المتبقي كاملاً، لا أكثر ولا أقل.</li>
       <li>يُنفَّذ الاسترداد لدى بوابة الدفع فوراً، ولا يمكن التراجع عنه من هذه اللوحة.</li>
       <li>يُلغى الحجز أو التسجيل المرتبط، ويعود الموعد متاحاً في التقويم.</li>
-      <li>يُسترد المبلغ كاملاً — لا يمكن تحديد مبلغ جزئي.</li>
     </ul>
 
     <label><span>سبب الاسترداد (اختياري — يُحفظ في السجل)</span>
@@ -80,10 +117,10 @@ function RefundPayment({ payment, onDone, onError }: {
 
     <div className="refund-actions">
       <button type="button" className="button button-small button-secondary" disabled={busy}
-        onClick={() => { setArmed(false); setReason(""); }}>إلغاء</button>
+        onClick={() => { setArmed(false); setReason(""); setPreview(null); }}>إلغاء</button>
       <button type="button" className="button button-small is-danger" disabled={busy}
         onClick={() => void submit()}>
-        {busy ? <LoaderCircle className="spin" /> : <RotateCcw />} نعم، استرد {formatCurrency(refundable)}
+        {busy ? <LoaderCircle className="spin" /> : <RotateCcw />} نعم، استرد {formatMoney(preview.refundable)}
       </button>
     </div>
   </div>;
@@ -187,7 +224,7 @@ export default function AdminPayments({ payments, onError, reload }: {
           <div>
             {/* What it bought, named. The ledger used to say only «دورة»,
                 which is the category, not the answer to «paid for what». */}
-            <strong>{formatCurrency(item.amount)} · {item.itemName ?? (item.kind === "booking" ? "جلسة" : "دورة")}</strong>
+            <strong>{formatMoney(item.amount)} · {item.itemName ?? (item.kind === "booking" ? "جلسة" : "دورة")}</strong>
             <small>{item.kind === "booking" ? "جلسة علاجية" : "دورة تدريبية"} · {item.userName}</small>
             {/* Contact details on the row itself: the person searching by phone
                 needs to see the phone to be sure they found the right payment. */}
@@ -197,7 +234,7 @@ export default function AdminPayments({ payments, onError, reload }: {
             <small dir="ltr">{item.orderNumber}</small>
             <small>{item.paidAt ? `دُفع في ${formatDateTime(item.paidAt)}` : `أُنشئ في ${formatDateTime(item.createdAt)}`}</small>
             {item.refundedAmount > 0 && <small className="admin-quote">
-              المسترد حتى الآن: {formatCurrency(item.refundedAmount)}
+              المسترد حتى الآن: {formatMoney(item.refundedAmount)}
             </small>}
             {item.failureReason && <small className="admin-quote">سبب الفشل: {item.failureReason}</small>}
           </div>
