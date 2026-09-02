@@ -454,7 +454,14 @@ export async function uploadContentCover(
   // Cache-bust so a replaced cover is not served from the old copy.
   const url = `${data.publicUrl}?v=${Date.now()}`;
 
-  const { error } = await supabase.from(table).update({ cover_url: url }).eq("id", id);
+  // Recorded through the admin RPC, not a direct `update`: these tables grant no
+  // UPDATE to `authenticated` (writes go through SECURITY DEFINER functions), so
+  // a direct write is denied and the cover would never attach.
+  const { error } = await supabase.rpc("admin_set_content_cover", {
+    p_table: table,
+    p_id: id,
+    p_cover_url: url,
+  });
   if (error) throw new Error(translate(error.message));
   return url;
 }
@@ -464,7 +471,16 @@ export async function clearContentCover(
   table: "articles" | "research_reviews" | "rehab_programs" | "courses",
   id: string,
 ): Promise<void> {
-  const { error } = await supabase.from(table).update({ cover_url: null }).eq("id", id);
+  // Same door as uploadContentCover: a direct `update` is denied on these tables.
+  // Explicit null, not an omitted argument — clearing is the whole point, and
+  // omitting a defaulted RPC parameter is unreliable in PostgREST (see the note
+  // on createCourse). `gen types` types the parameter as `string | undefined`,
+  // so the null is cast at this single call site.
+  const { error } = await supabase.rpc("admin_set_content_cover", {
+    p_table: table,
+    p_id: id,
+    p_cover_url: null as unknown as undefined,
+  });
   if (error) throw new Error(translate(error.message));
 }
 
