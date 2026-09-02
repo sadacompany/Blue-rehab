@@ -84,7 +84,9 @@ function problems(step: number, form: Form, tiers: CoursePriceTier[]): FieldErro
   if (step === 2) {
     if (tiers.length && !form.tierKey) found.tierKey = "اختر فئة التسجيل.";
     if (form.isMember === null) found.isMember = "أخبرنا إن كنت من حاملي العضوية.";
-    else if (form.isMember && !form.membershipNumber.trim()) found.membershipNumber = "أدخل رقم العضوية.";
+    // The membership number is recorded, not required: there is no membership
+    // system behind it yet, so a member who does not have their number to hand
+    // is not blocked from registering over it.
   }
 
   return found;
@@ -383,12 +385,10 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
         <fieldset>
           <legend>
             هل أنت من حاملي العضوية؟ *
-            {/* Naming the rate turns the question into an offer. Shown only
-                where the course actually has one — an unqualified «خصم
-                للأعضاء» over a course with no member rate is a promise. */}
-            {info?.membershipDiscountPercent
-              ? <small> — خصم {info.membershipDiscountPercent}% لحاملي عضوية تأهيل بلو</small>
-              : null}
+            {/* No rate is named any more. Membership carries no discount until
+                the membership system exists, and advertising one here while the
+                price does not move would be a promise the total contradicts. */}
+            <small> — للتسجيل فقط، ولا يؤثر على الرسوم حالياً</small>
           </legend>
           <div className="chip-grid">
             {[["نعم", true], ["لا", false]].map(([label, value]) => <button
@@ -399,28 +399,28 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
           </div>
           <FieldError id="err-isMember" message={err("isMember")} />
           {form.isMember === true && <>
-            <label><span>رقم العضوية<b className="req" aria-hidden="true">*</b></span>
+            <label><span>رقم العضوية (اختياري)</span>
               <input dir="ltr" value={form.membershipNumber} {...invalid("membershipNumber")}
                 onChange={(event) => set("membershipNumber", event.target.value)} />
               <FieldError id="err-membershipNumber" message={err("membershipNumber")} /></label>
-            {/* The form this replaces promises the same check. Saying it here,
-                before payment, is the difference between a condition and a
-                surprise. */}
+            {/* Recorded, not priced: there is no membership system yet, so the
+                number is kept against the registration for later review rather
+                than promising a discount the platform cannot yet apply. */}
             <p className="application-hint">
-              <ShieldCheck /> يُطبَّق خصم العضوية فوراً، ويُتحقق من رقم العضوية قبل تأكيد الحضور.
+              <ShieldCheck /> يُسجَّل رقم العضوية للمراجعة لاحقاً. استخدم كود الخصم أدناه إن كان لديك واحد.
             </p>
           </>}
         </fieldset>
 
-        {/* Offered only where it can be used. Membership and a code do not
-            stack, and the server refuses the combination — so the box is not
-            shown at all rather than shown and then rejected. */}
-        {form.isMember === false && <label><span>كود خصم (اختياري)</span>
+        {/* Shown to everyone now. Membership no longer carries its own discount
+            and no longer excludes a code, so the box is offered whether or not
+            the attendee is a member — including before they have answered. */}
+        <label><span>كود خصم (اختياري)</span>
           <span className="suffixed-field">
             <Ticket />
             <input dir="ltr" value={form.promoCode} placeholder="SARA20"
               onChange={(event) => set("promoCode", event.target.value.toUpperCase())} />
-          </span></label>}
+          </span></label>
       </>}
 
       {step === 3 && <div className="registration-summary">
@@ -431,7 +431,12 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
           <div><dt>البريد</dt><dd dir="ltr">{form.email}</dd></div>
           {tiers.length > 1 && <div><dt>الفئة</dt>
             <dd>{tiers.find((tier) => tier.key === form.tierKey)?.label ?? "—"}</dd></div>}
-          <div><dt>العضوية</dt><dd>{form.isMember ? `نعم — ${form.membershipNumber}` : "لا"}</dd></div>
+          <div><dt>العضوية</dt>
+            <dd>{form.isMember
+              ? (form.membershipNumber.trim() ? `نعم — ${form.membershipNumber}` : "نعم")
+              : "لا"}</dd></div>
+          {form.promoCode.trim() && <div><dt>كود الخصم</dt>
+            <dd dir="ltr">{form.promoCode.trim()}</dd></div>}
         </dl>
 
         {quoteError && <div className="form-error" role="alert"><CircleAlert />{quoteError}</div>}

@@ -96,7 +96,7 @@ const REGISTRATION_ERRORS: Record<string, string> = {
   TIER_REQUIRED: "اختر فئة التسجيل.",
   TIER_UNKNOWN: "فئة التسجيل غير معروفة.",
   MEMBERSHIP_NOT_OFFERED: "لا يوجد خصم عضوية على هذه الدورة.",
-  MEMBERSHIP_NUMBER_REQUIRED: "رقم العضوية مطلوب لتطبيق خصم العضوية.",
+  MEMBERSHIP_NUMBER_REQUIRED: "رقم العضوية غير صالح.",
   KNOWLEDGE_LEVEL_REQUIRED: "حدد مستوى معرفتك الحالي بموضوع الدورة.",
   ATTENDED_SIMILAR_REQUIRED: "أخبرنا إن كنت قد حضرت دورة مشابهة.",
   GOALS_REQUIRED: "اختر هدفاً واحداً على الأقل.",
