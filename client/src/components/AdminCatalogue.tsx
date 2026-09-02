@@ -4,7 +4,6 @@ import { countLabel, formatCurrency, formatMoney, isOnOffer } from "../lib/forma
 import {
   assignCourseTrainer,
   createCourse,
-  deleteCourse,
   deleteCourseWithRefunds,
   loadCourseDeleteImpact,
   loadCoursePresenters,
@@ -99,10 +98,9 @@ const COURSE_MODES: Array<[string, string]> = [
  * discover the refusal by pressing, the confirmation says which way it will go
  * and names unpublishing as what they probably want instead.
  */
-function DeleteCourse({ course, busy, onDelete, onError, onDeleted }: {
+function DeleteCourse({ course, busy, onError, onDeleted }: {
   course: AdminCourse;
   busy: boolean;
-  onDelete: () => void;
   onError: (message: string) => void;
   onDeleted: () => void;
 }) {
@@ -126,19 +124,33 @@ function DeleteCourse({ course, busy, onDelete, onError, onDeleted }: {
     try {
       const found = await loadCourseDeleteImpact(course.id);
       setImpact(found);
+      // Money at stake, or confirmed seats to cancel: the second screen states it
+      // in riyals and in people before anything is destroyed. Otherwise there is
+      // nothing to refund and no second question — delete now. Either way the
+      // delete goes through the same server path, which removes a course whatever
+      // history it carries (reviews, past registrations, cancelled enrolments) —
+      // the plain delete refused all of those, which is the bug this fixes.
       if (found.refundableTotal > 0 || found.activeEnrollments > 0) setStage("money");
-      else onDelete();
+      else await runDelete();
     } catch (reason) {
       onError(reason instanceof Error ? reason.message : "تعذر حساب أثر الحذف");
     } finally { setChecking(false); }
   }
 
-  /** Refund everyone, then delete. The server does both, in that order. */
-  async function confirmMoney() {
+  /**
+   * Delete the course. Refunds anything still outstanding first — the server
+   * does both, in that order, and refuses the delete if any refund fails. When
+   * there is nothing to refund the same call simply removes the course and its
+   * content, which is what lets an administrator delete a course that only has
+   * reviews or free registrations behind it.
+   */
+  async function runDelete() {
     setWorking(true);
     try {
       const result = await deleteCourseWithRefunds(course.id);
-      onError(`حُذفت الدورة، وأُعيد ${formatMoney(result.refundedTotal)} إلى ${result.refundedOrders} عملية دفع.`);
+      onError(result.refundedTotal > 0
+        ? `حُذفت الدورة، وأُعيد ${formatMoney(result.refundedTotal)} إلى ${result.refundedOrders} عملية دفع.`
+        : "حُذفت الدورة.");
       setStage("idle");
       onDeleted();
     } catch (reason) {
@@ -199,7 +211,7 @@ function DeleteCourse({ course, busy, onDelete, onError, onDeleted }: {
       <button type="button" className="button button-small button-secondary" disabled={working}
         onClick={() => setStage("idle")}>إلغاء</button>
       <button type="button" className="button button-small is-danger" disabled={working}
-        onClick={() => void confirmMoney()}>
+        onClick={() => void runDelete()}>
         {working ? <LoaderCircle className="spin" /> : <Trash2 />}
         نعم، أعد {formatMoney(impact?.refundableTotal ?? 0)} واحذف الدورة
       </button>
@@ -725,7 +737,6 @@ export default function AdminCatalogue({ services, courses, trainers, note, setN
 
         <div className="admin-row-danger">
           <DeleteCourse course={course} busy={busy === course.id}
-            onDelete={() => void run(course.id, () => deleteCourse(course.id))}
             onDeleted={() => void reload()} onError={onError} />
         </div>
       </article>)}
