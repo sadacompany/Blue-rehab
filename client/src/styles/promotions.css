@@ -112,6 +112,20 @@ table.data-table th { color: var(--color-muted); font-weight: var(--weight-bold)
 .registration-total .is-total { padding-top: 9px; border-top: 1px solid var(--color-line); color: var(--color-ink-950); font-size: var(--fs-body); }
 .registration-total .is-total b { color: var(--color-brand-800); }
 
+/* Stands where the fee would be, for a visitor who is not signed in. Deliberately
+   not styled as an error: nothing has gone wrong, there is simply one more step
+   before a price can be quoted. */
+.registration-signin {
+  display: grid; gap: 12px; justify-items: start;
+  padding: 16px; border-radius: var(--radius-sm);
+  background: var(--color-soft); border: 1px solid var(--color-line);
+}
+.registration-signin p {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0; color: var(--color-ink-900);
+}
+.registration-signin svg { flex: none; width: 18px; height: 18px; color: var(--color-brand-600); }
+
 /* A tally, next to the button that revealed it. The messages themselves live
    against their own fields (`.field-error` in forms.css) — this only says how
    many there are, so pressing «التالي» is never silent. */

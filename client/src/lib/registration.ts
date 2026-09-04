@@ -124,6 +124,16 @@ function translate(message: string): string {
 
 function fail(message: string): never {
   if (message.includes("AUTH_REQUIRED")) throw new AuthenticationRequiredError();
+  /*
+   * The registration functions are granted to `authenticated` and revoked from
+   * `anon` (20260901120000). A signed-out visitor therefore never reaches the
+   * AUTH_REQUIRED check inside them — Postgres refuses the call first, and the
+   * raw «permission denied for function onsite_registration_quote» was shown to
+   * the visitor as the price of the course. For these functions permission
+   * denied means exactly one thing, so it is the same condition by another
+   * name, and it is answered the same way.
+   */
+  if (message.includes("permission denied for function")) throw new AuthenticationRequiredError();
   throw new Error(translate(message));
 }
 

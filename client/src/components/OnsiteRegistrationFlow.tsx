@@ -5,6 +5,7 @@ import { loadCourseDetail } from "../lib/catalog";
 import { formatCurrency, formatDate } from "../lib/format";
 import { AuthenticationRequiredError, startCheckout } from "../lib/platform";
 import { storedPromoCode } from "../lib/promotions";
+import { supabase } from "../lib/supabase";
 import {
   GOAL_OTHER, KNOWLEDGE_SCALE, REGISTRATION_GOALS, REGISTRATION_TOPICS,
   loadCoursePriceTiers, loadOnsiteCourseInfo, quoteRegistration, submitOnsiteRegistration,
@@ -45,6 +46,51 @@ const BLANK: Form = {
   goals: [], goalOther: "", topics: [], question: "",
   tierKey: "", isMember: null, membershipNumber: "", promoCode: "",
 };
+
+/*
+ * Registering is gated on sign-in, and signing in is a full page navigation, so
+ * everything typed into this four-step form used to be destroyed on the way to
+ * /login. Someone who filled in their name, phone, experience, goals and topics
+ * came back to a blank form and had to answer all of it a second time.
+ *
+ * The draft is parked in sessionStorage, per course, and restored on the way
+ * back. sessionStorage rather than localStorage for the same reason the booking
+ * wizard chose it: it dies with the tab, which is the right lifetime for a
+ * half-written form that includes a phone number and an employer.
+ *
+ * Keyed by course id — two courses being registered for in the same tab must not
+ * overwrite one another — and versioned, so a draft saved before a field existed
+ * is discarded rather than restored into a form that no longer matches it.
+ */
+const DRAFT_VERSION = "v1";
+const draftKey = (courseId: string) => `blue-rehab:onsite-registration:${DRAFT_VERSION}:${courseId}`;
+
+function saveDraft(courseId: string, step: number, form: Form) {
+  try { sessionStorage.setItem(draftKey(courseId), JSON.stringify({ step, form })); }
+  catch { /* storage unavailable (private mode, quota) — the form still works */ }
+}
+
+/** Merged onto BLANK so a field added since the draft was written is present. */
+function readDraft(courseId: string): { step: number; form: Form } | null {
+  try {
+    const raw = sessionStorage.getItem(draftKey(courseId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { step?: number; form?: Partial<Form> };
+    if (!parsed?.form) return null;
+    return { step: Number(parsed.step) || 0, form: { ...BLANK, ...parsed.form } };
+  } catch { return null; }
+}
+
+function clearDraft(courseId: string) {
+  try { sessionStorage.removeItem(draftKey(courseId)); } catch { /* storage unavailable */ }
+}
+
+/** Park the answers, then send the visitor to sign in and come back here. */
+function goSignIn(courseId: string, step: number, form: Form) {
+  saveDraft(courseId, step, form);
+  const returnTo = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+  window.location.href = `/login?returnTo=${returnTo}`;
+}
 
 /** Toggle a value in a multiple-choice answer. */
 const toggle = (list: string[], value: string) =>
@@ -122,6 +168,45 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
   const set = <K extends keyof Form>(key: K, value: Form[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  /*
+   * Whether there is a session, which decides two things: that the price can be
+   * asked for at all (the pricing function is granted to `authenticated` only),
+   * and that the form says so up front instead of the visitor discovering it as
+   * a failure where the fee should be. `null` while the answer is unknown, so
+   * the first paint does not accuse a signed-in visitor of being signed out.
+   */
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (alive) setSignedIn(Boolean(sessionData.session));
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (alive) setSignedIn(Boolean(session));
+    });
+    return () => { alive = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  // Restore the answers parked on the way to /login. Runs once the course is
+  // known because the draft is keyed by course id.
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    if (!course?.id || restored) return;
+    const draft = readDraft(course.id);
+    if (draft) {
+      setForm(draft.form);
+      setStep(draft.step);
+    }
+    setRestored(true);
+  }, [course?.id, restored]);
+
+  // Keep the parked copy current, so a sign-in prompt reached from any step
+  // returns the visitor to exactly what they had typed.
+  useEffect(() => {
+    if (!course?.id || !restored) return;
+    saveDraft(course.id, step, form);
+  }, [course?.id, restored, step, form]);
+
   useEffect(() => {
     if (!course?.id) return;
     let alive = true;
@@ -149,6 +234,10 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
     if (!course?.id || step < 2) return;
     if (tiers.length && !form.tierKey) return;
     if (form.isMember === null) return;
+    // No session, no price. Asking anyway returns «permission denied for
+    // function onsite_registration_quote» from Postgres, which was being shown
+    // to the visitor where the fee belongs. The sign-in prompt renders instead.
+    if (signedIn !== true) { setQuote(null); setQuoteError(""); return; }
 
     let alive = true;
     setQuoteError("");
@@ -169,7 +258,7 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
     return () => { alive = false; };
     // `priceInputs` is the whole of what this depends on, flattened so a change
     // to any one of the three refetches exactly once.
-  }, [course?.id, step, tiers.length, priceInputs, form.tierKey, form.isMember, form.promoCode]);
+  }, [course?.id, step, tiers.length, priceInputs, form.tierKey, form.isMember, form.promoCode, signedIn]);
 
   const errors = useMemo(() => problems(step, form, tiers), [step, form, tiers]);
 
@@ -231,13 +320,18 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
         membershipNumber: form.membershipNumber,
         promoCode: form.promoCode,
       });
+      // The registration is recorded and the order exists; the answers have
+      // done their job and must not be restored over a later, different one.
+      clearDraft(course.id);
       // Straight to the gateway. Nothing is confirmed yet and the screen does
       // not claim otherwise — the seat is created when the payment verifies.
       const { paymentUrl } = await startCheckout(result.orderNumber);
       window.location.href = paymentUrl;
     } catch (reason) {
       if (reason instanceof AuthenticationRequiredError) {
-        window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+        // Park the answers first: a session that expired between opening the
+        // form and pressing pay must not cost the visitor the whole form.
+        goSignIn(course.id, step, form);
         return;
       }
       setSubmitError(reason instanceof Error ? reason.message : "تعذر إتمام التسجيل.");
@@ -450,7 +544,16 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
           <div className="is-total"><span>الإجمالي</span><b>{formatCurrency(quote.netAmount)}</b></div>
         </div>}
 
-        {!quote && !quoteError && <SkeletonLine width="100%" height={72} />}
+        {/* Signed out: say so where the fee would be, and make signing in the
+            next thing to do. The answers above are already parked, so coming
+            back lands on this same step with everything still filled in. */}
+        {signedIn === false && <div className="registration-signin" role="status">
+          <p><ShieldCheck /> سجّل الدخول لعرض الرسوم وإتمام التسجيل. لن تفقد ما أدخلته — ستعود إلى هذه الخطوة وبياناتك كما هي.</p>
+          <button className="button" type="button"
+            onClick={() => course && goSignIn(course.id, step, form)}>تسجيل الدخول والمتابعة</button>
+        </div>}
+
+        {signedIn !== false && !quote && !quoteError && <SkeletonLine width="100%" height={72} />}
 
         <p className="application-hint">
           <BadgeCheck /> لا يُحجز مقعدك إلا بعد اكتمال الدفع. تُمنح المقاعد حسب أولوية إكمال التسجيل.
@@ -474,11 +577,19 @@ export default function OnsiteRegistrationFlow({ slug }: { slug: string }) {
 
       {step < STEPS.length - 1
         ? <button className="button" type="button" onClick={next}>التالي <ArrowLeft /></button>
-        : <button className="button" type="button" disabled={busy || !quote}
-            onClick={() => void submit()}>
-            {busy ? <LoaderCircle className="spin" /> : <CreditCard />}
-            {quote ? `ادفع ${formatCurrency(quote.netAmount)}` : "جارٍ حساب الرسوم"}
-          </button>}
+        // Signed out there is no figure to put on this button and never will be
+        // until they sign in, so it asks for that instead of sitting disabled
+        // on «جارٍ حساب الرسوم» waiting for a price that cannot arrive.
+        : signedIn === false
+          ? <button className="button" type="button"
+              onClick={() => course && goSignIn(course.id, step, form)}>
+              <ShieldCheck /> تسجيل الدخول والمتابعة
+            </button>
+          : <button className="button" type="button" disabled={busy || !quote}
+              onClick={() => void submit()}>
+              {busy ? <LoaderCircle className="spin" /> : <CreditCard />}
+              {quote ? `ادفع ${formatCurrency(quote.netAmount)}` : "جارٍ حساب الرسوم"}
+            </button>}
     </div>
   </div></section></PageShell>;
 }
