@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Link, Route, Routes, useParams, useSearchParams } from "react-router-dom";
+import { Analytics, type BeforeSendEvent } from "@vercel/analytics/react";
 import { LoaderCircle } from "lucide-react";
 import PageShell from "./components/PageShell";
 import RouteChange from "./components/RouteChange";
@@ -87,8 +88,33 @@ function NotFoundPage() {
   </div></section></PageShell>;
 }
 
+/**
+ * Vercel Web Analytics, with every query string removed before anything leaves
+ * the browser.
+ *
+ * The default behaviour reports the URL as visited, and on this platform some
+ * URLs carry things that must not end up in an analytics dashboard: Moyasar
+ * returns the payer to `/payment/callback?id=…&status=…` with a live payment
+ * identifier, and `/login?returnTo=…` carries wherever the visitor was headed.
+ * A page-view count does not need either, so the path is kept and the search
+ * string is dropped — the dashboard still shows «/payment/callback» as a page,
+ * without the identifier that says which payment it was.
+ *
+ * Counting is anonymous and cookieless by design, which is what makes it
+ * defensible on a site holding patient bookings at all.
+ */
+function stripQuery(event: BeforeSendEvent) {
+  try {
+    const url = new URL(event.url, window.location.origin);
+    return url.search ? { ...event, url: `${url.origin}${url.pathname}` } : event;
+  } catch {
+    // An unparseable URL is not worth reporting a page view for.
+    return null;
+  }
+}
+
 export default function App() {
-  return <><RouteChange /><Suspense fallback={<RouteFallback />}>
+  return <><RouteChange /><Analytics beforeSend={stripQuery} /><Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<AuthPage />} />
